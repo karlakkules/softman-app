@@ -1,0 +1,38 @@
+# Baza podataka
+putni_nalog.db
+*.db
+
+# Uploadani fajlovi (potpisi, slike, frozen dokumenti)
+uploads/sig_*.png
+uploads/frozen_evidencija/
+uploads/racuni/
+uploads/logos/
+
+# PDF-ovi generirani od aplikacije
+pdfs/
+
+# Mac OS
+.DS_Store
+**/.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtualno okruženje
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
