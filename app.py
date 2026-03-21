@@ -197,18 +197,40 @@ def get_db():
 
 def get_vehicles_for_user(conn, user):
     """
-    Vraća vozila sortirana:
-    1. Vozilo dodijeljeno tom zaposleniku (24/7) — na vrhu
-    2. Pool automobili
-    3. Vozila dodijeljena drugom zaposleniku
+    Vraća vozila ovisno o pravima korisnika:
+    - Admin: sva vozila
+    - Ima dodijeljeno vozilo 24/7: samo svoje vozilo
+    - can_view_pool_vehicles: samo pool automobili
+    - can_view_vehicle_log (pregled): sva vozila (samo za čitanje)
     """
     all_vehicles = [dict(v) for v in conn.execute("SELECT * FROM vehicles ORDER BY name").fetchall()]
+
+    if not user:
+        return all_vehicles
+
+    if user.get('is_admin'):
+        return all_vehicles
+
     user_employee_id = None
-    if user and user.get('user_id'):
+    if user.get('user_id'):
         urow = conn.execute("SELECT employee_id FROM users WHERE id=?", (user['user_id'],)).fetchone()
         if urow:
             user_employee_id = urow['employee_id']
 
+    # Ima dodijeljeno vozilo 24/7 — vidi samo svoje
+    if user_employee_id:
+        assigned = [v for v in all_vehicles
+                    if v.get('vehicle_type') == 'assigned'
+                    and v.get('assigned_employee_id') == user_employee_id]
+        if assigned:
+            return assigned
+
+    # can_view_pool_vehicles — samo pool auta (bez obzira na ostala prava)
+    if user.get('can_view_pool_vehicles'):
+        return [v for v in all_vehicles
+                if not v.get('vehicle_type') or v.get('vehicle_type') == 'pool']
+
+    # can_view_vehicle_log (voditelj/pregled) — sva vozila sortirana
     def sort_key(v):
         if v.get('vehicle_type') == 'assigned' and v.get('assigned_employee_id') == user_employee_id and user_employee_id:
             return 0
@@ -247,21 +269,38 @@ def user_has_vehicle_log_access(user, conn):
     assigned = get_default_vehicle_for_user(conn, user)
     return assigned is not None
 
-def user_can_edit_vehicle_log(user, conn):
+def user_can_edit_vehicle_log(user, conn, log_id=None):
     """
     Može kreirati/uređivati evidenciju:
-    - Admin, ILI
-    - can_view_pool_vehicles (evidencija pool auta), ILI
-    - Ima dodijeljen auto 24/7
-    NIJE dovoljno samo can_view_vehicle_log ili can_edit_vehicle_log
-    (ti su samo za pregled evidencija других)
+    - Admin: uvijek
+    - Ima dodijeljeno vozilo 24/7: samo za svoju evidenciju
+    - can_view_pool_vehicles: samo za evidencije pool automobila
     """
     if not user:
         return False
-    if user.get('is_admin') or user.get('can_view_pool_vehicles'):
+    if user.get('is_admin'):
         return True
+
+    # Provjeri dodijeljeno vozilo
     assigned = get_default_vehicle_for_user(conn, user)
-    return assigned is not None
+    if assigned:
+        if log_id:
+            # Može editirati samo evidenciju svog vozila
+            log = conn.execute("SELECT vehicle_id FROM vehicle_log WHERE id=?", (log_id,)).fetchone()
+            return log and log['vehicle_id'] == assigned['id']
+        return True  # Nova evidencija — smije kreirati
+
+    # can_view_pool_vehicles — samo pool auta
+    if user.get('can_view_pool_vehicles'):
+        if log_id:
+            log = conn.execute(
+                "SELECT v.vehicle_type FROM vehicle_log vl "
+                "JOIN vehicles v ON v.id = vl.vehicle_id WHERE vl.id=?", (log_id,)
+            ).fetchone()
+            return log and (not log['vehicle_type'] or log['vehicle_type'] == 'pool')
+        return True  # Nova evidencija — smije kreirati (vozilo će biti pool jer mu se nude samo pool)
+
+    return False
 
 def rows_to_dicts(rows):
     return [dict(r) for r in rows] if rows else []
@@ -3141,7 +3180,7 @@ def vehicle_log_edit(log_id):
     if not log: 
         conn.close()
         return redirect(url_for('vehicle_log_list'))
-    can_edit = user_can_edit_vehicle_log(user, conn)
+    can_edit = user_can_edit_vehicle_log(user, conn, log_id)
     vehicles = get_vehicles_for_user(conn, user)
     pn_list = _get_pn_for_month(conn, log['year'], log['month'])
     director = conn.execute("SELECT signature_path FROM employees WHERE is_direktor=1 LIMIT 1").fetchone()
@@ -3318,10 +3357,10 @@ def save_vehicle_log():
     data = request.json
     conn = get_db()
     user = get_current_user()
-    if not user_can_edit_vehicle_log(user, conn):
+    log_id = data.get('id')
+    if not user_can_edit_vehicle_log(user, conn, int(log_id) if log_id else None):
         conn.close()
         return jsonify({'error': 'Nemate pravo uređivanja evidencije vozila'}), 403
-    log_id = data.get('id')
     fields = {
         'vehicle_id': data.get('vehicle_id') or None,
         'year': int(data.get('year', 2026)),
@@ -3401,7 +3440,7 @@ def approve_vehicle_log(log_id):
     """Dodaj potpis direktora kao odobrenje."""
     conn = get_db()
     user = get_current_user()
-    if not user_can_edit_vehicle_log(user, conn):
+    if not user_can_edit_vehicle_log(user, conn, log_id):
         conn.close()
         return jsonify({'error': 'Nemate pravo odobravanja evidencije'}), 403
     director = conn.execute("SELECT * FROM employees WHERE is_direktor=1 LIMIT 1").fetchone()
@@ -3423,7 +3462,7 @@ def approve_vehicle_log(log_id):
 def delete_vehicle_log(log_id):
     conn = get_db()
     user = get_current_user()
-    if not user_can_edit_vehicle_log(user, conn):
+    if not user_can_edit_vehicle_log(user, conn, log_id):
         conn.close()
         return jsonify({'error': 'Nemate pravo brisanja evidencije'}), 403
     audit('delete', module='sluzbeni_automobil', entity='vehicle_log', entity_id=log_id)

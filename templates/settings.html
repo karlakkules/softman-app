@@ -228,7 +228,6 @@
           <th>Reg. oznaka</th>
           <th>Tip</th>
           <th>Dodijeljeno zaposleniku</th>
-          <th>Zadano</th>
           <th>Akcije</th>
         </tr></thead>
         <tbody id="vehicles-tbody">
@@ -248,7 +247,6 @@
                 {% for e in employees %}{% if e.id == v.assigned_employee_id %}{{ e.name }}{% endif %}{% endfor %}
               {% else %}—{% endif %}
             </td>
-            <td>{% if v.is_default %}⭐{% endif %}</td>
             <td>
               <div style="display:flex;gap:4px;">
                 <button class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;"
@@ -310,10 +308,6 @@
           <option value="{{ e.id }}">{{ e.name }}</option>
           {% endfor %}
         </select>
-      </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;">
-        <span style="font-size:13px;font-weight:500;color:var(--gray-700);">Zadano vozilo</span>
-        <input type="checkbox" id="vm-default" style="width:16px;height:16px;cursor:pointer;">
       </div>
     </div>
     <div class="modal-footer">
