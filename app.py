@@ -3832,6 +3832,10 @@ def vehicle_log_excel(log_id):
                     comment = f"{pn_label}+privatno"
                 else:
                     comment = raw_comment
+            elif official > 0 and raw_comment in ('PN', 'PN+privatno'):
+                # Dan ima službene km ali nije u pn_by_day (trip_end_datetime nije postavljen)
+                # Zadrži comment ali označi crvenom
+                comment = raw_comment
             else:
                 comment = raw_comment if raw_comment else ('privatno' if private > 0 else '')
             cur_km     = end_km_day
@@ -3852,7 +3856,7 @@ def vehicle_log_excel(log_id):
         sc2(r, 5, official if official else 0, font=th(9), align=al('center'), border=full_brd, fill=fill2, nfmt='#,##0')
         sc2(r, 6, private if private else 0, font=th(9), align=al('center'), border=full_brd, fill=fill2, nfmt='#,##0')
         sc2(r, 7, total_day, font=th(9), align=al('center'), border=full_brd, fill=fill2, nfmt='#,##0')
-        sc2(r, 8, comment, font=th(9, color='C0392B' if comment.startswith('PN ') else '000000'), align=al('center'), border=full_brd, fill=fill2, merge_to=(r,9))
+        sc2(r, 8, comment, font=th(9, color='C0392B' if (comment.startswith('PN ') or (official > 0 and comment in ('PN', 'PN+privatno'))) else '000000'), align=al('center'), border=full_brd, fill=fill2, merge_to=(r,9))
         ws2.row_dimensions[r].height = 14
         cur_km = end_km_day
 
@@ -4140,6 +4144,8 @@ def vehicle_log_pdf(log_id):
                     comment = f"{pn_label}+privatno"
                 else:
                     comment = raw_comment
+            elif official > 0 and raw_comment in ('PN', 'PN+privatno'):
+                comment = raw_comment
             else:
                 comment = raw_comment if raw_comment else ('privatno' if private > 0 else '')
             cur_km     = end_km_d
@@ -4154,7 +4160,7 @@ def vehicle_log_pdf(log_id):
             cur_km     = end_km_d
 
         has_official = official > 0
-        comment_color = GREEN if comment.startswith('PN ') else colors.black
+        comment_color = GREEN if (comment.startswith('PN ') or (has_official and comment in ('PN', 'PN+privatno'))) else colors.black
         daily_data.append([
             P(date_str, align=TA_CENTER, size=8),
             P(f"{cur_km:,.0f}", align=TA_CENTER, size=8),
