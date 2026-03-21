@@ -1,0 +1,607 @@
+{% extends "base.html" %}
+{% set active = 'loans' %}
+{% block topbar_title %}{% if loan %}{{ loan.name }}{% else %}Nova pozajmica{% endif %}{% endblock %}
+{% block topbar_actions %}
+<a href="/loans" class="btn btn-secondary">← Natrag</a>
+{% if loan and can_lock %}
+  {% if loan.is_locked %}
+  <button class="btn btn-secondary" onclick="toggleLock(false)" id="lock-btn" style="border-color:#e67e22;color:#e67e22;">🔓 Otključaj plan</button>
+  {% else %}
+  <button class="btn btn-secondary" onclick="toggleLock(true)" id="lock-btn">🔒 Zaključaj plan</button>
+  {% endif %}
+{% endif %}
+<button class="btn btn-primary" onclick="saveLoan()">💾 Spremi</button>
+{% endblock %}
+
+{% block content %}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+  <div class="card">
+    <div class="card-header"><span class="card-title">Podaci o zajmu</span></div>
+    <div class="card-body">
+      <input type="hidden" id="loan-id" value="{{ loan.id if loan else '' }}">
+      <div class="form-group" style="margin-bottom:12px;">
+        <label class="form-label">Naziv zajma *</label>
+        <input type="text" class="form-control" id="loan-name" value="{{ loan.name if loan else '' }}" placeholder="npr. Kredit ZG banka 2026">
+      </div>
+      <div class="form-row form-row-2" style="margin-bottom:12px;">
+        <div class="form-group">
+          <label class="form-label">Ukupni iznos (€) *</label>
+          <input type="text" class="form-control" id="loan-amount-display"
+            value="{{ '{:,.2f}'.format(loan.total_amount).replace(',','X').replace('.',',').replace('X','.') if loan and loan.total_amount else '' }}"
+            placeholder="0,00" style="text-align:right;"
+            oninput="onAmountInput(this)" onblur="onAmountBlur(this)">
+          <input type="hidden" id="loan-amount" value="{{ loan.total_amount if loan else '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Kamatna stopa (%)</label>
+          <input type="number" class="form-control" id="loan-rate" step="0.01" min="0"
+            value="{{ loan.interest_rate if loan else '0' }}" style="text-align:right;">
+        </div>
+      </div>
+      <div class="form-row form-row-3" style="margin-bottom:12px;">
+        <div class="form-group">
+          <label class="form-label">Datum zajma</label>
+          <input type="date" class="form-control" id="loan-date" value="{{ loan.loan_date if loan else '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Početak otplate</label>
+          <input type="date" class="form-control" id="loan-start" value="{{ loan.repayment_start if loan else '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Kraj otplate</label>
+          <input type="date" class="form-control" id="loan-end" value="{{ loan.repayment_end if loan else '' }}">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="display:flex;flex-direction:column;">
+    <div class="card-header"><span class="card-title">Sažetak otplate</span></div>
+    <div class="card-body" style="flex:1;display:flex;flex-direction:column;justify-content:space-between;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div style="background:var(--gray-50);border-radius:8px;padding:12px;text-align:center;">
+          <div style="font-size:11px;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;">Ukupni iznos</div>
+          <div style="font-size:18px;font-weight:700;color:var(--navy);margin-top:4px;" id="sum-total">0,00 €</div>
+        </div>
+        <div style="background:#eafaf1;border-radius:8px;padding:12px;text-align:center;">
+          <div style="font-size:11px;color:#27ae60;text-transform:uppercase;letter-spacing:.5px;">Otplaćeno</div>
+          <div style="font-size:18px;font-weight:700;color:#27ae60;margin-top:4px;" id="sum-repaid">0,00 €</div>
+        </div>
+        <div style="background:#fef9e7;border-radius:8px;padding:12px;text-align:center;">
+          <div style="font-size:11px;color:#e67e22;text-transform:uppercase;letter-spacing:.5px;">Preostalo</div>
+          <div style="font-size:18px;font-weight:700;color:#e67e22;margin-top:4px;" id="sum-remaining">0,00 €</div>
+        </div>
+        <div style="background:#eaf0fb;border-radius:8px;padding:12px;text-align:center;">
+          <div style="font-size:11px;color:#2980b9;text-transform:uppercase;letter-spacing:.5px;">Konvertirano</div>
+          <div style="font-size:18px;font-weight:700;color:#2980b9;margin-top:4px;" id="sum-converted">0,00 €</div>
+        </div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gray-500);margin-bottom:4px;">
+          <span>Napredak otplate</span><span id="sum-pct">0%</span>
+        </div>
+        <div style="height:16px;background:var(--gray-100);border-radius:8px;overflow:hidden;">
+          <div id="sum-bar" style="height:16px;background:#27ae60;border-radius:8px;width:0%;transition:width .3s;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;padding:16px 20px;">
+  <div class="form-group" style="margin:0;">
+    <label class="form-label">Napomene</label>
+    <textarea class="form-control" id="loan-notes" rows="2" placeholder="Napomene...">{{ loan.notes if loan else '' }}</textarea>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="card-title">Plan otplate</span>
+      <span id="plan-total-label" style="font-size:13px;color:var(--gray-500);"></span>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-sm btn-secondary" onclick="addPayment('one_time')">➕ Jednokratna</button>
+      <button class="btn btn-sm btn-secondary" onclick="addPayment('recurring')">🔄 Mjesečna</button>
+      <button class="btn btn-sm btn-secondary" onclick="addPayment('conversion')">🔀 Konverzija</button>
+      <button class="btn btn-sm btn-primary" onclick="generateSchedule()">⚡ Generiraj raspored</button>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:155px;">Vrsta</th>
+          <th style="width:130px;">Kategorija</th>
+          <th style="width:140px;">Iznos (€)</th>
+          <th style="width:135px;">Datum / Početak</th>
+          <th style="width:135px;">Kraj (ponavlj.)</th>
+          <th style="width:36px;"></th>
+        </tr>
+      </thead>
+      <tbody id="payments-body">
+        <tr id="no-payments-row">
+          <td colspan="5" style="text-align:center;padding:30px;color:var(--gray-400);font-size:13px;">Dodajte uplate koristeći gumbe iznad</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card" id="schedule-card" style="display:none;margin-top:0;">
+  <div class="card-header">
+    <span class="card-title">Evidencija uplata</span>
+    <span id="schedule-summary" style="font-size:13px;color:var(--gray-500);"></span>
+  </div>
+  <!-- Header izvučen iz scroll containera da bude uvijek vidljiv -->
+  <table style="font-size:13px;width:100%;border-collapse:collapse;table-layout:fixed;">
+    <colgroup>
+      <col style="width:36px;"><col style="width:60px;"><col style="width:95px;">
+      <col><col style="width:120px;"><col style="width:130px;">
+      <col style="width:90px;"><col style="width:160px;">
+    </colgroup>
+    <thead>
+      <tr>
+        <th style="background:var(--navy)!important;color:white!important;text-align:center;font-weight:600;padding:7px 8px;text-transform:none;letter-spacing:0;border-bottom:none;">✓</th>
+        <th style="background:var(--navy)!important;color:white!important;text-align:center;font-weight:600;padding:7px 8px;text-transform:none;letter-spacing:0;border-bottom:none;">#</th>
+        <th style="background:var(--navy)!important;color:white!important;font-weight:600;padding:7px 8px;text-transform:none;letter-spacing:0;border-bottom:none;">Rok</th>
+        <th style="background:var(--navy)!important;color:white!important;font-weight:600;padding:7px 8px;text-transform:none;letter-spacing:0;border-bottom:none;">Vrsta</th>
+        <th style="background:var(--navy)!important;color:white!important;text-align:right;font-weight:600;padding:7px 8px;text-transform:none;letter-spacing:0;border-bottom:none;">Iznos</th>
+        <th style="background:var(--navy)!important;color:white!important;font-weight:600;padding:7px 8px;text-transform:none;letter-spacing:0;border-bottom:none;">Datum uplate</th>
+        <th style="background:var(--navy)!important;color:white!important;font-weight:600;padding:7px 8px;text-transform:none;letter-spacing:0;border-bottom:none;">Status</th>
+        <th style="background:var(--navy)!important;color:white!important;font-weight:600;padding:7px 8px;text-transform:none;letter-spacing:0;border-bottom:none;">Napomena</th>
+      </tr>
+    </thead>
+  </table>
+  <div class="table-wrap" style="max-height:480px;overflow-y:auto;">
+    <table style="font-size:13px;width:100%;border-collapse:collapse;table-layout:fixed;">
+      <colgroup>
+        <col style="width:36px;"><col style="width:60px;"><col style="width:95px;">
+        <col><col style="width:120px;"><col style="width:130px;">
+        <col style="width:90px;"><col style="width:160px;">
+      </colgroup>
+      <tbody id="schedule-body"></tbody>
+      <tfoot>
+        <tr style="background:var(--gray-50);border-top:2px solid var(--gray-200);">
+          <td colspan="4" style="text-align:right;padding:8px 10px;font-size:12px;font-weight:700;color:var(--gray-600);">UKUPNO PO RASPOREDU:</td>
+          <td style="text-align:right;padding:8px 10px;font-weight:700;color:var(--navy);" id="schedule-total-cell">0,00 €</td>
+          <td colspan="3" style="padding:8px;"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+<script>
+const EXISTING_PAYMENTS = {{ payments | tojson }};
+const IS_LOCKED = {{ 'true' if (loan and loan.get and loan.get('is_locked')) else 'false' }};
+const LOAN_ID = {{ loan.id if loan else 'null' }};
+const CAN_LOCK = {{ 'true' if (can_lock is defined and can_lock) else 'false' }};
+const EXISTING_SCHEDULE = {{ (loan.schedule | tojson) if (loan and loan.schedule is defined and loan.schedule) else '[]' }};
+let payments = [];
+let schedule = [];
+
+const TYPE_LABELS = { one_time: '💳 Jednokratna', recurring: '🔄 Mjesečna', conversion: '🔀 Konverzija' };
+const TYPE_COLORS = { one_time: '#27ae60', recurring: '#2980b9', conversion: '#8e44ad' };
+
+function fmt(v) {
+  return new Intl.NumberFormat('hr-HR', {minimumFractionDigits:2, maximumFractionDigits:2}).format(v||0) + ' €';
+}
+function parseAmt(str) {
+  if (str === '' || str == null) return 0;
+  const s = String(str).trim();
+  if (s.includes(',')) return parseFloat(s.replace(/\./g,'').replace(',','.')) || 0;
+  return parseFloat(s) || 0;
+}
+function fmtDisplay(v) {
+  if (v === '' || v == null) return '';
+  const n = parseFloat(v);
+  return isNaN(n) ? '' : new Intl.NumberFormat('hr-HR', {minimumFractionDigits:2, maximumFractionDigits:2}).format(n);
+}
+function onAmountInput(el) {
+  const v = parseAmt(el.value);
+  document.getElementById('loan-amount').value = v > 0 ? v : '';
+  updateSummary(); updatePlanTotal();
+}
+function onAmountBlur(el) {
+  const v = parseAmt(el.value);
+  if (v > 0) {
+    el.value = fmtDisplay(v);
+    document.getElementById('loan-amount').value = v;
+  }
+  updateSummary(); updatePlanTotal();
+}
+
+function addPayment(type, data={}) {
+  payments.push({ id: Date.now()+Math.random(), payment_type:type,
+    amount:data.amount||'', payment_date:data.payment_date||'',
+    recurring_start:data.recurring_start||'', recurring_end:data.recurring_end||'' });
+  renderPayments(); updateSummary(); updatePlanTotal();
+}
+function removePayment(id) {
+  payments = payments.filter(p=>p.id!=id);
+  renderPayments(); updateSummary(); updatePlanTotal();
+}
+function updatePayment(id, field, value) {
+  const p = payments.find(x=>x.id==id);
+  if(p){ p[field]=value; updateSummary(); updatePlanTotal(); }
+}
+function updatePaymentAmt(id, displayVal) {
+  const p = payments.find(x=>x.id==id);
+  if(p){ p.amount=parseAmt(displayVal); updateSummary(); updatePlanTotal(); }
+}
+
+function renderPayments() {
+  const tbody = document.getElementById('payments-body');
+  document.getElementById('no-payments-row').style.display = payments.length ? 'none' : '';
+  tbody.querySelectorAll('tr[data-pid]').forEach(r=>r.remove());
+  payments.forEach(p => {
+    const tr = document.createElement('tr');
+    tr.dataset.pid = p.id;
+    const isRec = p.payment_type === 'recurring';
+    const amtD = p.amount ? fmtDisplay(parseFloat(p.amount)) : '';
+    const dateField = isRec
+      ? `<input type="date" class="form-control" style="font-size:12px;" value="${p.recurring_start}"
+           onchange="updatePayment(${p.id},'recurring_start',this.value)"
+           oninput="updatePayment(${p.id},'recurring_start',this.value)">`
+      : `<input type="date" class="form-control" style="font-size:12px;" value="${p.payment_date}"
+           onchange="updatePayment(${p.id},'payment_date',this.value)"
+           oninput="updatePayment(${p.id},'payment_date',this.value)">`;
+    const endField = isRec
+      ? `<input type="date" class="form-control" style="font-size:12px;" value="${p.recurring_end}"
+           onchange="updatePayment(${p.id},'recurring_end',this.value)"
+           oninput="updatePayment(${p.id},'recurring_end',this.value)">`
+      : ``;
+    tr.draggable = true;
+    tr.style.cursor = 'grab';
+    tr.addEventListener('dragstart', onDragStart);
+    tr.addEventListener('dragover', onDragOver);
+    tr.addEventListener('drop', onDrop);
+    tr.addEventListener('dragend', onDragEnd);
+    tr.innerHTML = `
+      <td>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="color:var(--gray-300);cursor:grab;font-size:14px;line-height:1;" title="Povuci za promjenu redoslijeda">⠿</span>
+          <span style="font-size:12px;font-weight:600;color:${TYPE_COLORS[p.payment_type]};">${TYPE_LABELS[p.payment_type]}</span>
+        </div>
+      </td>
+      <td>
+        <select class="form-control" style="font-size:12px;padding:4px 6px;"
+          onchange="updatePayment(${p.id},'category',this.value)">
+          <option value="glavnica" ${(p.category||'glavnica')==='glavnica'?'selected':''}>Glavnica</option>
+          <option value="kamata" ${(p.category||'glavnica')==='kamata'?'selected':''}>Kamata</option>
+          <option value="glavnica+kamata" ${(p.category||'glavnica')==='glavnica+kamata'?'selected':''}>Glavnica + kamata</option>
+        </select>
+      </td>
+      <td><input type="text" class="form-control" style="font-size:12px;text-align:right;" value="${amtD}" placeholder="0,00"
+        oninput="updatePaymentAmt(${p.id},this.value)"
+        onblur="const v=parseAmt(this.value);if(v)this.value=fmtDisplay(v);updatePaymentAmt(${p.id},this.value)"></td>
+      <td>${dateField}</td>
+      <td>${endField}</td>
+      <td><button style="background:none;border:none;cursor:pointer;color:#c0392b;font-size:16px;" onclick="removePayment(${p.id})">🗑</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function calcPlanTotal() {
+  let t = 0;
+  payments.forEach(p => {
+    const amt = parseFloat(p.amount)||0;
+    if (p.payment_type==='one_time'||p.payment_type==='conversion') { t+=amt; }
+    else if (p.payment_type==='recurring'&&p.recurring_start&&p.recurring_end) {
+      let d=new Date(parseInt(p.recurring_start.slice(0,4)),parseInt(p.recurring_start.slice(5,7))-1,1);
+      const eD=new Date(parseInt(p.recurring_end.slice(0,4)),parseInt(p.recurring_end.slice(5,7))-1,1);
+      while(d<=eD){t+=amt;d.setMonth(d.getMonth()+1);}
+    }
+  });
+  return t;
+}
+function updatePlanTotal() {
+  const t = calcPlanTotal();
+  document.getElementById('plan-total-label').textContent = t>0 ? `Ukupno po planu: ${fmt(t)}` : '';
+}
+
+function updateSummary() {
+  const total = parseAmt(document.getElementById('loan-amount-display').value) ||
+                parseFloat(document.getElementById('loan-amount').value) || 0;
+
+  const today = new Date().toISOString().slice(0,10);
+
+  // Konvertirano = konverzije čiji datum je <= danas (ili označene u rasporedu)
+  let converted = 0;
+  if (schedule.length > 0) {
+    schedule.forEach(s => { if(s.paid && s.type==='conversion') converted += parseFloat(s.amount)||0; });
+  } else {
+    payments.filter(p=>p.payment_type==='conversion').forEach(p => {
+      if (p.payment_date && p.payment_date <= today) converted += parseFloat(p.amount)||0;
+    });
+  }
+
+  // Otplaćeno = označene (paid) stavke u rasporedu koje nisu konverzija
+  let repaid = 0;
+  if (schedule.length > 0) {
+    schedule.forEach(s => { if(s.paid && s.type!=='conversion') repaid += parseFloat(s.amount)||0; });
+  } else {
+    // Fallback: plan do danas
+    payments.forEach(p => {
+      const amt = parseFloat(p.amount)||0;
+      if (p.payment_type==='one_time'&&p.payment_date&&p.payment_date<=today) repaid+=amt;
+      else if (p.payment_type==='recurring'&&p.recurring_start) {
+        const end = p.recurring_end||today;
+        let d=new Date(parseInt(p.recurring_start.slice(0,4)),parseInt(p.recurring_start.slice(5,7))-1,1);
+        const effEnd=end<today?end:today;
+        const eD=new Date(parseInt(effEnd.slice(0,4)),parseInt(effEnd.slice(5,7))-1,1);
+        while(d<=eD){repaid+=amt;d.setMonth(d.getMonth()+1);}
+      }
+    });
+  }
+
+  const totalRepaid = repaid + converted;
+  const remaining = Math.max(0, total - totalRepaid);
+  const pct = total>0 ? Math.min(100, totalRepaid/total*100) : 0;
+  document.getElementById('sum-total').textContent = fmt(total);
+  document.getElementById('sum-repaid').textContent = fmt(repaid);
+  document.getElementById('sum-remaining').textContent = fmt(remaining);
+  document.getElementById('sum-converted').textContent = fmt(converted);
+  document.getElementById('sum-pct').textContent = pct.toFixed(1)+'%';
+  document.getElementById('sum-bar').style.width = pct+'%';
+}
+
+function generateSchedule() {
+  schedule = [];
+  const today = new Date().toISOString().slice(0,10);
+  payments.forEach(p => {
+    const amt = parseFloat(p.amount)||0;
+    if (p.payment_type==='one_time'&&p.payment_date) {
+      schedule.push({date:p.payment_date,type:'one_time',amount:amt,label:'Jednokratna uplata',paid:p.payment_date<=today});
+    } else if (p.payment_type==='conversion'&&p.payment_date) {
+      schedule.push({date:p.payment_date,type:'conversion',amount:amt,label:'Konverzija u kapital',paid:p.payment_date<=today});
+    } else if (p.payment_type==='recurring'&&p.recurring_start&&p.recurring_end) {
+      let d=new Date(parseInt(p.recurring_start.slice(0,4)),parseInt(p.recurring_start.slice(5,7))-1,1);
+      const eD=new Date(parseInt(p.recurring_end.slice(0,4)),parseInt(p.recurring_end.slice(5,7))-1,1);
+      while(d<=eD) {
+        const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;
+        schedule.push({date:ds,type:'recurring',amount:amt,label:'Mjesečna rata',paid:ds<=today});
+        d.setMonth(d.getMonth()+1);
+      }
+    }
+  });
+  schedule.sort((a,b)=>a.date.localeCompare(b.date));
+  renderSchedule(); updateSummary();
+  document.getElementById('schedule-card').style.display='';
+}
+
+function renderSchedule() {
+  const tbody = document.getElementById('schedule-body');
+  const today = new Date().toISOString().slice(0,10);
+  tbody.innerHTML = '';
+  let total = 0;
+  schedule.forEach((s,idx) => {
+    total += parseFloat(s.amount)||0;
+    const isPast = s.date <= today;
+    const tr = document.createElement('tr');
+    tr.style.cssText = `background:${s.paid ? '#f0faf5' : (isPast && !s.paid ? '#fff8f0' : '')};border-bottom:1px solid var(--gray-100);`;
+    const dateD = s.date.split('-').reverse().join('.');
+    const paidDateVal = s.paid_date || '';
+    const paidDateDisplay = paidDateVal ? paidDateVal.split('-').reverse().join('.') : '';
+
+    const noteVal = s.note || '';
+    tr.innerHTML = `
+      <td style="text-align:center;padding:5px 8px;">
+        <input type="checkbox" ${s.paid?'checked':''} onchange="togglePaid(${idx},this.checked)"
+          style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent);">
+      </td>
+      <td style="text-align:center;padding:5px 8px;font-size:11px;font-weight:600;color:var(--gray-500);">
+        ${idx+1}
+      </td>
+      <td style="padding:5px 8px;${isPast&&!s.paid?'color:#e67e22;font-weight:600;':'color:var(--gray-700);'}">${dateD}</td>
+      <td style="padding:5px 8px;">
+        <span style="font-size:12px;font-weight:600;color:${TYPE_COLORS[s.type]};">${TYPE_LABELS[s.type]}</span>
+      </td>
+      <td style="text-align:right;padding:5px 8px;font-weight:600;${s.paid?'color:#27ae60;text-decoration:line-through;opacity:.7;':''}">
+        ${fmt(s.amount)}</td>
+      <td style="padding:5px 8px;">
+        <input type="date" value="${paidDateVal}"
+          style="font-size:12px;padding:2px 6px;border:1px solid var(--gray-200);border-radius:4px;color:var(--gray-700);background:${s.paid?'white':'var(--gray-50)'};width:112px;${!s.paid?'opacity:.5;':''};"
+          ${!s.paid ? 'disabled' : ''}
+          onchange="updatePaidDate(${idx},this.value)">
+      </td>
+      <td style="padding:5px 8px;font-size:12px;white-space:nowrap;">
+        ${s.paid
+          ? '<span style="color:#27ae60;font-weight:600;">✅ Plaćeno</span>'
+          : (isPast ? '<span style="color:#e67e22;">⚠️ Dospjelo</span>' : '')}
+      </td>
+      <td style="padding:5px 6px;">
+        <input type="text" value="${noteVal.replace(/"/g,'&quot;')}"
+          placeholder="Napomena..."
+          style="font-size:12px;padding:3px 6px;border:1px solid var(--gray-200);border-radius:4px;width:100%;min-width:80px;color:var(--gray-700);"
+          onchange="updateScheduleNote(${idx},this.value)">
+      </td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('schedule-total-cell').textContent = fmt(total);
+  const paidCount = schedule.filter(s=>s.paid).length;
+  const paidAmt = schedule.filter(s=>s.paid).reduce((a,s)=>a+(parseFloat(s.amount)||0),0);
+  document.getElementById('schedule-summary').textContent =
+    `${schedule.length} uplata · ${paidCount} plaćeno · ${fmt(paidAmt)} plaćeno`;
+}
+
+function togglePaid(idx, val) {
+  schedule[idx].paid = val;
+  // Ako označujemo kao plaćeno i nema datum uplate, postavi danas
+  if (val && !schedule[idx].paid_date) {
+    schedule[idx].paid_date = new Date().toISOString().slice(0,10);
+  }
+  // Ako odznačujemo, makni datum
+  if (!val) schedule[idx].paid_date = '';
+  renderSchedule(); updateSummary();
+}
+
+function updatePaidDate(idx, val) {
+  schedule[idx].paid_date = val;
+}
+
+function updateScheduleNote(idx, val) {
+  schedule[idx].note = val;
+}
+
+// ── Drag & drop redoslijed plana otplate ─────────────────────────────────────
+let _dragSrcId = null;
+
+function onDragStart(e) {
+  if (IS_LOCKED) { e.preventDefault(); return; }
+  _dragSrcId = this.dataset.pid;
+  this.style.opacity = '0.4';
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function onDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  // Vizualni indikator
+  document.querySelectorAll('tr[data-pid]').forEach(r => r.style.borderTop = '');
+  this.style.borderTop = '2px solid var(--accent)';
+  return false;
+}
+
+function onDrop(e) {
+  e.stopPropagation();
+  const targetId = this.dataset.pid;
+  if (_dragSrcId && _dragSrcId !== targetId) {
+    const srcIdx = payments.findIndex(p => String(p.id) === String(_dragSrcId));
+    const tgtIdx = payments.findIndex(p => String(p.id) === String(targetId));
+    if (srcIdx !== -1 && tgtIdx !== -1) {
+      const [moved] = payments.splice(srcIdx, 1);
+      payments.splice(tgtIdx, 0, moved);
+      renderPayments();
+      updatePlanTotal();
+    }
+  }
+  return false;
+}
+
+function onDragEnd() {
+  this.style.opacity = '';
+  document.querySelectorAll('tr[data-pid]').forEach(r => r.style.borderTop = '');
+  _dragSrcId = null;
+}
+
+async function toggleLock(lock) {
+  if (!LOAN_ID) { alert('Prvo spremi pozajmicu!'); return; }
+  const msg = lock ? 'Zaključati plan otplate? Nitko neće moći mijenjati plan bez otključavanja.' : 'Otključati plan otplate?';
+  if (!confirm(msg)) return;
+  const res = await fetch(`/api/loans/${LOAN_ID}/lock`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ lock })
+  });
+  const d = await res.json();
+  if (d.success) {
+    toast(lock ? '🔒 Plan zaključan!' : '🔓 Plan otključan!', 'success');
+    setTimeout(() => location.reload(), 600);
+  } else alert(d.error || 'Greška');
+}
+
+async function saveLoan() {
+  try {
+    const name = document.getElementById('loan-name').value.trim();
+    // Prihvati iznos iz display polja (formatirano) ili hidden polja
+    const displayVal = document.getElementById('loan-amount-display').value;
+    const hiddenVal = document.getElementById('loan-amount').value;
+    const amt = parseAmt(displayVal) || parseFloat(hiddenVal) || 0;
+
+    if (!name) { alert('Unesite naziv zajma!'); return; }
+    if (!amt) { alert('Unesite ukupni iznos!'); return; }
+
+    const payload = {
+      id: document.getElementById('loan-id').value || null,
+      name,
+      total_amount: amt,
+      loan_date: document.getElementById('loan-date').value,
+      interest_rate: parseFloat(document.getElementById('loan-rate').value) || 0,
+      repayment_start: document.getElementById('loan-start').value,
+      repayment_end: document.getElementById('loan-end').value,
+      notes: document.getElementById('loan-notes').value,
+      payments: payments.map(p => ({
+        payment_type: p.payment_type,
+        amount: parseFloat(p.amount) || 0,
+        payment_date: p.payment_date || '',
+        recurring_start: p.recurring_start || '',
+        recurring_end: p.recurring_end || '',
+        recurring_day: 1,
+        description: '',
+        category: p.category || 'glavnica'
+      })),
+      schedule: schedule
+    };
+
+    const res = await fetch('/api/loans', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const txt = await res.text();
+      alert('Greška servera (' + res.status + '): ' + txt.substring(0, 200));
+      return;
+    }
+
+    const d = await res.json();
+    if (d.success) {
+      toast('Pozajmica spremljena!', 'success');
+      setTimeout(() => window.location.href = `/loans/${d.id}/edit`, 600);
+    } else {
+      alert(d.error || 'Greška pri spremanju');
+    }
+  } catch(e) {
+    alert('JS greška: ' + e.message);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Zaključaj forme ako je plan zaključan
+  if (IS_LOCKED) {
+    // Zaključaj gornja polja (podaci o zajmu)
+    ['loan-name','loan-amount-display','loan-rate','loan-date','loan-start','loan-end'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.disabled = true; el.style.background = 'var(--gray-50)'; el.style.color = 'var(--gray-500)'; }
+    });
+    // Zaključaj plan otplate (payments-body)
+    document.querySelectorAll('#payments-body input, #payments-body button, #payments-body select').forEach(el => {
+      el.disabled = true;
+      el.style.opacity = '0.6';
+      el.style.cursor = 'not-allowed';
+    });
+    // Sakrij gumbe za dodavanje/generiranje u planu otplate
+    document.querySelectorAll('[onclick*="addPayment"], [onclick*="generateSchedule"]').forEach(btn => {
+      btn.style.display = 'none';
+    });
+    // Prikaži locked banner u headeru plana otplate
+    document.querySelectorAll('.card-header').forEach(header => {
+      const title = header.querySelector('.card-title');
+      if (title && title.textContent.trim() === 'Plan otplate') {
+        const banner = document.createElement('span');
+        banner.innerHTML = ' 🔒 <span style="font-size:12px;color:#e67e22;font-weight:400;">Plan je zaključan</span>';
+        title.appendChild(banner);
+      }
+    });
+    // Evidencija uplata (schedule-body checkboxovi) ostaje aktivna
+  }
+
+  EXISTING_PAYMENTS.forEach(p => payments.push({
+    id: p.id||Date.now()+Math.random(), payment_type:p.payment_type,
+    amount:p.amount, payment_date:p.payment_date||'',
+    recurring_start:p.recurring_start||'', recurring_end:p.recurring_end||'',
+    category: p.category||'glavnica'
+  }));
+  if (EXISTING_SCHEDULE&&EXISTING_SCHEDULE.length>0) {
+    schedule = EXISTING_SCHEDULE;
+    document.getElementById('schedule-card').style.display='';
+    renderSchedule();
+  }
+  renderPayments(); updateSummary(); updatePlanTotal();
+  document.getElementById('loan-amount-display').addEventListener('blur', onAmountBlur);
+});
+</script>
+{% endblock %}

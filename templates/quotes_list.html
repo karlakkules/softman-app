@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% set active = 'quotes' %}
+{% block topbar_title %}Ponude{% endblock %}
+{% block topbar_actions %}
+<a href="/quotes/new" class="btn btn-primary" title="Kreiraj novu ponudu">➕ Nova ponuda</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="card-title">Sve ponude</span>
+      <span style="background:var(--accent-light);color:var(--accent);padding:2px 8px;border-radius:20px;font-size:12px;font-weight:700;" id="q-count">{{ quotes|length }}</span>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="q-search" class="form-control" style="width:200px;" placeholder="Pretraži..." oninput="filterQuotes()">
+      <select id="q-status" class="form-control" style="width:140px;" onchange="filterQuotes()">
+        <option value="">Svi statusi</option>
+        <option value="draft">Nacrt</option>
+        <option value="sent">Poslano</option>
+        <option value="accepted">Prihvaćeno</option>
+        <option value="rejected">Odbijeno</option>
+      </select>
+      <button class="btn btn-secondary" onclick="clearQFilters()" title="Očisti sve filtere" id="q-clear" style="display:none;">✕ Očisti</button>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table id="q-table">
+      <thead>
+        <tr>
+          <th class="sortable" data-col="0" onclick="sortQ(0)">Br. Ponude <span class="sort-icon">↕</span></th>
+          <th class="sortable" data-col="1" onclick="sortQ(1)">Datum <span class="sort-icon">↕</span></th>
+          <th class="sortable" data-col="2" onclick="sortQ(2)">Klijent <span class="sort-icon">↕</span></th>
+          <th class="sortable" data-col="3" onclick="sortQ(3)">Iznos (€) <span class="sort-icon">↕</span></th>
+          <th class="sortable" data-col="4" onclick="sortQ(4)">Status <span class="sort-icon">↕</span></th>
+          <th>Komentar</th>
+          <th>Akcije</th>
+        </tr>
+      </thead>
+      <tbody id="q-tbody">
+        {% for q in quotes %}
+        <tr data-status="{{ q.status }}" data-id="{{ q.id }}" data-search="{{ q.auto_id }} {{ q.client_name or '' }}" style="cursor:pointer;">
+          <td data-val="{{ q.auto_id }}"><span style="font-family:'DM Mono',monospace;font-weight:600;color:var(--navy);">P {{ q.auto_id }}</span></td>
+          <td data-val="{{ q.issue_date or '' }}">{{ q.issue_date|fmt_date or '—' }}</td>
+          <td data-val="{{ q.client_name or '' }}">{{ q.client_name or '—' }}</td>
+          <td data-val="{{ q.total_gross or 0 }}" style="font-weight:600;">{{ '%.2f'|format(q.total_gross or 0) }} €</td>
+          <td data-val="{{ q.status }}">
+            {% if q.status == 'draft' %}<span class="badge badge-draft">Nacrt</span>
+            {% elif q.status == 'sent' %}<span class="badge badge-submitted">Poslano</span>
+            {% elif q.status == 'accepted' %}<span class="badge badge-approved">Prihvaćeno</span>
+            {% elif q.status == 'rejected' %}<span class="badge" style="background:#fdecea;color:#c0392b;">Odbijeno</span>
+            {% endif %}
+          </td>
+          <td style="min-width:180px;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <input type="text" class="form-control" style="font-size:12px;padding:4px 8px;height:28px;"
+                id="comment-{{ q.id }}"
+                value="{{ q.comment or '' }}"
+                placeholder="Komentar..."
+                onblur="saveComment({{ q.id }})">
+            </div>
+          </td>
+          <td>
+            <div style="display:flex;gap:4px;align-items:center;">
+              <a href="/quotes/{{ q.id }}/pdf" target="_blank" class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;" title="Preuzmi PDF"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M3 1h7l3 3v10a1 1 0 01-1 1H3a1 1 0 01-1-1V2a1 1 0 011-1z" fill="#e74c3c" stroke="#c0392b" stroke-width="0.5"/>
+  <path d="M10 1l3 3h-3V1z" fill="#c0392b"/>
+  <text x="3.5" y="11.5" font-family="Arial" font-size="4.5" font-weight="bold" fill="white">PDF</text>
+</svg></a>
+              <a href="/quotes/{{ q.id }}/copy" class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;" title="Kopiraj ponudu"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></a>
+              {% if current_user.get('is_admin') or current_user.get('can_delete_quotes') %}
+              <button class="btn btn-sm" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;" onclick="deleteQuote({{ q.id }}, '{{ q.auto_id }}')" title="Obriši ponudu">🗑</button>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--gray-400);">
+          <div style="font-size:32px;margin-bottom:8px;">📄</div>
+          <div>Nema ponuda. Kreirajte prvu!</div>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Confirm modal -->
+<div class="modal-overlay" id="qconfirm-modal">
+  <div class="modal" style="width:420px;">
+    <div class="modal-header">
+      <span class="modal-title">Brisanje ponude</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeQConfirm()">✕</button>
+    </div>
+    <div class="modal-body"><p id="qconfirm-msg" style="font-size:14px;color:var(--gray-600);"></p></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeQConfirm()">Odustani</button>
+      <button class="btn btn-danger" id="qconfirm-ok">Da, obriši</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.sortable{cursor:pointer;user-select:none;}
+.sortable:hover{background:var(--gray-100);}
+.sort-icon{font-size:10px;color:var(--gray-400);margin-left:3px;}
+th.sort-asc .sort-icon{color:var(--accent);}
+th.sort-asc .sort-icon::after{content:' ▲';}
+th.sort-desc .sort-icon{color:var(--accent);}
+th.sort-desc .sort-icon::after{content:' ▼';}
+</style>
+{% endblock %}
+
+{% block scripts %}<script>
+let qSortCol=-1, qSortDir=1;
+function sortQ(col){
+  const tbody=document.getElementById('q-tbody');
+  const rows=Array.from(tbody.querySelectorAll('tr[data-status]'));
+  qSortDir=(qSortCol===col)?qSortDir*-1:1; qSortCol=col;
+  document.querySelectorAll('th.sortable').forEach(t=>t.classList.remove('sort-asc','sort-desc'));
+  document.querySelectorAll('th.sortable')[col]?.classList.add(qSortDir===1?'sort-asc':'sort-desc');
+  rows.sort((a,b)=>{
+    const av=(a.querySelectorAll('td')[col]?.dataset.val||'').trim();
+    const bv=(b.querySelectorAll('td')[col]?.dataset.val||'').trim();
+    const an=parseFloat(av),bn=parseFloat(bv);
+    if(!isNaN(an)&&!isNaN(bn)) return (an-bn)*qSortDir;
+    return av.localeCompare(bv,'hr')*qSortDir;
+  });
+  rows.forEach(r=>tbody.appendChild(r));
+}
+function filterQuotes(){
+  const s=(document.getElementById('q-search').value||'').toLowerCase();
+  const st=document.getElementById('q-status').value;
+  let vis=0;
+  document.querySelectorAll('#q-tbody tr[data-status]').forEach(r=>{
+    const ms=!s||r.dataset.search.toLowerCase().includes(s);
+    const mst=!st||r.dataset.status===st;
+    r.style.display=(ms&&mst)?'':'none';
+    if(ms&&mst) vis++;
+  });
+  document.getElementById('q-count').textContent=vis;
+  document.getElementById('q-clear').style.display=(s||st)?'':'none';
+}
+function clearQFilters(){
+  document.getElementById('q-search').value='';
+  document.getElementById('q-status').value='';
+  filterQuotes();
+}
+let _qDelCb=null;
+function deleteQuote(id,autoId){
+  document.getElementById('qconfirm-msg').textContent=`Trajno obrisati ponudu P ${autoId}? Ova radnja se ne može poništiti!`;
+  _qDelCb=async()=>{
+    const r=await fetch(`/api/quotes/${id}`,{method:'DELETE'});
+    if(r.ok){toast('Ponuda obrisana!','success');setTimeout(()=>location.reload(),700);}
+  };
+  document.getElementById('qconfirm-ok').onclick=()=>{if(_qDelCb)_qDelCb();closeQConfirm();};
+  document.getElementById('qconfirm-modal').classList.add('open');
+}
+function closeQConfirm(){document.getElementById('qconfirm-modal').classList.remove('open');}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('#q-tbody tr[data-status]').forEach(row => {
+    row.addEventListener('dblclick', (e) => {
+      if (e.target.closest('button,a,input')) return;
+      const id = row.dataset.id;
+      if (id) window.location.href = `/quotes/${id}/edit`;
+    });
+  });
+});
+
+async function saveComment(id, comment) {
+  const res = await fetch(`/api/quotes/${id}/comment`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({comment})
+  });
+  if (res.ok) toast('Komentar spremljen!', 'success');
+}
+
+async function saveComment(id) {
+  const val = document.getElementById('comment-' + id)?.value || '';
+  await fetch('/api/quotes/' + id + '/comment', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({comment: val})
+  });
+}
+</script>{% endblock %}

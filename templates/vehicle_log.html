@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% set active = 'vehicle-log' %}
+{% block topbar_title %}Službeni automobil — Evidencija{% endblock %}
+{% block topbar_actions %}
+<a href="/vehicle-log/new" class="btn btn-primary" title="Nova evidencija korištenja vozila">➕ Nova evidencija</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="card-title">Evidencija korištenja vozila</span>
+      <span style="background:var(--accent-light);color:var(--accent);padding:2px 8px;border-radius:20px;font-size:12px;font-weight:700;">{{ logs|length }}</span>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <select id="filter-year" class="form-control" style="width:100px;" onchange="filterLogs()">
+        <option value="">Sve godine</option>
+        {% for y in logs|map(attribute='year')|unique|sort(reverse=True) %}
+        <option value="{{ y }}">{{ y }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table id="log-table">
+      <thead>
+        <tr>
+          <th class="sortable" onclick="sortLog(0)">Vozilo <span class="sort-icon">↕</span></th>
+          <th class="sortable" onclick="sortLog(1)">Mjesec <span class="sort-icon">↕</span></th>
+          <th class="sortable" onclick="sortLog(2)">Poč. km <span class="sort-icon">↕</span></th>
+          <th class="sortable" onclick="sortLog(3)">Zav. km <span class="sort-icon">↕</span></th>
+          <th class="sortable" onclick="sortLog(4)">Ukupno km <span class="sort-icon">↕</span></th>
+          <th class="sortable" onclick="sortLog(5)">Službeno km <span class="sort-icon">↕</span></th>
+          <th class="sortable" onclick="sortLog(6)">Privatno km <span class="sort-icon">↕</span></th>
+          <th>PN nalozi</th>
+          <th>Akcije</th>
+        </tr>
+      </thead>
+      <tbody id="log-tbody">
+        {% for log in logs %}
+        <tr data-year="{{ log.year }}" data-id="{{ log.id }}" style="cursor:pointer;">
+          <td data-val="{{ log.vehicle_name or '' }}">{{ log.vehicle_name or '—' }} {% if log.reg_plate %}<span style="color:var(--gray-400);font-size:11px;">{{ log.reg_plate }}</span>{% endif %}</td>
+          <td data-val="{{ log.year }}-{{ '%02d'|format(log.month) }}">
+            <strong>{{ log.month_name }} {{ log.year }}</strong>
+          </td>
+          <td data-val="{{ log.start_km or 0 }}" style="font-family:'DM Mono',monospace;">{{ '%.0f'|format(log.start_km or 0) }}</td>
+          <td data-val="{{ log.end_km or 0 }}" style="font-family:'DM Mono',monospace;">{{ '%.0f'|format(log.end_km or 0) }}</td>
+          <td data-val="{{ log.total_km or 0 }}" style="font-weight:700;">{{ '%.2f'|format(log.total_km or 0) }} km</td>
+          <td data-val="{{ log.official_km or 0 }}" style="color:#27ae60;">{{ '%.2f'|format(log.official_km or 0) }} km</td>
+          <td data-val="{{ log.private_km or 0 }}" style="color:#e67e22;">{{ '%.2f'|format(log.private_km or 0) }} km</td>
+          <td>
+            <span class="pn-badges" data-log-id="{{ log.id }}" style="font-size:11px;color:var(--gray-400);">učitavam...</span>
+          </td>
+          <td>
+            <div style="display:flex;gap:4px;align-items:center;">
+              <a href="/vehicle-log/{{ log.id }}/excel" class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;" title="Excel">📊</a>
+              <button style="width:30px;height:30px;padding:0;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;border-radius:6px;cursor:pointer;" onclick="deleteLog({{ log.id }})">🗑</button>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" style="text-align:center;padding:48px;color:var(--gray-400);">
+          <div style="font-size:36px;margin-bottom:8px;">🚗</div>
+          <div>Nema evidencija. Dodajte prvu!</div>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Confirm modal -->
+<div class="modal-overlay" id="del-modal">
+  <div class="modal" style="width:400px;">
+    <div class="modal-header"><span class="modal-title">Brisanje evidencije</span><button class="btn btn-ghost btn-icon" onclick="document.getElementById('del-modal').classList.remove('open')">✕</button></div>
+    <div class="modal-body"><p style="font-size:14px;color:var(--gray-600);">Obrisati ovu evidenciju?</p></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('del-modal').classList.remove('open')">Odustani</button>
+      <button class="btn btn-danger" id="del-ok">Da, obriši</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.sortable{cursor:pointer;user-select:none;}
+.sortable:hover{background:var(--gray-100);}
+.sort-icon{font-size:10px;color:var(--gray-400);margin-left:3px;}
+</style>
+{% endblock %}
+
+{% block scripts %}<script>
+// Load PN badges for each log
+document.querySelectorAll('.pn-badges').forEach(async el => {
+  const id = el.dataset.logId;
+  try {
+    const res = await fetch(`/api/vehicle-log/${id}/pn`);
+    const pns = await res.json();
+    if (pns.length === 0) {
+      el.textContent = '—';
+    } else {
+      el.innerHTML = pns.map(p =>
+        `<span style="background:#e8f0f7;color:#1a3a5c;border-radius:4px;padding:2px 6px;margin:1px;display:inline-block;font-size:11px;">PN ${p.auto_id}</span>`
+      ).join('');
+    }
+  } catch(e) { el.textContent = '—'; }
+});
+
+function filterLogs() {
+  const y = document.getElementById('filter-year').value;
+  document.querySelectorAll('#log-tbody tr[data-year]').forEach(r => {
+    r.style.display = !y || r.dataset.year === y ? '' : 'none';
+  });
+}
+
+let _delCb = null;
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('#log-tbody tr[data-year]').forEach(row => {
+    row.addEventListener('dblclick', (e) => {
+      if (e.target.closest('button,a,input')) return;
+      const id = row.dataset.id;
+      if (id) window.location.href = `/vehicle-log/${id}/edit`;
+    });
+  });
+});
+
+function deleteLog(id) {
+  _delCb = async () => {
+    await fetch(`/api/vehicle-log/${id}`, {method:'DELETE'});
+    toast('Evidencija obrisana!', 'success');
+    setTimeout(() => location.reload(), 700);
+  };
+  document.getElementById('del-ok').onclick = () => { if(_delCb) _delCb(); document.getElementById('del-modal').classList.remove('open'); };
+  document.getElementById('del-modal').classList.add('open');
+}
+
+let sortCol=-1, sortDir=1;
+function sortLog(col) {
+  const tbody = document.getElementById('log-tbody');
+  const rows = Array.from(tbody.querySelectorAll('tr[data-year]'));
+  sortDir = sortCol===col ? sortDir*-1 : 1; sortCol = col;
+  rows.sort((a,b) => {
+    const av = (a.querySelectorAll('td')[col]?.dataset.val||'').trim();
+    const bv = (b.querySelectorAll('td')[col]?.dataset.val||'').trim();
+    const an=parseFloat(av), bn=parseFloat(bv);
+    if(!isNaN(an)&&!isNaN(bn)) return (an-bn)*sortDir;
+    return av.localeCompare(bv,'hr')*sortDir;
+  });
+  rows.forEach(r => tbody.appendChild(r));
+}
+</script>{% endblock %}

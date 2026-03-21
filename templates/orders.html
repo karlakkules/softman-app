@@ -1,0 +1,716 @@
+{% extends "base.html" %}
+{% set active = 'trash' if show_trash else 'orders' %}
+
+{% block topbar_title %}
+{% if show_trash %}
+  <span data-hr="Izbrisani nalozi" data-en="Deleted Orders">Izbrisani nalozi</span>
+{% else %}
+  <span data-hr="Putni Nalozi" data-en="Travel Orders">Putni Nalozi</span>
+{% endif %}
+{% endblock %}
+
+{% block topbar_actions %}
+{% if show_trash %}
+  <a href="/orders" class="btn btn-secondary">
+    ← <span data-hr="Natrag" data-en="Back">Natrag</span>
+  </a>
+{% else %}
+  <a href="/orders/trash" class="btn btn-secondary" title="Izbrisani nalozi">
+    🗑️ <span data-hr="Izbrisani" data-en="Trash">Izbrisani</span>
+  </a>
+  <button class="btn btn-secondary" onclick="openQuickCreate()" title="Brzi unos putnog naloga">
+    ⚡ <span data-hr="Brzi unos" data-en="Quick Entry">Brzi unos</span>
+  </button>
+  <a href="/orders/new" class="btn btn-primary" title="Novi putni nalog">
+    <span>➕</span> <span data-hr="Novi nalog" data-en="New Order">Novi nalog</span>
+  </a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="card-title">
+        {% if show_trash %}🗑️ Izbrisani putni nalozi{% else %}Svi putni nalozi{% endif %}
+      </span>
+      <span style="background:var(--accent-light);color:var(--accent);padding:2px 8px;border-radius:20px;font-size:12px;font-weight:700;" id="row-count">{{ orders|length }}</span>
+    </div>
+    {% if not show_trash %}
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input type="text" id="search" placeholder="Pretraži..." class="form-control" style="width:200px;" oninput="filterOrders()">
+      <select id="filter-status" class="form-control" style="width:140px;" onchange="filterOrders()">
+        <option value="">Svi statusi</option>
+        <option value="draft">Nacrt</option>
+        <option value="submitted">Predano</option>
+        <option value="approved">Odobreno</option>
+        <option value="rejected">Odbijeno</option>
+        <option value="knjizeno">Knjiženo</option>
+      </select>
+      <select id="filter-paid" class="form-control" style="width:140px;" onchange="filterOrders()">
+        <option value="">Isplata: sve</option>
+        <option value="0">Neisplaćeno</option>
+        <option value="1">Isplaćeno</option>
+      </select>
+      <button class="btn btn-secondary" onclick="clearFilters()" title="Očisti sve filtere" id="clear-btn" style="display:none;">✕ Očisti</button>
+    </div>
+    {% endif %}
+  </div>
+  {% if not show_trash %}
+  <div id="bulk-bar" style="display:none;padding:8px 16px;background:#e8f0f7;border-bottom:1px solid #aac4db;align-items:center;gap:12px;">
+    <span id="bulk-count" style="font-size:13px;color:#1a3a5c;font-weight:600;"></span>
+    <button class="btn btn-sm" style="background:#1a3a5c;color:white;border:none;" onclick="bulkKnjizeno()" title="Označi odabrane naloge kao Knjiženo">
+      📒 Označi kao Knjiženo
+    </button>
+    <button class="btn btn-sm btn-secondary" onclick="clearSelection()" title="Poništi odabir svih">Poništi odabir</button>
+  </div>
+  {% endif %}
+  <div class="table-wrap">
+    <table id="orders-table">
+      <thead>
+        <tr>
+          <th style="width:32px;min-width:32px;padding:4px 6px;">
+            <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" title="Odaberi sve">
+          </th>
+          <th class="sortable" style="width:140px;min-width:140px;white-space:nowrap;" data-col="1" onclick="sortTable(1)">Br. Naloga <span class="sort-icon">↕</span></th>
+          <th class="sortable" style="width:110px;" data-col="2" onclick="sortTable(2)">Datum <span class="sort-icon">↕</span></th>
+          <th class="sortable" data-col="3" onclick="sortTable(3)">Zaposlenik <span class="sort-icon">↕</span></th>
+          <th class="sortable" style="width:110px;" data-col="4" onclick="sortTable(4)">Destinacija <span class="sort-icon">↕</span></th>
+          <th>Svrha</th>
+          <th class="sortable" style="width:90px;" data-col="6" onclick="sortTable(6)">Ukupno <span class="sort-icon">↕</span></th>
+          <th class="sortable" style="width:100px;" data-col="7" onclick="sortTable(7)">Status <span class="sort-icon">↕</span></th>
+          <th class="sortable" style="width:80px;" data-col="8" onclick="sortTable(8)">Isplata <span class="sort-icon">↕</span></th>
+          <th style="width:140px;">Akcije</th>
+        </tr>
+        {% if not show_trash %}
+        <tr id="col-filters" style="background:var(--gray-50);">
+          <th style="width:32px;min-width:32px;"></th>
+          <th><input class="col-filter" data-col="1" placeholder="Filtriraj..." oninput="colFilter()"></th>
+          <th><input class="col-filter" data-col="2" placeholder="Filtriraj..." oninput="colFilter()"></th>
+          <th><input class="col-filter" data-col="3" placeholder="Filtriraj..." oninput="colFilter()"></th>
+          <th><input class="col-filter" data-col="4" placeholder="Filtriraj..." oninput="colFilter()"></th>
+          <th><input class="col-filter" data-col="5" placeholder="Filtriraj..." oninput="colFilter()"></th>
+          <th></th><th></th><th></th><th></th>
+        </tr>
+        {% endif %}
+      </thead>
+      <tbody id="orders-tbody">
+        {% for o in orders %}
+        <tr data-status="{{ o.status }}"
+            data-search="{{ (o.auto_id or '') }} {{ (o.employee_name or '') }} {{ (o.destination or '') }} {{ (o.purpose or '') }}"
+            data-paid="{{ o.is_paid or 0 }}"
+            data-id="{{ o.id }}">
+          <td style="width:32px;min-width:32px;padding:12px 6px;text-align:center;vertical-align:middle;">
+            {% if not show_trash %}
+            <input type="checkbox" class="row-select" value="{{ o.id }}" onchange="updateBulkBar()">
+            {% endif %}
+          </td>
+          <td data-col="1" data-val="{{ o.auto_id or '' }}">
+            <span style="font-family:'DM Mono',monospace;font-weight:600;color:var(--navy);">PN {{ o.auto_id }}</span>
+          </td>
+          <td data-col="2" data-val="{{ o.issue_date or '' }}">{{ o.issue_date|fmt_date or '—' }}</td>
+          <td data-col="3" data-val="{{ o.employee_name or '' }}">{{ o.employee_name or '—' }}</td>
+          <td data-col="4" data-val="{{ o.destination or '' }}">{{ o.destination or '—' }}</td>
+          <td data-col="5" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ o.purpose or '—' }}</td>
+          <td data-col="6" data-val="{{ o.total_amount or 0 }}"><strong>{{ '%.2f'|format(o.total_amount or 0) }} €</strong></td>
+          <td data-col="7" data-val="{{ o.status }}">
+            {% if o.status == 'draft' %}<span class="badge badge-draft">Nacrt</span>
+            {% elif o.status == 'submitted' %}<span class="badge badge-submitted">Predano</span>
+            {% elif o.status == 'approved' %}<span class="badge badge-approved">Odobreno</span>
+            {% elif o.status == 'rejected' %}<span class="badge" style="background:#fdecea;color:#c0392b;">Odbijeno</span>
+            {% elif o.status == 'knjizeno' %}<span class="badge" style="background:#e8f4fd;color:#1a6b9a;">Knjiženo</span>
+            {% endif %}
+          </td>
+          <td data-col="8" data-val="{{ o.is_paid or 0 }}" style="text-align:center;">
+            {% if o.is_paid %}
+              <span title="Isplaćeno {{ o.paid_at|fmt_date }}" style="font-size:16px;cursor:default;">✅</span>
+            {% else %}
+              <span title="Neisplaćeno" style="font-size:16px;cursor:default;">⏳</span>
+            {% endif %}
+          </td>
+          <td>
+            <div style="display:flex;gap:4px;align-items:center;">
+              {% if not show_trash %}
+                {% if o.status in ['submitted', 'approved', 'knjizeno'] %}
+                {% else %}
+                {% endif %}
+                {% if o.status in ["approved", "knjizeno"] %}
+                  <a href="/orders/{{ o.id }}/pdf" target="_blank" class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;" title="Preuzmi PDF"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M3 1h7l3 3v10a1 1 0 01-1 1H3a1 1 0 01-1-1V2a1 1 0 011-1z" fill="#e74c3c" stroke="#c0392b" stroke-width="0.5"/>
+  <path d="M10 1l3 3h-3V1z" fill="#c0392b"/>
+  <text x="3.5" y="11.5" font-family="Arial" font-size="4.5" font-weight="bold" fill="white">PDF</text>
+</svg></a>
+                  <button style="width:30px;height:30px;padding:0;background:#f5f5f5;color:#444;border:1px solid #ccc;border-radius:6px;cursor:pointer;font-size:14px;" onclick="printOrder({{ o.id }})" title="Ispiši nalog">🖨️</button>
+                {% else %}
+                  <span style="width:30px;display:inline-block;flex-shrink:0;"></span>
+                  <span style="width:30px;display:inline-block;flex-shrink:0;"></span>
+                {% endif %}
+                <button class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;" onclick="duplicateOrder({{ o.id }}, '{{ o.auto_id }}')" title="Dupliciraj nalog (kreira kopiju kao Nacrt)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                <button style="width:30px;padding:0;background:#f0faf4;color:#27ae60;border:1px solid #a8d5b5;border-radius:6px;cursor:pointer;font-size:13px;height:30px;"
+                  onclick="openPayment({{ o.id }}, '{{ o.auto_id }}', {{ o.is_paid or 0 }}, '{{ o.paid_at|fmt_date }}')" title="Isplata">€</button>
+                {% if current_user.get('is_admin') or current_user.get('can_delete_orders') %}
+                <button style="width:30px;padding:0;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;border-radius:6px;cursor:pointer;font-size:13px;height:30px;" onclick="confirmDelete({{ o.id }}, '{{ o.auto_id }}')" title="Obriši nalog">🗑</button>
+                {% endif %}
+              {% else %}
+                <button class="btn btn-sm" style="background:#fdecea;color:#c0392b;border:1px solid #f5aca6;" onclick="confirmDestroy({{ o.id }}, '{{ o.auto_id }}')" title="Trajno obriši nalog">❌ Trajno obriši</button>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="9" style="text-align:center;padding:40px;color:var(--gray-400);">
+            <div style="font-size:32px;margin-bottom:8px;">{% if show_trash %}🗑️{% else %}📋{% endif %}</div>
+            <div>{% if show_trash %}Nema izbrisanih naloga.{% else %}Nema putnih naloga. Kreirajte prvi!{% endif %}</div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Payment modal -->
+<div class="modal-overlay" id="payment-modal">
+  <div class="modal" style="width:400px;">
+    <div class="modal-header">
+      <span class="modal-title">💶 Evidencija isplate</span>
+      <button class="btn btn-ghost btn-icon" onclick="closePayment()" title="Zatvori">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--gray-600);margin-bottom:16px;">
+        Putni nalog: <strong id="payment-auto-id"></strong>
+      </p>
+      <div class="form-group">
+        <label class="form-label">Status isplate</label>
+        <div style="display:flex;gap:12px;margin-top:6px;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="radio" name="paid-status" value="1" id="paid-yes"> Isplaćeno ✅
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="radio" name="paid-status" value="0" id="paid-no"> Neisplaćeno ⏳
+          </label>
+        </div>
+      </div>
+      <div class="form-group" id="paid-date-group" style="margin-top:12px;">
+        <label class="form-label">Datum isplate</label>
+        <input type="date" class="form-control" id="paid-date">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closePayment()">Odustani</button>
+      <button class="btn btn-primary" onclick="savePayment()" title="Spremi isplatu">💾 Spremi</button>
+    </div>
+  </div>
+</div>
+
+<!-- Quick create modal -->
+<div class="modal-overlay" id="quick-modal">
+  <div class="modal" style="width:520px;">
+    <div class="modal-header">
+      <span class="modal-title">⚡ Brzi unos putnog naloga</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeQuick()" title="Zatvori">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+
+        <div class="form-group" style="grid-column:1/-1;">
+          <label class="form-label">Zaposlenik *</label>
+          <select class="form-control" id="q-employee">
+            <option value="">— odaberi —</option>
+            {% for e in employees_all %}
+            <option value="{{ e.id }}">{{ e.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group" style="grid-column:1/-1;">
+          <label class="form-label">Svrha putovanja *</label>
+          <input type="text" class="form-control" id="q-purpose" placeholder="npr. Sastanak s klijentom">
+        </div>
+
+        <div class="form-group" style="grid-column:1/-1;">
+          <label class="form-label">Klijent / Partner</label>
+          <div style="position:relative;">
+            <input type="text" class="form-control" id="q-client"
+              placeholder="Pretraži klijenta..."
+              autocomplete="off"
+              oninput="filterQClientDropdown()"
+              onfocus="showQClientDropdown()"
+              onblur="hideQClientDropdownDelayed()">
+            <input type="hidden" id="q-client-id">
+            <div id="q-client-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--gray-300);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:9999;max-height:200px;overflow-y:auto;margin-top:2px;"></div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Polazak *</label>
+          <input type="datetime-local" class="form-control" id="q-start">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Povratak *</label>
+          <input type="datetime-local" class="form-control" id="q-end">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Početna km</label>
+          <input type="number" class="form-control" id="q-km-start" placeholder="npr. 51758">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Završna km</label>
+          <input type="number" class="form-control" id="q-km-end" placeholder="npr. 52300">
+        </div>
+
+        <div class="form-group" style="grid-column:1/-1;">
+          <label class="form-label">Izvješće s puta</label>
+          <div style="display:flex;gap:8px;margin-bottom:6px;">
+            <select class="form-control" id="q-template" style="width:220px;" onchange="applyQTemplate()">
+              <option value="">— Odaberi predložak —</option>
+              {% for tpl in templates_all %}
+              <option value="{{ tpl.content | e }}">{{ tpl.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <textarea class="form-control" id="q-report" rows="3" placeholder="Napišite izvješće ili odaberite predložak..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Mjesto izvještaja</label>
+          <input type="text" class="form-control" id="q-place" value="{{ default_place_setting }}">
+        </div>
+
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeQuick()">Odustani</button>
+      <button class="btn btn-primary" onclick="submitQuick()" title="Kreiraj nalog i otvori formu">
+        ➕ Kreiraj i otvori nalog
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Custom confirm modal -->
+<div class="modal-overlay" id="confirm-modal">
+  <div class="modal" style="width:440px;">
+    <div class="modal-header">
+      <span class="modal-title" id="confirm-title">Potvrda</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeConfirm()" title="Odustani">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="confirm-message" style="font-size:14px;color:var(--gray-600);line-height:1.6;margin:0;"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeConfirm()">Ne, odustani</button>
+      <button class="btn btn-danger" id="confirm-ok-btn">Da, obriši</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.sortable { cursor:pointer; user-select:none; }
+.sortable:hover { background:var(--gray-100); }
+.sort-icon { font-size:10px; color:var(--gray-400); margin-left:3px; }
+th.sort-asc .sort-icon { color:var(--accent); }
+th.sort-asc .sort-icon::after { content:' ▲'; }
+th.sort-desc .sort-icon { color:var(--accent); }
+th.sort-desc .sort-icon::after { content:' ▼'; }
+.col-filter { width:100%; padding:3px 6px; font-size:11px; border:1px solid var(--gray-200);
+  border-radius:4px; background:white; color:var(--gray-700); box-sizing:border-box; }
+.col-filter:focus { outline:none; border-color:var(--accent); }
+#col-filters th { padding:4px 5px; font-weight:normal; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Double click to open ──────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('#orders-tbody tr[data-status]').forEach(row => {
+    row.style.cursor = 'pointer';
+    row.addEventListener('dblclick', (e) => {
+      if (e.target.closest('button,a,input')) return;
+      const id = row.dataset.id;
+      if (id) window.location.href = `/orders/${id}/edit`;
+    });
+  });
+  // Defaultni sort: Br. Naloga od najnovijeg (desc)
+  sortDir = 1; sortCol = -1;
+  sortTable(1);  // sort asc pa odmah još jednom za desc
+  sortTable(1);
+});
+
+// ── Bulk select ──────────────────────────────────────────────────────────
+function toggleSelectAll(cb) {
+  document.querySelectorAll('.row-select').forEach(el => {
+    if (el.closest('tr').style.display !== 'none') el.checked = cb.checked;
+  });
+  updateBulkBar();
+}
+
+function clearSelection() {
+  document.querySelectorAll('.row-select').forEach(el => el.checked = false);
+  const sa = document.getElementById('select-all');
+  if (sa) sa.checked = false;
+  updateBulkBar();
+}
+
+function updateBulkBar() {
+  const checked = document.querySelectorAll('.row-select:checked');
+  const bar = document.getElementById('bulk-bar');
+  if (!bar) return;
+  if (checked.length > 0) {
+    bar.style.display = 'flex';
+    document.getElementById('bulk-count').textContent = `${checked.length} naloga odabrano`;
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+async function bulkKnjizeno() {
+  const checked = Array.from(document.querySelectorAll('.row-select:checked'));
+  const ids = checked.map(el => parseInt(el.value));
+  if (!ids.length) return;
+  const res = await fetch('/api/orders/bulk-status', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ ids, status: 'knjizeno' })
+  });
+  const data = await res.json();
+  if (data.success) {
+    toast(`${data.updated} naloga označeno kao Knjiženo!`, 'success');
+    setTimeout(() => location.reload(), 800);
+  } else {
+    toast('Greška!', 'error');
+  }
+}
+
+// ── Sorting ───────────────────────────────────────────────────────────────
+let sortCol = -1, sortDir = 1;
+
+function sortTable(col) {
+  const tbody = document.getElementById('orders-tbody');
+  const rows = Array.from(tbody.querySelectorAll('tr[data-status]'));
+  sortDir = (sortCol === col) ? sortDir * -1 : 1;
+  sortCol = col;
+
+  document.querySelectorAll('th.sortable').forEach(t => t.classList.remove('sort-asc','sort-desc'));
+  const th = document.querySelector(`th[data-col="${col}"]`);
+  if (th) th.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+
+  rows.sort((a, b) => {
+    const aVal = (a.querySelector(`td[data-col="${col}"]`)?.dataset.val || '').trim();
+    const bVal = (b.querySelector(`td[data-col="${col}"]`)?.dataset.val || '').trim();
+
+    // Col 1 = Br. naloga: format YYYY-N, sort numerically by year then number
+    if (col === 1) {
+      const [ay, an] = aVal.split('-').map(Number);
+      const [by, bn] = bVal.split('-').map(Number);
+      return (ay !== by ? ay - by : an - bn) * sortDir;
+    }
+    // Col 2 = Datum: stored as YYYY-MM-DD in data-val, sort numerically
+    if (col === 2) {
+      const ad = aVal.replace(/-/g,''), bd = bVal.replace(/-/g,'');
+      return (parseInt(ad||'0') - parseInt(bd||'0')) * sortDir;
+    }
+    // Numeric sort
+    const aNum = parseFloat(aVal), bNum = parseFloat(bVal);
+    if (!isNaN(aNum) && !isNaN(bNum)) return (aNum - bNum) * sortDir;
+    return aVal.localeCompare(bVal, 'hr') * sortDir;
+  });
+  rows.forEach(row => tbody.appendChild(row));
+  updateCount();
+}
+
+// ── Filtering ─────────────────────────────────────────────────────────────
+function filterOrders() {
+  applyFilters();
+  updateClearBtn();
+}
+
+function colFilter() {
+  applyFilters();
+  updateClearBtn();
+}
+
+function clearFilters() {
+  const search = document.getElementById('search');
+  const status = document.getElementById('filter-status');
+  if (search) search.value = '';
+  if (status) status.value = '';
+  document.querySelectorAll('.col-filter').forEach(el => el.value = '');
+  const paid = document.getElementById('filter-paid');
+  if (paid) paid.value = '';
+  applyFilters();
+  updateClearBtn();
+}
+
+function updateClearBtn() {
+  const search = document.getElementById('search')?.value || '';
+  const status = document.getElementById('filter-status')?.value || '';
+  const colVals = Array.from(document.querySelectorAll('.col-filter')).some(el => el.value);
+  const paid = document.getElementById('filter-paid')?.value || '';
+  const btn = document.getElementById('clear-btn');
+  if (btn) btn.style.display = (search || status || paid || colVals) ? '' : 'none';
+}
+
+function applyFilters() {
+  const search = (document.getElementById('search')?.value || '').toLowerCase();
+  const status = document.getElementById('filter-status')?.value || '';
+  const colFilters = Array.from(document.querySelectorAll('.col-filter')).map(el => ({
+    col: parseInt(el.dataset.col),
+    val: el.value.toLowerCase()
+  })).filter(f => f.val);
+
+  const paid = document.getElementById('filter-paid')?.value || '';
+  document.querySelectorAll('#orders-tbody tr[data-status]').forEach(row => {
+    const matchSearch = !search || row.dataset.search.toLowerCase().includes(search);
+    const matchStatus = !status || row.dataset.status === status;
+    const matchPaid = !paid || row.dataset.paid === paid;
+    const matchCols = colFilters.every(f => {
+      const cell = row.querySelector(`td[data-col="${f.col}"]`);
+      return (cell?.textContent || '').toLowerCase().includes(f.val);
+    });
+    row.style.display = (matchSearch && matchStatus && matchPaid && matchCols) ? '' : 'none';
+  });
+  updateCount();
+}
+
+function updateCount() {
+  const visible = document.querySelectorAll('#orders-tbody tr[data-status]:not([style*="none"])').length;
+  document.getElementById('row-count').textContent = visible;
+}
+
+// ── Confirm modal ──────────────────────────────────────────────────────────
+let _confirmCallback = null;
+
+function showConfirm(title, message, callback) {
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-message').textContent = message;
+  _confirmCallback = callback;
+  document.getElementById('confirm-modal').classList.add('open');
+  document.getElementById('confirm-ok-btn').onclick = () => { confirmOk(); };
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-modal').classList.remove('open');
+  _confirmCallback = null;
+}
+
+function confirmOk() {
+  if (_confirmCallback) _confirmCallback();
+  closeConfirm();
+}
+
+// ── Delete (soft) ──────────────────────────────────────────────────────────
+function printOrder(id) {
+  const w = window.open(`/orders/${id}/pdf`, '_blank');
+  w.addEventListener('load', () => { w.print(); }, true);
+}
+
+async function duplicateOrder(id, autoId) {
+  if (!confirm(`Duplicirati nalog PN ${autoId}? Kreira se nova kopija kao Nacrt.`)) return;
+  const res = await fetch(`/api/orders/${id}/duplicate`, {method: 'POST'});
+  const d = await res.json();
+  if (d.success) {
+    toast(`Nalog dupliciran → PN ${d.auto_id}`, 'success');
+    setTimeout(() => window.location.href = `/orders/${d.id}/edit`, 800);
+  } else {
+    toast('Greška pri dupliciranju!', 'error');
+  }
+}
+
+function confirmDelete(id, autoId) {
+  showConfirm(
+    'Brisanje putnog naloga',
+    `Jeste li sigurni da želite izbrisati PN ${autoId}? Nakon brisanja nalog se više NE MOŽE vratiti!`,
+    async () => {
+      const res = await fetch(`/api/orders/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        toast(`PN ${autoId} premješten u koš.`, 'success');
+        setTimeout(() => location.reload(), 800);
+      } else {
+        toast('Greška pri brisanju', 'error');
+      }
+    }
+  );
+}
+
+// ── Permanent delete ───────────────────────────────────────────────────────
+function confirmDestroy(id, autoId) {
+  showConfirm(
+    '⚠️ Trajno brisanje',
+    `Trajno obrisati PN ${autoId}? Ova radnja se NE MOŽE poništiti!`,
+    async () => {
+      const res = await fetch(`/api/orders/${id}/destroy`, { method: 'DELETE' });
+      if (res.ok) { toast('Trajno obrisano!', 'success'); setTimeout(() => location.reload(), 800); }
+    }
+  );
+}
+// ── Quick create modal ────────────────────────────────────────────────────
+const DEFAULT_DESTINATION = '{{ default_destination_name }}';
+const DEFAULT_DIRECTOR_ID = {{ directors[0].id if directors else 'null' }};
+const DEFAULT_VALIDATOR_ID = {{ validators[0].id if validators else 'null' }};
+const DEFAULT_VEHICLE_ID = {{ default_vehicle_id if default_vehicle_id else 'null' }};
+
+function openQuickCreate() {
+  // Set default date to today
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('q-start').value = today + 'T07:00';
+  document.getElementById('q-end').value = today + 'T17:00';
+  document.getElementById('q-purpose').value = '';
+  document.getElementById('q-client').value = '';
+  document.getElementById('q-client-id').value = '';
+  document.getElementById('q-km-start').value = '';
+  document.getElementById('q-km-end').value = '';
+  document.getElementById('q-employee').value = '';
+  document.getElementById('quick-modal').classList.add('open');
+  setTimeout(() => document.getElementById('q-employee').focus(), 100);
+}
+
+function closeQuick() {
+  document.getElementById('quick-modal').classList.remove('open');
+}
+
+function applyQTemplate() {
+  const sel = document.getElementById('q-template');
+  const val = sel.options[sel.selectedIndex].value;
+  if (val) document.getElementById('q-report').value = val;
+}
+
+async function submitQuick() {
+  const employee_id = document.getElementById('q-employee').value;
+  const purpose = document.getElementById('q-purpose').value.trim();
+  const start = document.getElementById('q-start').value;
+  const end = document.getElementById('q-end').value;
+  const departure = start ? start.split('T')[0] : '';
+
+  if (!employee_id) { toast('Odaberi zaposlenika!', 'error'); return; }
+  if (!purpose) { toast('Upiši svrhu putovanja!', 'error'); return; }
+  if (!start || !end) { toast('Unesi polazak i povratak!', 'error'); return; }
+
+  // Fetch next auto_id
+  const metaRes = await fetch('/api/next-auto-id');
+  const meta = await metaRes.json();
+
+  const payload = {
+    auto_id: meta.auto_id,
+    status: 'draft',
+    employee_id: parseInt(employee_id),
+    purpose: purpose,
+    client_info: document.getElementById('q-client').value.trim(),
+    departure_date: departure,
+    issue_date: departure,
+    trip_start_datetime: start,
+    trip_end_datetime: end,
+    start_km: parseInt(document.getElementById('q-km-start').value) || null,
+    end_km: parseInt(document.getElementById('q-km-end').value) || null,
+    report_text: document.getElementById('q-report').value.trim(),
+    place_of_report: document.getElementById('q-place').value.trim(),
+    destination: DEFAULT_DESTINATION,
+    approved_by_id: DEFAULT_DIRECTOR_ID,
+    validator_id: DEFAULT_VALIDATOR_ID,
+    vehicle_id: DEFAULT_VEHICLE_ID,
+    expenses: [],
+  };
+
+  const res = await fetch('/api/orders', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (data.id) {
+    closeQuick();
+    window.location.href = `/orders/${data.id}/edit`;
+  } else {
+    toast('Greška pri kreiranju!', 'error');
+  }
+}
+
+// ── Payment modal ─────────────────────────────────────────────────────────
+let _paymentOrderId = null;
+
+function openPayment(id, autoId, isPaid, paidAt) {
+  _paymentOrderId = id;
+  document.getElementById('payment-auto-id').textContent = 'PN ' + autoId;
+  document.getElementById('paid-yes').checked = isPaid == 1;
+  document.getElementById('paid-no').checked = isPaid != 1;
+  document.getElementById('paid-date').value = paidAt || new Date().toISOString().split('T')[0];
+  document.getElementById('paid-date-group').style.display = isPaid == 1 ? '' : 'none';
+  document.getElementById('paid-yes').onchange = () => {
+    document.getElementById('paid-date-group').style.display = '';
+  };
+  document.getElementById('paid-no').onchange = () => {
+    document.getElementById('paid-date-group').style.display = 'none';
+  };
+  document.getElementById('payment-modal').classList.add('open');
+}
+
+function closePayment() {
+  document.getElementById('payment-modal').classList.remove('open');
+  _paymentOrderId = null;
+}
+
+async function savePayment() {
+  const isPaid = document.getElementById('paid-yes').checked ? 1 : 0;
+  const paidAt = isPaid ? document.getElementById('paid-date').value : null;
+  const res = await fetch(`/api/orders/${_paymentOrderId}/payment`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ is_paid: isPaid, paid_at: paidAt })
+  });
+  if (res.ok) {
+    toast(isPaid ? 'Isplata evidentirana!' : 'Označeno kao neisplaćeno.', 'success');
+    closePayment();
+    setTimeout(() => location.reload(), 800);
+  } else {
+    toast('Greška!', 'error');
+  }
+}
+
+// ── Quick modal — client searchable dropdown ──────────────────────────────
+const _qClients = {{ clients_all | tojson }};
+
+function showQClientDropdown() {
+  filterQClientDropdown();
+  document.getElementById('q-client-dropdown').style.display = 'block';
+}
+function hideQClientDropdown() {
+  document.getElementById('q-client-dropdown').style.display = 'none';
+}
+function hideQClientDropdownDelayed() {
+  setTimeout(hideQClientDropdown, 200);
+}
+function filterQClientDropdown() {
+  const q = (document.getElementById('q-client').value || '').toLowerCase();
+  const list = document.getElementById('q-client-dropdown');
+  if (!list) return;
+  const filtered = _qClients.filter(c =>
+    !q || c.name.toLowerCase().includes(q) ||
+    (c.oib && c.oib.includes(q)) ||
+    (c.address && c.address.toLowerCase().includes(q))
+  );
+  if (!filtered.length) {
+    list.innerHTML = '<div style="padding:10px 14px;color:var(--gray-400);font-size:13px;">Nema rezultata</div>';
+  } else {
+    list.innerHTML = filtered.map(c => `
+      <div style="padding:8px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--gray-100);"
+        onmousedown="selectQClient(${c.id}, ${JSON.stringify(c.name)})"
+        onmouseover="this.style.background='var(--accent-light)'"
+        onmouseout="this.style.background=''">
+        <div style="font-weight:600;color:var(--navy);">${c.name}</div>
+        ${c.oib ? `<div style="font-size:11px;color:var(--gray-400);">OIB: ${c.oib}${c.address ? ' · '+c.address : ''}</div>` : ''}
+      </div>`).join('');
+  }
+  list.style.display = 'block';
+}
+function selectQClient(id, name) {
+  document.getElementById('q-client-id').value = id;
+  document.getElementById('q-client').value = name;
+  hideQClientDropdown();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% set active = 'audit' %}
+
+{% block topbar_title %}Revizijski dnevnik{% endblock %}
+{% block topbar_actions %}
+<a href="/audit-log/export?{{ request.query_string.decode() }}" class="btn btn-secondary btn-sm">⬇ Export CSV</a>
+{% endblock %}
+
+{% block content %}
+<style>
+.audit-action { display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:.3px; }
+.a-login       { background:#e8f5e9;color:#2e7d32; }
+.a-logout      { background:#f3e5f5;color:#7b1fa2; }
+.a-login_failed{ background:#fdecea;color:#c0392b; }
+.a-session_expired { background:#fff3e0;color:#e65100; }
+.a-view        { background:#e3f2fd;color:#1565c0; }
+.a-create      { background:#e8f5e9;color:#2e7d32; }
+.a-edit        { background:#fff8e1;color:#f57f17; }
+.a-delete      { background:#fdecea;color:#c0392b; }
+.a-destroy     { background:#880000;color:#fff; }
+.a-status_change { background:#e8eaf6;color:#283593; }
+.a-export_pdf  { background:#f3e5f5;color:#6a1b9a; }
+.a-export_excel{ background:#e8f5e9;color:#1b5e20; }
+.a-liquidate   { background:#fce4ec;color:#880e4f; }
+.a-payment     { background:#e0f7fa;color:#006064; }
+.a-payment_cancel { background:#fdecea;color:#c0392b; }
+.a-copy        { background:#e3f2fd;color:#0d47a1; }
+.a-duplicate   { background:#e3f2fd;color:#0d47a1; }
+.a-default     { background:#f5f5f5;color:#555; }
+</style>
+
+<!-- Filteri -->
+<div class="card" style="margin-bottom:12px;">
+  <div class="card-body" style="padding:12px 16px;">
+    <form method="get" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="form-group" style="margin:0;width:160px;">
+        <label class="form-label" style="font-size:11px;">Korisnik</label>
+        <select name="user" class="form-control" style="font-size:13px;width:100%;padding:6px 8px;">
+          <option value="">— svi —</option>
+          {% for u in users %}<option value="{{ u }}" {% if filters.user==u %}selected{% endif %}>{{ u }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;width:185px;">
+        <label class="form-label" style="font-size:11px;">Modul</label>
+        <select name="module" class="form-control" style="font-size:13px;width:100%;padding:6px 8px;">
+          <option value="">— svi moduli —</option>
+          {% for m in modules %}<option value="{{ m }}" {% if filters.module==m %}selected{% endif %}>{{ m }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;width:175px;">
+        <label class="form-label" style="font-size:11px;">Akcija</label>
+        <select name="action" class="form-control" style="font-size:13px;width:100%;padding:6px 8px;">
+          <option value="">— sve akcije —</option>
+          {% for a in actions %}<option value="{{ a }}" {% if filters.action==a %}selected{% endif %}>{{ a }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label" style="font-size:11px;">Od datuma</label>
+        <input type="date" name="date_from" class="form-control" style="font-size:13px;padding:6px 8px;" value="{{ filters.date_from }}">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label" style="font-size:11px;">Do datuma</label>
+        <input type="date" name="date_to" class="form-control" style="font-size:13px;padding:6px 8px;" value="{{ filters.date_to }}">
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm" style="padding:6px 16px;">🔍 Filtriraj</button>
+      <a href="/audit-log" class="btn btn-secondary btn-sm" style="padding:6px 16px;">✕ Reset</a>
+    </form>
+  </div>
+</div>
+
+<!-- Tablica -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Revizijski dnevnik</span>
+    <span style="font-size:12px;color:var(--gray-400);margin-left:8px;">{{ logs|length }} zapisa (max 1000)</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:145px;">Datum i vrijeme</th>
+          <th style="width:110px;">Korisnik</th>
+          <th style="width:100px;">Akcija</th>
+          <th style="width:120px;">Modul</th>
+          <th style="width:120px;">Entitet</th>
+          <th>Detalj</th>
+          <th style="width:110px;">IP adresa</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td style="font-size:12px;white-space:nowrap;color:var(--gray-500);">
+            {{ log.created_at[:19]|replace('T',' ') if log.created_at else '—' }}
+          </td>
+          <td style="font-size:13px;font-weight:600;">{{ log.username or '—' }}</td>
+          <td>
+            <span class="audit-action a-{{ log.action }} a-default">{{ log.action }}</span>
+          </td>
+          <td style="font-size:12px;">
+            {% if log.module %}
+            {% set module_icons = {
+              'auth': '🔐',
+              'putni_nalozi': '📋',
+              'ponude': '📄',
+              'sluzbeni_automobil': '🚗',
+              'radno_vrijeme': '🕐',
+              'ulazni_racuni': '🧾',
+              'postavke': '⚙️'
+            } %}
+            {{ module_icons.get(log.module, '•') }} {{ log.module|replace('_',' ') }}
+            {% else %}—{% endif %}
+          </td>
+          <td style="font-size:12px;color:var(--gray-500);">
+            {% if log.entity %}{{ log.entity }}{% if log.entity_id %} #{{ log.entity_id }}{% endif %}{% else %}—{% endif %}
+          </td>
+          <td style="font-size:12px;color:var(--gray-600);">{{ log.detail or '' }}</td>
+          <td style="font-size:11px;color:var(--gray-400);">{{ log.ip_address or '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--gray-400);">
+          <div style="font-size:28px;margin-bottom:8px;">📋</div>
+          Nema zapisa za odabrane filtere.
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% set active = 'loans' %}
+{% block topbar_title %}Pozajmice{% endblock %}
+{% block topbar_actions %}
+<a href="/loans/new" class="btn btn-primary">➕ Nova pozajmica</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Sve pozajmice</span>
+    <span style="background:var(--accent-light);color:var(--accent);padding:2px 8px;border-radius:20px;font-size:12px;font-weight:700;">{{ loans|length }}</span>
+  </div>
+  {% if loans %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Naziv zajma</th>
+          <th style="width:110px;">Datum zajma</th>
+          <th style="width:80px;">Kamata %</th>
+          <th style="width:120px;">Ukupni iznos</th>
+          <th style="width:120px;">Otplaćeno</th>
+          <th style="width:120px;">Preostalo</th>
+          <th style="width:100px;">Kraj otplate</th>
+          <th style="width:70px;">Akcije</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for loan in loans %}
+        {% set pct = ((loan.total_repaid / loan.total_amount * 100) if loan.total_amount else 0)|round(1) %}
+        <tr ondblclick="window.location='/loans/{{ loan.id }}/edit'" style="cursor:pointer;">
+          <td>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-weight:600;color:var(--navy);">{{ loan.name }}</span>
+              {% if loan.is_locked %}<span title="Plan zaključan" style="font-size:11px;">🔒</span>{% endif %}
+            </div>
+            {% if loan.notes %}<div style="font-size:11px;color:var(--gray-400);">{{ loan.notes[:60] }}</div>{% endif %}
+          </td>
+          <td>{{ loan.loan_date|fmt_date if loan.loan_date else '—' }}</td>
+          <td style="text-align:center;">{{ loan.interest_rate }}%</td>
+          <td style="font-weight:600;">{{ '{:,.2f}'.format(loan.total_amount).replace(',','X').replace('.',',').replace('X','.') }} €</td>
+          <td>
+            <div style="font-weight:600;color:#27ae60;">{{ '{:,.2f}'.format(loan.total_repaid).replace(',','X').replace('.',',').replace('X','.') }} €</div>
+            <div style="height:4px;background:var(--gray-100);border-radius:2px;margin-top:3px;">
+              <div style="height:4px;background:#27ae60;border-radius:2px;width:{{ [pct,100]|min }}%;"></div>
+            </div>
+            <div style="font-size:10px;color:var(--gray-400);">{{ pct }}%</div>
+          </td>
+          <td style="font-weight:600;color:{% if loan.remaining <= 0 %}#27ae60{% else %}var(--navy){% endif %};">
+            {{ '{:,.2f}'.format(loan.remaining).replace(',','X').replace('.',',').replace('X','.') }} €
+          </td>
+          <td style="font-size:12px;color:var(--gray-500);">{{ loan.repayment_end|fmt_date if loan.repayment_end else '—' }}</td>
+          <td>
+            <div style="display:flex;gap:4px;">
+              <a href="/loans/{{ loan.id }}/edit" class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;" title="Uredi">✏️</a>
+              {% if not loan.is_locked %}
+              <button class="btn btn-sm" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;" onclick="deleteLoan({{ loan.id }},'{{ loan.name }}')" title="Obriši">🗑</button>
+              {% else %}
+              <button class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;opacity:0.4;cursor:not-allowed;" title="Zaključano — otključajte prije brisanja" disabled>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </button>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:60px;color:var(--gray-400);">
+    <div style="font-size:40px;margin-bottom:12px;">💰</div>
+    <div style="font-size:16px;font-weight:600;margin-bottom:6px;">Nema pozajmica</div>
+    <div style="font-size:13px;">Kliknite "Nova pozajmica" za dodavanje prvog zajma.</div>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+{% block scripts %}<script>
+async function deleteLoan(id, name) {
+  if (!confirm(`Obrisati pozajmicu "${name}"? Ova radnja se ne može poništiti.`)) return;
+  const res = await fetch(`/api/loans/${id}`, { method: 'DELETE' });
+  const d = await res.json();
+  if (d.success) { toast('Pozajmica obrisana!', 'success'); setTimeout(() => location.reload(), 600); }
+  else alert(d.error || 'Greška pri brisanju');
+}
+</script>{% endblock %}

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% set active = 'invoices' %}
+
+{% block topbar_title %}<span>Izbrisani računi</span>{% endblock %}
+
+{% block content %}
+<style>
+.deleted-badge {
+  display: inline-block;
+  background: #fdecea;
+  color: #c0392b;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  letter-spacing: 0.3px;
+}
+</style>
+
+<div class="card">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <span class="card-title">🗑 Izbrisani računi</span>
+    <a href="/invoices" class="btn btn-secondary btn-sm">← Povratak na ulazne račune</a>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Partner</th>
+          <th>Broj računa</th>
+          <th>Datum računa</th>
+          <th>Iznos</th>
+          <th>Datoteka</th>
+          <th>Obrisano</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if invoices %}
+          {% for inv in invoices %}
+          <tr style="opacity:0.75;">
+            <td>
+              <span class="deleted-badge">BRISANO</span>
+              <span style="margin-left:6px;">{{ inv.partner_name or '—' }}</span>
+            </td>
+            <td style="font-size:12px;color:var(--gray-500);">{{ inv.invoice_number or '—' }}</td>
+            <td style="font-size:12px;">{{ inv.invoice_date or '—' }}</td>
+            <td style="font-size:13px;font-weight:600;">
+              {% if inv.amount_total %}
+                {{ "%.2f"|format(inv.amount_total) }} {{ inv.currency or 'EUR' }}
+              {% else %}—{% endif %}
+            </td>
+            <td style="font-size:11px;color:var(--gray-400);">
+              {% if inv.stored_filename %}
+                📄 {{ inv.stored_filename }}
+              {% else %}—{% endif %}
+            </td>
+            <td style="font-size:11px;color:var(--gray-400);">
+              {% if inv.deleted_at %}
+                {{ inv.deleted_at[:16]|replace('T', ' ') }}
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="6" style="text-align:center;padding:40px;color:var(--gray-400);">
+              Nema izbrisanih računa.
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

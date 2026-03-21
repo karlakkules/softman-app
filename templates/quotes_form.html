@@ -1,0 +1,390 @@
+{% extends "base.html" %}
+{% set active = 'quotes' %}
+{% block topbar_title %}{% if is_copy %}Kopija ponude — P {{ auto_id }}{% elif quote and quote.id %}Ponuda P {{ quote.auto_id }}{% else %}Nova ponuda{% endif %}{% endblock %}
+{% block topbar_actions %}
+<a href="/quotes" class="btn btn-secondary" title="Povratak na listu ponuda">← Natrag</a>
+{% if not quote or quote.status == 'draft' %}
+<button class="btn btn-secondary" onclick="saveQuote('draft')" title="Spremi ponudu kao nacrt">💾 Spremi nacrt</button>
+<button class="btn btn-primary" onclick="saveQuote('sent')" title="Označi kao poslano i zamrzni PDF">📤 Označi kao Poslano</button>
+{% endif %}
+{% if quote and quote.status == 'sent' %}
+<button class="btn btn-success" onclick="saveQuote('accepted')" title="Označi ponudu kao prihvaćenu">✅ Prihvaćeno</button>
+<button class="btn btn-danger" onclick="saveQuote('rejected')" title="Označi ponudu kao odbijenu">❌ Odbijeno</button>
+{% endif %}
+{% if quote and quote.status in ['sent','accepted','rejected'] %}
+<a href="/quotes/{{ quote.id }}/pdf" target="_blank" class="btn btn-secondary" title="Preuzmi PDF ponude"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M3 1h7l3 3v10a1 1 0 01-1 1H3a1 1 0 01-1-1V2a1 1 0 011-1z" fill="#e74c3c" stroke="#c0392b" stroke-width="0.5"/>
+  <path d="M10 1l3 3h-3V1z" fill="#c0392b"/>
+  <text x="3.5" y="11.5" font-family="Arial" font-size="4.5" font-weight="bold" fill="white">PDF</text>
+</svg> PDF</a>
+{% endif %}
+{% if quote and quote.status in ['accepted','rejected'] %}
+<button class="btn btn-secondary" onclick="saveQuote('draft')" title="Vrati ponudu u nacrt za uređivanje">↩️ Vrati u nacrt</button>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+{% set locked = quote and quote.status != 'draft' %}
+
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-body">
+    <div class="form-row form-row-4">
+      <div class="form-group">
+        <label class="form-label">Broj ponude</label>
+        <input class="form-control" id="auto_id" value="{{ auto_id }}" readonly style="font-weight:700;color:var(--navy);">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Datum izdavanja</label>
+        <input type="date" class="form-control" id="issue_date"
+               value="{{ quote.issue_date if quote else today }}" {% if locked %}disabled{% endif %}>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Valjanost (dana)</label>
+        <input type="number" class="form-control" id="valid_days" min="1"
+               value="{{ quote.valid_days if quote else (copy_from.valid_days if copy_from else settings.quote_default_valid_days or 7) }}" {% if locked %}disabled{% endif %}>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mjesto izdavanja</label>
+        <input type="text" class="form-control" id="place_of_issue"
+               value="{{ quote.place_of_issue if quote else default_place }}" {% if locked %}disabled{% endif %}>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+  <div class="card">
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">Klijent *</label>
+        {% if not locked %}
+        <div style="display:flex;gap:6px;align-items:flex-start;">
+          <div style="flex:1;position:relative;">
+            <input type="text" class="form-control" id="client-search"
+              placeholder="Pretraži klijenta..."
+              autocomplete="off"
+              oninput="filterClientDropdown()"
+              onfocus="showClientDropdown()"
+              onblur="hideClientDropdownDelayed()"
+              value="{{ clients | selectattr('id', 'equalto', quote.client_id) | map(attribute='name') | first if (quote and quote.client_id) else '' }}">
+            <input type="hidden" id="client_id" value="{{ quote.client_id if (quote and quote.client_id) else '' }}">
+            <div id="client-dropdown-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--gray-300);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:9999;max-height:200px;overflow-y:auto;margin-top:2px;"></div>
+          </div>
+          <button type="button" class="btn btn-secondary" onclick="openAddClientModal()"
+            title="Dodaj novog klijenta" style="white-space:nowrap;padding:0 12px;height:38px;">➕</button>
+        </div>
+        {% else %}
+        <input class="form-control" value="{{ clients | selectattr('id', 'equalto', quote.client_id) | map(attribute='name') | first if (quote and quote.client_id) else '—' }}" readonly style="background:var(--gray-50);">
+        <input type="hidden" id="client_id" value="{{ quote.client_id if (quote and quote.client_id) else '' }}">
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">Ponudu izradio</label>
+        <select class="form-control" id="prepared_by_id" {% if locked %}disabled{% endif %}>
+          <option value="">— odaberi —</option>
+          {% for e in employees %}
+          <option value="{{ e.id }}"
+            {% if quote and quote.prepared_by_id == e.id %}selected
+            {% elif not quote and copy_from and copy_from.prepared_by_id == e.id %}selected
+            {% elif not quote and not copy_from and e.is_direktor %}selected{% endif %}>{{ e.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin-top:12px;">
+        <label class="form-label">PDV stopa (%)</label>
+        <input type="number" class="form-control" id="pdv_rate" step="1" min="0" max="100"
+               value="{{ quote.pdv_rate if quote else (copy_from.pdv_rate if copy_from else settings.quote_pdv_rate or 25) }}"
+               oninput="updateTotals()" {% if locked %}disabled{% endif %}>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Items -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <span class="card-title">Stavke usluga</span>
+    {% if not locked %}
+    <button class="btn btn-sm btn-primary" onclick="addItem()" title="Dodaj novu stavku usluge">➕ Dodaj stavku</button>
+    {% endif %}
+  </div>
+  <div class="table-wrap">
+    <table style="width:100%;">
+      <thead>
+        <tr style="background:var(--navy);">
+          <th style="color:white;padding:8px;font-size:12px;width:40px;">RB</th>
+          <th style="color:white;padding:8px;font-size:12px;">Opis usluge</th>
+          <th style="color:white;padding:8px;font-size:12px;width:60px;">JM</th>
+          <th style="color:white;padding:8px;font-size:12px;width:70px;text-align:center;">Kol.</th>
+          <th style="color:white;padding:8px;font-size:12px;width:90px;text-align:right;">Jed. cijena</th>
+          <th style="color:white;padding:8px;font-size:12px;width:90px;text-align:right;">Iznos</th>
+          {% if not locked %}<th style="width:36px;"></th>{% endif %}
+        </tr>
+      </thead>
+      <tbody id="items-body"></tbody>
+    </table>
+  </div>
+  <div style="padding:12px 16px;text-align:right;background:var(--gray-50);border-top:1px solid var(--gray-200);">
+    <div style="display:inline-grid;grid-template-columns:160px 100px;gap:4px 12px;text-align:right;font-size:13px;">
+      <span style="color:var(--gray-500);">IZNOS:</span><span id="t-net">0,00 €</span>
+      <span style="color:var(--gray-500);">OSNOVICA:</span><span id="t-base">0,00 €</span>
+      <span style="color:var(--gray-500);">PDV <span id="t-pdv-pct">25</span>%:</span><span id="t-pdv">0,00 €</span>
+      <span style="font-weight:700;color:var(--navy);font-size:15px;">UKUPNI IZNOS:</span>
+      <span style="font-weight:700;color:var(--navy);font-size:15px;" id="t-gross">0,00 €</span>
+    </div>
+  </div>
+</div>
+
+<!-- Notes -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-body">
+    <label class="form-label">Napomene</label>
+    <textarea class="form-control" id="notes" rows="4" {% if locked %}disabled{% endif %}
+              placeholder="Unesite napomene...">{{ quote.notes if quote else (copy_from.notes if copy_from else settings.quote_default_notes or '') }}</textarea>
+  </div>
+</div>
+
+<input type="hidden" id="quote-id" value="{{ quote.id if (quote and quote.id) else '' }}">
+
+<!-- Add client modal -->
+<div class="modal-overlay" id="add-client-modal">
+  <div class="modal" style="width:480px;max-width:95vw;">
+    <div class="modal-header">
+      <span class="modal-title">Novi klijent</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeAddClientModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row form-row-2" style="margin-bottom:12px;">
+        <div class="form-group">
+          <label class="form-label">Naziv *</label>
+          <input type="text" class="form-control" id="add-client-name" placeholder="Naziv tvrtke ili osobe...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">OIB</label>
+          <input type="text" class="form-control" id="add-client-oib" placeholder="12345678901" maxlength="11">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Adresa</label>
+        <input type="text" class="form-control" id="add-client-address" placeholder="Ulica i broj, grad...">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAddClientModal()">Odustani</button>
+      <button class="btn btn-primary" onclick="saveNewClient()">💾 Spremi</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const LOCKED = {{ 'true' if locked else 'false' }};
+const COPY_FROM = {{ copy_from | tojson if copy_from else 'null' }};
+const EXISTING_ITEMS = {{ items | tojson }};
+let itemCount = 0;
+
+function addItem(data={}, forceAdd=false) {
+  if (LOCKED && !forceAdd) return;
+  const id = ++itemCount;
+  const tbody = document.getElementById('items-body');
+  const tr = document.createElement('tr');
+  tr.id = `item-${id}`;
+  tr.style.borderBottom = '1px solid var(--gray-200)';
+  const qty = data.quantity || 1;
+  const price = data.unit_price || 0;
+  const readonlyAttr = (LOCKED && forceAdd) ? 'readonly disabled style="background:var(--gray-50);' : 'style="';
+  tr.innerHTML = `
+    <td style="padding:6px 8px;text-align:center;color:var(--gray-400);font-size:12px;">${tbody.children.length+1}</td>
+    <td style="padding:4px 8px;">
+      <textarea class="form-control" id="desc-${id}" rows="2" ${LOCKED && forceAdd ? 'readonly style="background:var(--gray-50);font-size:12px;resize:vertical;"' : 'style="font-size:12px;resize:vertical;"'}
+        oninput="updateTotals()">${data.description||''}</textarea>
+    </td>
+    <td style="padding:4px 8px;">
+      <input class="form-control" id="unit-${id}" value="${data.unit||'Kom'}" ${LOCKED && forceAdd ? 'readonly style="background:var(--gray-50);font-size:12px;width:55px;"' : 'style="font-size:12px;width:55px;"'}>
+    </td>
+    <td style="padding:4px 8px;">
+      <input type="number" class="form-control" id="qty-${id}" value="${qty}" min="0" step="0.5"
+        ${LOCKED && forceAdd ? 'readonly style="background:var(--gray-50);font-size:12px;text-align:center;"' : 'style="font-size:12px;text-align:center;"'} oninput="calcItemTotal(${id})">
+    </td>
+    <td style="padding:4px 8px;">
+      <input type="number" class="form-control" id="price-${id}" value="${price}" min="0" step="0.01"
+        ${LOCKED && forceAdd ? 'readonly style="background:var(--gray-50);font-size:12px;text-align:right;"' : 'style="font-size:12px;text-align:right;"'} oninput="calcItemTotal(${id})">
+    </td>
+    <td style="padding:4px 8px;text-align:right;font-weight:600;font-size:12px;" id="total-${id}">
+      ${(qty*price).toFixed(2).replace('.',',')} €
+    </td>
+    ${LOCKED && forceAdd ? '' : `<td style="padding:4px;"><button type="button" style="background:none;border:none;cursor:pointer;color:#c0392b;font-size:16px;" onclick="removeItem(${id})">🗑</button></td>`}
+  `;
+  tbody.appendChild(tr);
+  updateTotals();
+}
+
+function removeItem(id) {
+  document.getElementById(`item-${id}`)?.remove();
+  updateTotals();
+  // Renumber
+  document.querySelectorAll('#items-body tr').forEach((tr,i)=>{
+    tr.querySelector('td:first-child').textContent = i+1;
+  });
+}
+
+function calcItemTotal(id) {
+  const qty = parseFloat(document.getElementById(`qty-${id}`)?.value||0);
+  const price = parseFloat(document.getElementById(`price-${id}`)?.value||0);
+  const total = qty * price;
+  const el = document.getElementById(`total-${id}`);
+  if(el) el.textContent = total.toFixed(2).replace('.',',') + ' €';
+  updateTotals();
+}
+
+function getItems() {
+  return Array.from(document.querySelectorAll('#items-body tr')).map(tr => {
+    const id = tr.id.replace('item-','');
+    const qty = parseFloat(document.getElementById(`qty-${id}`)?.value||0);
+    const price = parseFloat(document.getElementById(`price-${id}`)?.value||0);
+    return {
+      description: document.getElementById(`desc-${id}`)?.value||'',
+      unit: document.getElementById(`unit-${id}`)?.value||'Kom',
+      quantity: qty, unit_price: price, total: qty*price
+    };
+  });
+}
+
+function fmt(v) { return v.toFixed(2).replace('.',',') + ' €'; }
+
+function updateTotals() {
+  const items = getItems();
+  const net = items.reduce((s,i)=>s+i.total, 0);
+  const pdv_rate = parseFloat(document.getElementById('pdv_rate')?.value||25);
+  const pdv = net * pdv_rate / 100;
+  const gross = net + pdv;
+  document.getElementById('t-net').textContent = fmt(net);
+  document.getElementById('t-base').textContent = fmt(net);
+  document.getElementById('t-pdv-pct').textContent = Math.round(pdv_rate);
+  document.getElementById('t-pdv').textContent = fmt(pdv);
+  document.getElementById('t-gross').textContent = fmt(gross);
+}
+
+async function saveQuote(status) {
+  const quoteId = document.getElementById('quote-id').value;
+  // Status-only for locked
+  if (LOCKED) {
+    const res = await fetch('/api/quotes', {method:'POST',headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({id:quoteId?parseInt(quoteId):null, status})});
+    const d = await res.json();
+    if(d.success){toast('Status promijenjen!','success');setTimeout(()=>location.reload(),700);}
+    return;
+  }
+  const items = getItems();
+  const pdv_rate = parseFloat(document.getElementById('pdv_rate')?.value||25);
+  const payload = {
+    id: quoteId ? parseInt(quoteId) : null,
+    status,
+    issue_date: document.getElementById('issue_date').value,
+    valid_days: parseInt(document.getElementById('valid_days').value||7),
+    place_of_issue: document.getElementById('place_of_issue').value,
+    client_id: document.getElementById('client_id').value || null,
+    prepared_by_id: document.getElementById('prepared_by_id').value || null,
+    notes: document.getElementById('notes').value,
+    pdv_rate,
+    items
+  };
+  const res = await fetch('/api/quotes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const d = await res.json();
+  if(d.success){
+    toast(status==='draft'?'Nacrt spremljen!':'Ponuda spremljena!','success');
+    const id = d.id || quoteId;
+    setTimeout(()=>{ window.location.href=`/quotes/${id}/edit`; },700);
+  } else { toast('Greška!','error'); }
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  if(EXISTING_ITEMS.length>0){ EXISTING_ITEMS.forEach(i=>addItem(i, true)); }
+  else if(!LOCKED){ addItem(); }
+  updateTotals();
+});
+
+// ── Client searchable dropdown ────────────────────────────────────────────
+let _clientsCache = {{ clients | tojson }};
+
+function showClientDropdown() {
+  filterClientDropdown();
+  document.getElementById('client-dropdown-list').style.display = 'block';
+}
+function hideClientDropdown() {
+  document.getElementById('client-dropdown-list').style.display = 'none';
+}
+function hideClientDropdownDelayed() {
+  setTimeout(hideClientDropdown, 200);
+}
+
+function filterClientDropdown() {
+  const q = (document.getElementById('client-search').value || '').toLowerCase();
+  const list = document.getElementById('client-dropdown-list');
+  if (!list) return;
+  const filtered = _clientsCache.filter(c =>
+    !q || c.name.toLowerCase().includes(q) ||
+    (c.oib && c.oib.includes(q)) ||
+    (c.address && c.address.toLowerCase().includes(q))
+  );
+  if (!filtered.length) {
+    list.innerHTML = '<div style="padding:10px 14px;color:var(--gray-400);font-size:13px;">Nema rezultata</div>';
+  } else {
+    list.innerHTML = filtered.map(c => `
+      <div style="padding:8px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--gray-100);"
+        onmousedown="selectClient(${c.id},${JSON.stringify(c.name)})"
+        onmouseover="this.style.background='var(--accent-light)'"
+        onmouseout="this.style.background=''">
+        <div style="font-weight:600;color:var(--navy);">${c.name}</div>
+        ${c.oib ? `<div style="font-size:11px;color:var(--gray-400);">OIB: ${c.oib}${c.address ? ' · '+c.address : ''}</div>` : ''}
+      </div>`).join('');
+  }
+  list.style.display = 'block';
+}
+
+function selectClient(id, name) {
+  document.getElementById('client_id').value = id;
+  document.getElementById('client-search').value = name;
+  hideClientDropdown();
+}
+
+function openAddClientModal() {
+  document.getElementById('add-client-name').value = '';
+  document.getElementById('add-client-oib').value = '';
+  document.getElementById('add-client-address').value = '';
+  document.getElementById('add-client-modal').classList.add('open');
+  setTimeout(() => document.getElementById('add-client-name').focus(), 100);
+}
+
+function closeAddClientModal() {
+  document.getElementById('add-client-modal').classList.remove('open');
+}
+
+async function saveNewClient() {
+  const name = document.getElementById('add-client-name').value.trim();
+  if (!name) { alert('Naziv je obavezan!'); return; }
+  const body = {
+    name,
+    oib: document.getElementById('add-client-oib').value.trim(),
+    address: document.getElementById('add-client-address').value.trim()
+  };
+  const res = await fetch('/api/clients', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+  });
+  const d = await res.json();
+  if (d.id) {
+    // Dodaj u cache i selektiraj
+    _clientsCache.push({id: d.id, name: body.name, oib: body.oib, address: body.address});
+    _clientsCache.sort((a,b) => a.name.localeCompare(b.name, 'hr'));
+    selectClient(d.id, body.name);
+    closeAddClientModal();
+    if (typeof toast === 'function') toast('Klijent dodan!', 'success');
+  } else {
+    alert(d.error || 'Greška pri dodavanju klijenta');
+  }
+}
+</script>
+{% endblock %}

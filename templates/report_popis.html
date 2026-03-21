@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% set active = 'reports' %}
+
+{% block topbar_title %}<span>Izvještaj — Popis putnih naloga</span>{% endblock %}
+
+{% block topbar_actions %}
+<a href="/reports/popis-naloga/export?year={{ year_filter }}&employee={{ employee_filter }}" title="Preuzmi Excel izvještaj" class="btn btn-secondary">
+  📥 Export Excel
+</a>
+{% endblock %}
+
+{% block content %}
+
+<!-- Filters -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header" style="flex-wrap:wrap;gap:12px;">
+    <span class="card-title">Filteri</span>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <div>
+        <label style="font-size:12px;color:var(--gray-500);display:block;margin-bottom:3px;">Godina</label>
+        <select id="f-year" class="form-control" style="width:110px;" onchange="applyFilters()">
+          <option value="">Sve</option>
+          {% for y in years %}
+          <option value="{{ y }}" {% if y == year_filter %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--gray-500);display:block;margin-bottom:3px;">Djelatnik</label>
+        <select id="f-employee" class="form-control" style="width:180px;" onchange="applyFilters()">
+          <option value="">Svi djelatnici</option>
+          {% for e in employees %}
+          <option value="{{ e.id }}" {% if e.id|string == employee_filter %}selected{% endif %}>{{ e.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--gray-500);display:block;margin-bottom:3px;">Isplata</label>
+        <select id="f-paid" class="form-control" style="width:140px;" onchange="applyFiltersLocal()">
+          <option value="">Sve</option>
+          <option value="1">Isplaćeno</option>
+          <option value="0">Neisplaćeno</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--gray-500);display:block;margin-bottom:3px;">Datum od</label>
+        <input type="date" id="f-date-from" class="form-control" style="width:150px;" oninput="applyFiltersLocal()">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--gray-500);display:block;margin-bottom:3px;">Datum do</label>
+        <input type="date" id="f-date-to" class="form-control" style="width:150px;" oninput="applyFiltersLocal()">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--gray-500);display:block;margin-bottom:3px;">PN od</label>
+        <input type="number" id="f-pn-from" class="form-control" style="width:90px;" placeholder="npr. 5" oninput="applyFiltersLocal()">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--gray-500);display:block;margin-bottom:3px;">PN do</label>
+        <input type="number" id="f-pn-to" class="form-control" style="width:90px;" placeholder="npr. 20" oninput="applyFiltersLocal()">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--gray-500);display:block;margin-bottom:3px;">Pretraži</label>
+        <input type="text" id="f-search" class="form-control" style="width:180px;" placeholder="Ime, klijent, destinacija..." oninput="applyFiltersLocal()">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--gray-500);display:block;margin-bottom:3px;">&nbsp;</label>
+        <button class="btn btn-secondary" onclick="clearLocalFilters()" title="Očisti filtere" id="clear-report-btn" style="display:none;">✕ Očisti</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Summary cards -->
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;">
+  <div class="card" style="padding:16px 20px;background:linear-gradient(135deg,#1a3a5c 0%,#2d5986 100%);border:none;">
+    <div style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:.5px;">Ukupno naloga</div>
+    <div style="font-size:32px;font-weight:700;color:#fff;margin-top:6px;" id="summary-count">{{ orders|length }}</div>
+  </div>
+  <div class="card" style="padding:16px 20px;background:linear-gradient(135deg,#1a6b3a 0%,#27ae60 100%);border:none;">
+    <div style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:.5px;">Ukupni iznos</div>
+    <div style="font-size:32px;font-weight:700;color:#fff;margin-top:6px;" id="summary-total">{{ '%.2f'|format(total_amount) }} €</div>
+  </div>
+  <div class="card" style="padding:16px 20px;background:{% if total_unpaid > 0 %}linear-gradient(135deg,#b3500a 0%,#e67e22 100%){% else %}linear-gradient(135deg,#1a6b3a 0%,#27ae60 100%){% endif %};border:none;">
+    <div style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:.5px;">Neisplaćeno</div>
+    <div style="font-size:32px;font-weight:700;color:#fff;margin-top:6px;" id="summary-unpaid">{{ '%.2f'|format(total_unpaid) }} €</div>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="card">
+  <div class="table-wrap">
+    <table id="report-table">
+      <thead>
+        <tr>
+          <th class="sortable" onclick="sortReport(0)">Broj PN <span class="sort-icon">↕</span></th>
+          <th class="sortable" onclick="sortReport(1)">Datum <span class="sort-icon">↕</span></th>
+          <th class="sortable" onclick="sortReport(2)">Destinacija <span class="sort-icon">↕</span></th>
+          <th class="sortable" onclick="sortReport(3)">Klijent <span class="sort-icon">↕</span></th>
+          <th class="sortable" onclick="sortReport(4)">Djelatnik <span class="sort-icon">↕</span></th>
+          <th class="sortable" onclick="sortReport(5)" style="text-align:right;">Iznos (€) <span class="sort-icon">↕</span></th>
+          <th class="sortable" onclick="sortReport(6)" style="text-align:center;">Isplaćeno <span class="sort-icon">↕</span></th>
+          <th style="text-align:center;">Akcije</th>
+        </tr>
+      </thead>
+      <tbody id="report-tbody">
+        {% for o in orders %}
+        <tr data-paid="{{ o.is_paid or 0 }}"
+            data-search="{{ (o.auto_id or '') }} {{ (o.employee_name or '') }} {{ (o.client_info or '') }} {{ (o.destination or '') }}"
+            data-amount="{{ o.total_amount or 0 }}">
+          <td data-val="{{ o.auto_id or '' }}">
+            <a href="/orders/{{ o.id }}/edit" style="font-family:'DM Mono',monospace;font-weight:600;color:var(--navy);text-decoration:none;">
+              PN {{ o.auto_id }}
+            </a>
+          </td>
+          <td data-val="{{ o.issue_date or '' }}">{{ o.issue_date|fmt_date or '—' }}</td>
+          <td data-val="{{ o.destination or '' }}">{{ o.destination or '—' }}</td>
+          <td data-val="{{ o.client_info or '' }}">{{ o.client_info or '—' }}</td>
+          <td data-val="{{ o.employee_name or '' }}">{{ o.employee_name or '—' }}</td>
+          <td data-val="{{ o.total_amount or 0 }}" style="text-align:right;font-weight:600;">
+            {{ '%.2f'|format(o.total_amount or 0) }} €
+          </td>
+          <td style="text-align:center;" data-val="{{ o.is_paid or 0 }}">
+            {% if o.is_paid %}
+              <span title="{{ o.paid_at or '' }}" style="font-size:15px;">✅</span>
+              <span style="font-size:11px;color:var(--gray-500);">{{ o.paid_at|fmt_date }}</span>
+            {% else %}
+              <span style="font-size:15px;">⏳</span>
+            {% endif %}
+          </td>
+          <td style="text-align:center;">
+            <div style="display:flex;gap:4px;justify-content:center;">
+              <a href="/orders/{{ o.id }}/edit" class="btn btn-sm btn-secondary" title="Otvori">
+                {% if o.status in ['submitted', 'approved'] %}👁️{% else %}✏️{% endif %}
+              </a>
+              {% if o.status == 'approved' %}
+              <a href="/orders/{{ o.id }}/pdf" target="_blank" class="btn btn-sm btn-secondary" title="PDF">🖨️</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="8" style="text-align:center;padding:40px;color:var(--gray-400);">
+            <div style="font-size:32px;margin-bottom:8px;">📋</div>
+            <div>Nema naloga za odabrane filtere.</div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      {% if orders %}
+      <tfoot>
+        <tr style="background:var(--gray-50);font-weight:700;">
+          <td colspan="5" style="padding:10px 12px;font-size:13px;">Ukupno (prikazano)</td>
+          <td style="text-align:right;padding:10px 12px;font-size:13px;" id="footer-total">{{ '%.2f'|format(total_amount) }} €</td>
+          <td colspan="2"></td>
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+</div>
+
+<style>
+.sortable { cursor:pointer; user-select:none; }
+.sortable:hover { background:var(--gray-100); }
+.sort-icon { font-size:10px; color:var(--gray-400); margin-left:3px; }
+th.sort-asc .sort-icon { color:var(--accent); }
+th.sort-asc .sort-icon::after { content:' ▲'; }
+th.sort-desc .sort-icon { color:var(--accent); }
+th.sort-desc .sort-icon::after { content:' ▼'; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function applyFilters() {
+  const year = document.getElementById('f-year').value;
+  const emp = document.getElementById('f-employee').value;
+  window.location.href = `/reports/popis-naloga?year=${year}&employee=${emp}`;
+}
+
+function applyFiltersLocal() {
+  const paid = document.getElementById('f-paid').value;
+  const search = document.getElementById('f-search').value.toLowerCase();
+  const dateFrom = document.getElementById('f-date-from').value;
+  const dateTo = document.getElementById('f-date-to').value;
+  const pnFrom = parseInt(document.getElementById('f-pn-from').value) || null;
+  const pnTo = parseInt(document.getElementById('f-pn-to').value) || null;
+  let visibleTotal = 0, visibleCount = 0;
+
+  document.querySelectorAll('#report-tbody tr[data-paid]').forEach(row => {
+    const matchPaid = !paid || row.dataset.paid === paid;
+    const matchSearch = !search || row.dataset.search.toLowerCase().includes(search);
+
+    // Date filter - compare ISO date strings (YYYY-MM-DD)
+    const rowDate = row.querySelector('td[data-val]')?.parentElement
+      ?.querySelectorAll('td')[1]?.dataset.val || '';
+    const matchDateFrom = !dateFrom || rowDate >= dateFrom;
+    const matchDateTo = !dateTo || rowDate <= dateTo;
+
+    // PN number filter - extract number part from auto_id e.g. "2026-15" -> 15
+    const autoId = row.querySelectorAll('td')[0]?.dataset.val || '';
+    const pnNum = parseInt(autoId.split('-')[1]) || 0;
+    const matchPnFrom = !pnFrom || pnNum >= pnFrom;
+    const matchPnTo = !pnTo || pnNum <= pnTo;
+
+    const show = matchPaid && matchSearch && matchDateFrom && matchDateTo && matchPnFrom && matchPnTo;
+    row.style.display = show ? '' : 'none';
+    if (show) {
+      visibleTotal += parseFloat(row.dataset.amount || 0);
+      visibleCount++;
+    }
+  });
+
+  document.getElementById('summary-count').textContent = visibleCount;
+  document.getElementById('summary-total').textContent = visibleTotal.toFixed(2) + ' €';
+  const ftEl = document.getElementById('footer-total');
+  if (ftEl) ftEl.textContent = visibleTotal.toFixed(2) + ' €';
+
+  // Show/hide clear button
+  const hasFilters = paid || search || dateFrom || dateTo || pnFrom || pnTo;
+  const clearBtn = document.getElementById('clear-report-btn');
+  if (clearBtn) clearBtn.style.display = hasFilters ? '' : 'none';
+}
+
+function clearLocalFilters() {
+  document.getElementById('f-paid').value = '';
+  document.getElementById('f-search').value = '';
+  document.getElementById('f-date-from').value = '';
+  document.getElementById('f-date-to').value = '';
+  document.getElementById('f-pn-from').value = '';
+  document.getElementById('f-pn-to').value = '';
+  applyFiltersLocal();
+}
+
+// Sorting
+let sortCol = -1, sortDir = 1;
+function sortReport(col) {
+  const tbody = document.getElementById('report-tbody');
+  const rows = Array.from(tbody.querySelectorAll('tr[data-paid]'));
+  sortDir = (sortCol === col) ? sortDir * -1 : 1;
+  sortCol = col;
+  document.querySelectorAll('th.sortable').forEach(th => th.classList.remove('sort-asc','sort-desc'));
+  document.querySelectorAll('th.sortable')[col]?.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+  rows.sort((a, b) => {
+    const aVal = (a.querySelectorAll('td')[col]?.dataset.val || '').trim();
+    const bVal = (b.querySelectorAll('td')[col]?.dataset.val || '').trim();
+    const aNum = parseFloat(aVal), bNum = parseFloat(bVal);
+    if (!isNaN(aNum) && !isNaN(bNum)) return (aNum - bNum) * sortDir;
+    return aVal.localeCompare(bVal, 'hr') * sortDir;
+  });
+  rows.forEach(row => tbody.appendChild(row));
+}
+</script>
+{% endblock %}

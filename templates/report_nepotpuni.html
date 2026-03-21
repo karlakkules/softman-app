@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% set active = 'reports' %}
+{% block topbar_title %}Izvještaj — Nepotpuni putni nalozi{% endblock %}
+{% block topbar_actions %}
+<a href="/reports/nepotpuni-nalozi/export" class="btn btn-secondary" title="Preuzmi Excel izvještaj nepotpunih naloga">⬇️ Export Excel</a>
+{% endblock %}
+
+{% block content %}
+<!-- Summary -->
+<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:16px;">
+  <div class="card" style="padding:16px 20px;background:linear-gradient(135deg,#1a3a5c 0%,#2d5986 100%);border:none;">
+    <div style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:.5px;">Ukupno nepotpunih</div>
+    <div style="font-size:32px;font-weight:700;color:#fff;margin-top:6px;" id="summary-count">{{ orders|length }}</div>
+  </div>
+  <div class="card" style="padding:16px 20px;background:linear-gradient(135deg,#b3500a 0%,#e67e22 100%);border:none;">
+    <div style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:.5px;">Ukupno nedostajućih polja</div>
+    <div style="font-size:32px;font-weight:700;color:#fff;margin-top:6px;">{{ orders|map(attribute='missing_fields')|map('length')|sum }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Putni nalozi s nepotpunim podacima</span>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="search" class="form-control" style="width:220px;" placeholder="Pretraži..." oninput="filterTable()">
+      <button class="btn btn-secondary" onclick="clearFilter()" title="Očisti pretragu" id="clear-btn" style="display:none;">✕ Očisti</button>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table id="main-table">
+      <thead>
+        <tr>
+          <th class="sortable" data-col="0" onclick="sortTable(0)">Br. PN <span class="sort-icon">↕</span></th>
+          <th class="sortable" data-col="1" onclick="sortTable(1)">Datum <span class="sort-icon">↕</span></th>
+          <th class="sortable" data-col="2" onclick="sortTable(2)">Zaposlenik <span class="sort-icon">↕</span></th>
+          <th class="sortable" data-col="3" onclick="sortTable(3)">Status <span class="sort-icon">↕</span></th>
+          <th>Nedostaje</th>
+          <th style="width:60px;">Akcije</th>
+        </tr>
+      </thead>
+      <tbody id="table-body">
+        {% for o in orders %}
+        <tr style="cursor:pointer;" data-search="{{ o.auto_id }} {{ o.employee_name or '' }} {{ o.missing_fields|join(' ') }}">
+          <td data-val="{{ o.auto_id }}">
+            <span style="font-family:'DM Mono',monospace;font-weight:600;color:var(--navy);">PN {{ o.auto_id }}</span>
+          </td>
+          <td data-val="{{ o.issue_date or '' }}">{{ o.issue_date|fmt_date or '—' }}</td>
+          <td data-val="{{ o.employee_name or '' }}">{{ o.employee_name or '—' }}</td>
+          <td data-val="{{ o.status }}">
+            {% if o.status == 'draft' %}<span class="badge badge-draft">Nacrt</span>
+            {% elif o.status == 'submitted' %}<span class="badge badge-submitted">Predano</span>
+            {% elif o.status == 'approved' %}<span class="badge badge-approved">Odobreno</span>
+            {% elif o.status == 'rejected' %}<span class="badge" style="background:#fdecea;color:#c0392b;">Odbijeno</span>
+            {% elif o.status == 'knjizeno' %}<span class="badge" style="background:#e8f4fd;color:#1a6b9a;">Knjiženo</span>
+            {% endif %}
+          </td>
+          <td>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;">
+              {% for field in o.missing_fields %}
+              <span style="background:#fdecea;color:#c0392b;border:1px solid #f5aca6;border-radius:4px;padding:2px 7px;font-size:11px;white-space:nowrap;">{{ field }}</span>
+              {% endfor %}
+            </div>
+          </td>
+          <td>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="text-align:center;padding:48px;color:var(--gray-400);">
+          <div style="font-size:36px;margin-bottom:8px;">✅</div>
+          <div style="font-weight:600;font-size:14px;">Svi putni nalozi su potpuni!</div>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div style="padding:10px 16px;background:var(--gray-50);border-top:1px solid var(--gray-200);font-size:12px;color:var(--gray-500);">
+    Prikazano: <span id="visible-count">{{ orders|length }}</span> nepotpunih naloga
+  </div>
+</div>
+
+<style>
+.sortable{cursor:pointer;user-select:none;}
+.sortable:hover{background:var(--gray-100);}
+.sort-icon{font-size:10px;color:var(--gray-400);margin-left:3px;}
+th.sort-asc .sort-icon::after{content:' ▲';color:var(--accent);}
+th.sort-desc .sort-icon::after{content:' ▼';color:var(--accent);}
+</style>
+{% endblock %}
+
+{% block scripts %}<script>
+let sortCol=-1, sortDir=1;
+function sortTable(col) {
+  const tbody = document.getElementById('table-body');
+  const rows = Array.from(tbody.querySelectorAll('tr[data-search]'));
+  sortDir = sortCol===col ? sortDir*-1 : 1; sortCol=col;
+  document.querySelectorAll('th.sortable').forEach(t=>t.classList.remove('sort-asc','sort-desc'));
+  document.querySelectorAll('th.sortable')[col]?.classList.add(sortDir===1?'sort-asc':'sort-desc');
+  rows.sort((a,b)=>{
+    const av=(a.querySelectorAll('td')[col]?.dataset.val||'').trim();
+    const bv=(b.querySelectorAll('td')[col]?.dataset.val||'').trim();
+    const an=parseFloat(av),bn=parseFloat(bv);
+    if(!isNaN(an)&&!isNaN(bn)) return (an-bn)*sortDir;
+    return av.localeCompare(bv,'hr')*sortDir;
+  });
+  rows.forEach(r=>tbody.appendChild(r));
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('#table-body tr[data-search]').forEach(row => {
+    row.addEventListener('dblclick', (e) => {
+      if (e.target.closest('button,a,input')) return;
+      const link = row.querySelector('a[href*="/orders/"]');
+      if (link) window.location.href = link.href;
+    });
+  });
+});
+
+function filterTable(){
+  const s=(document.getElementById('search').value||'').toLowerCase();
+  let vis=0;
+  document.querySelectorAll('#table-body tr[data-search]').forEach(r=>{
+    const show=!s||r.dataset.search.toLowerCase().includes(s);
+    r.style.display=show?'':'none';
+    if(show) vis++;
+  });
+  document.getElementById('visible-count').textContent=vis;
+  document.getElementById('clear-btn').style.display=s?'':'none';
+}
+function clearFilter(){
+  document.getElementById('search').value='';
+  filterTable();
+}
+</script>{% endblock %}
