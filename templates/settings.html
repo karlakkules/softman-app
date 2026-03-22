@@ -180,7 +180,7 @@
             </td>
             <td>
               <div style="display:flex;gap:4px;">
-                <button class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;" data-emp='{{ e | tojson }}' onclick="editEmployeeBtn(this)">✏️</button>
+                <button class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;" onclick="editEmployeeById({{ e.id }})">✏️</button>
                 <button style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;border-radius:6px;cursor:pointer;" onclick="deleteItem('employees', {{ e.id }}, 'emp-row-{{ e.id }}')">🗑</button>
               </div>
             </td>
@@ -194,28 +194,6 @@
 
 <!-- ── VEHICLES ── -->
 <div id="tab-vehicles" class="tab-content">
-  <div class="card" style="margin-bottom:16px;">
-    <div class="card-header"><span class="card-title">🏠 GPS evidencija — kućna lokacija</span></div>
-    <div class="card-body">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-        <div class="form-group">
-          <label class="form-label">Kućna adresa (za prepoznavanje povratka)</label>
-          <input type="text" class="form-control" id="vehicle_home_address"
-                 value="{{ settings.vehicle_home_address or '' }}"
-                 placeholder="npr. Ulica Pavla Pejačevića 46">
-          <div style="font-size:11px;color:var(--gray-400);margin-top:4px;">Vožnja koja završava na ovoj adresi označava kraj poslovnog puta</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Matični grad</label>
-          <input type="text" class="form-control" id="vehicle_home_city"
-                 value="{{ settings.vehicle_home_city or 'Osijek' }}"
-                 placeholder="npr. Osijek">
-          <div style="font-size:11px;color:var(--gray-400);margin-top:4px;">Vožnje unutar ovog grada su privatne ako nisu dio poslovnog puta</div>
-        </div>
-      </div>
-      <button class="btn btn-primary" onclick="saveVehicleHomeSettings()">💾 Spremi</button>
-    </div>
-  </div>
   <div class="card">
     <div class="card-header">
       <span class="card-title">Vozila</span>
@@ -250,8 +228,7 @@
             <td>
               <div style="display:flex;gap:4px;">
                 <button class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;"
-                  data-vehicle='{{ v | tojson }}'
-                  onclick="openVehicleModal(JSON.parse(this.dataset.vehicle))" title="Uredi vozilo">✏️</button>
+                  onclick="editVehicleById({{ v.id }})" title="Uredi vozilo">✏️</button>
                 <button style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;border-radius:6px;cursor:pointer;"
                   onclick="deleteItem('vehicles', {{ v.id }}, 'veh-row-{{ v.id }}')">🗑</button>
               </div>
@@ -308,6 +285,19 @@
           <option value="{{ e.id }}">{{ e.name }}</option>
           {% endfor %}
         </select>
+      </div>
+      <div style="border-top:1px solid var(--gray-100);padding-top:14px;">
+        <div style="font-size:11px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">🏠 GPS evidencija — kućna lokacija</div>
+        <div class="form-group">
+          <label class="form-label">Kućna adresa</label>
+          <input type="text" class="form-control" id="vm-home-address" placeholder="npr. Ulica Pavla Pejačevića 46">
+          <div style="font-size:11px;color:var(--gray-400);margin-top:4px;">Vožnja koja završava na ovoj adresi označava kraj poslovnog puta</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Matični grad</label>
+          <input type="text" class="form-control" id="vm-home-city" placeholder="npr. Osijek">
+          <div style="font-size:11px;color:var(--gray-400);margin-top:4px;">Vožnje unutar ovog grada su privatne ako nisu dio poslovnog puta</div>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
@@ -852,6 +842,20 @@
 
 {% block scripts %}
 <script>
+// ── Lookup tablice za edit gumbe (sigurna alternativa tojson u HTML atributima) ──
+const VEHICLES_DATA = {{ vehicles | tojson }};
+const EMPLOYEES_DATA = {{ employees | tojson }};
+
+function editVehicleById(id) {
+  const v = VEHICLES_DATA.find(x => x.id === id);
+  if (v) openVehicleModal(v);
+}
+
+function editEmployeeById(id) {
+  const e = EMPLOYEES_DATA.find(x => x.id === id);
+  if (e) editEmployee(e);
+}
+
 // ── Tabs ──────────────────────────────────────────────────────────────────
 // Mapiranje tab -> primarna kategorija
 const TAB_TO_PRIMARY = {
@@ -900,7 +904,6 @@ document.addEventListener('DOMContentLoaded', () => {
   showTab(savedTab);
 });
 
-// ── Vehicle home settings ─────────────────────────────────────────────────
 // ── VEHICLE MODAL ────────────────────────────────────────────────────────────
 function onVehicleTypeChange() {
   const isAssigned = document.getElementById('vm-type-assigned').checked;
@@ -914,7 +917,8 @@ function openVehicleModal(vehicle) {
   document.getElementById('vm-id').value = vehicle ? vehicle.id : '';
   document.getElementById('vm-name').value = vehicle ? vehicle.name : '';
   document.getElementById('vm-reg').value = vehicle ? (vehicle.reg_plate || '') : '';
-  document.getElementById('vm-default').checked = vehicle ? !!vehicle.is_default : false;
+  document.getElementById('vm-home-address').value = vehicle ? (vehicle.home_address || '') : '';
+  document.getElementById('vm-home-city').value = vehicle ? (vehicle.home_city || '') : '';
 
   const type = vehicle ? (vehicle.vehicle_type || 'pool') : 'pool';
   document.getElementById('vm-type-pool').checked = type === 'pool';
@@ -940,7 +944,8 @@ async function saveVehicle() {
     reg_plate: document.getElementById('vm-reg').value.trim(),
     vehicle_type: type,
     assigned_employee_id: type === 'assigned' ? (parseInt(document.getElementById('vm-employee').value) || null) : null,
-    is_default: document.getElementById('vm-default').checked ? 1 : 0,
+    home_address: document.getElementById('vm-home-address').value.trim() || null,
+    home_city: document.getElementById('vm-home-city').value.trim() || null,
   };
   if (!payload.name) { toast('Unesite naziv vozila!', 'error'); return; }
 
@@ -955,18 +960,6 @@ async function saveVehicle() {
   } else {
     toast(d.error || 'Greška!', 'error');
   }
-}
-
-async function saveVehicleHomeSettings() {
-  const data = {
-    vehicle_home_address: document.getElementById('vehicle_home_address').value,
-    vehicle_home_city: document.getElementById('vehicle_home_city').value,
-  };
-  const res = await fetch('/api/settings', {method:'POST',
-    headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)});
-  const d = await res.json();
-  if (d.success) toast(t('Kućna lokacija spremljena!', 'Home location saved!'), 'success');
-  else toast(t('Greška!', 'Error!'), 'error');
 }
 
 // ── General settings ──────────────────────────────────────────────────────

@@ -793,6 +793,12 @@ def init_db():
         c.execute("ALTER TABLE vehicles ADD COLUMN assigned_employee_id INTEGER DEFAULT NULL")
     except: pass
     try:
+        c.execute("ALTER TABLE vehicles ADD COLUMN home_address TEXT DEFAULT NULL")
+    except: pass
+    try:
+        c.execute("ALTER TABLE vehicles ADD COLUMN home_city TEXT DEFAULT NULL")
+    except: pass
+    try:
         c.execute("ALTER TABLE profiles ADD COLUMN can_view_pool_vehicles INTEGER DEFAULT 0")
     except: pass
     try:
@@ -3234,13 +3240,23 @@ def parse_vehicle_csv():
     lines = content.strip().split('\n')
 
     # Parsiramo svaku vožnju zasebno
-    # Dohvati home adresu iz postavki
-    from flask import g as _g
+    # Dohvati home adresu — prvo s vozila, fallback na globalne postavke
+    vehicle_id = request.form.get('vehicle_id', '').strip()
     _conn_s = get_db()
     _s = {r['key']: r['value'] for r in _conn_s.execute("SELECT * FROM settings").fetchall()}
+    home_addr = ''
+    home_city = ''
+    if vehicle_id:
+        _veh = _conn_s.execute("SELECT home_address, home_city FROM vehicles WHERE id=?", (vehicle_id,)).fetchone()
+        if _veh:
+            home_addr = (_veh['home_address'] or '').strip()
+            home_city = (_veh['home_city'] or '').strip()
+    if not home_addr:
+        home_addr = _s.get('vehicle_home_address', '').strip()
+    if not home_city:
+        home_city = _s.get('vehicle_home_city', 'Osijek').strip()
     _conn_s.close()
-    home_addr = _s.get('vehicle_home_address', '').strip()
-    home_city = _s.get('vehicle_home_city', 'Osijek').strip() or 'Osijek'
+    home_city = home_city or 'Osijek'
 
     def is_home(addr):
         # Vraća True SAMO ako adresa sadrži točnu kućnu adresu
