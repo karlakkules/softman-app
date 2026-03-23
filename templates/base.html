@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Putni Nalog — {{ company_name }}</title>
+<title>Putni Nalog — Softman</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 
@@ -53,8 +53,14 @@
     z-index: 100;
   }
   .sidebar-logo {
+    display: block;
     padding: 20px 18px 16px;
     border-bottom: 1px solid rgba(255,255,255,0.08);
+    text-decoration: none;
+    transition: background 0.15s;
+  }
+  .sidebar-logo:hover {
+    background: rgba(255,255,255,0.06);
   }
   .sidebar-logo img { width: 130px; filter: brightness(0) invert(1); }
   .sidebar-logo-text {
@@ -407,16 +413,14 @@
 <body>
 
 <aside class="sidebar">
-  <div class="sidebar-logo">
-    <img src="/static/{{ company_logo }}" alt="{{ company_name }}" onerror="this.onerror=null;this.style.display='none';">
-    <div style="display:none;color:white;font-weight:700;font-size:15px;">{{ company_name }}</div>
-    <div class="sidebar-logo-text" data-hr="{{ company_name }}" data-en="{{ company_name }}">{{ company_name }}</div>
-  </div>
+  <!-- Logo je sada klikabilni link koji vodi na dashboard -->
+  <a href="/" class="sidebar-logo">
+    <img src="/static/{{ company_logo }}" alt="Softman" onerror="this.onerror=null;this.style.display='none';">
+    <div style="display:none;color:white;font-weight:700;font-size:15px;">Softman</div>
+    <div class="sidebar-logo-text">{{ company_name }}</div>
+  </a>
   <nav class="sidebar-nav">
-    <a href="/" class="nav-item {% if active=='dashboard' %}active{% endif %}">
-      <span class="icon">🏠</span>
-      <span>Pregled</span>
-    </a>
+    <!-- Pregled (Dashboard) uklonjen iz navigacije — dostupan klikom na logo -->
     <div class="nav-section" style="margin-top:4px;">Moduli</div>
     {% if current_user.get("is_admin") or current_user.get("can_view_worktime") %}
     <a href="/worktime" class="nav-item {% if active=='worktime' %}active{% endif %}">
