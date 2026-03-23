@@ -36,3 +36,9 @@ env/
 
 # Logs
 *.log
+.env
+import_orders.py
+
+# Uploadani potpisi i logovi
+uploads/
+static/company_logo.*

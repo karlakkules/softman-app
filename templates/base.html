@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Putni Nalog — Softman</title>
+<title>Putni Nalog — {{ company_name }}</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 
@@ -408,9 +408,9 @@
 
 <aside class="sidebar">
   <div class="sidebar-logo">
-    <img src="/static/logo.png" alt="Softman" onerror="this.onerror=null;this.style.display='none';">
-    <div style="display:none;color:white;font-weight:700;font-size:15px;">Softman</div>
-    <div class="sidebar-logo-text" data-hr="Softman App" data-en="Softman App">Softman App</div>
+    <img src="/static/{{ company_logo }}" alt="{{ company_name }}" onerror="this.onerror=null;this.style.display='none';">
+    <div style="display:none;color:white;font-weight:700;font-size:15px;">{{ company_name }}</div>
+    <div class="sidebar-logo-text" data-hr="{{ company_name }}" data-en="{{ company_name }}">{{ company_name }}</div>
   </div>
   <nav class="sidebar-nav">
     <a href="/" class="nav-item {% if active=='dashboard' %}active{% endif %}">

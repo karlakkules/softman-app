@@ -16,9 +16,12 @@ from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 import io
 from PIL import Image as PILImage
 
+from dotenv import load_dotenv
+load_dotenv()
+
 app = Flask(__name__)
-app.secret_key = 'softman-putni-nalog-2026'
-JWT_SECRET = 'softman-jwt-secret-2026-change-in-production'
+app.secret_key = os.environ.get('SECRET_KEY', 'change-this-secret-key')
+JWT_SECRET = os.environ.get('JWT_SECRET', 'change-this-jwt-secret')
 JWT_EXPIRY_HOURS = 8
 
 # ─── AUTH HELPERS ─────────────────────────────────────────────────────────────
@@ -150,7 +153,17 @@ def inject_user():
 @app.context_processor
 def inject_current_user():
     user = get_current_user()
-    return {'current_user': user or {}}
+    try:
+        conn = get_db()
+        row = conn.execute("SELECT value FROM settings WHERE key='company_name'").fetchone()
+        logo_row = conn.execute("SELECT value FROM settings WHERE key='company_logo'").fetchone()
+        conn.close()
+        company_name = row['value'] if row and row['value'] else 'MicroBusiness App'
+        company_logo = logo_row['value'] if logo_row and logo_row['value'] else 'logo.png'
+    except:
+        company_name = 'MicroBusiness App'
+        company_logo = 'logo.png'
+    return {'current_user': user or {}, 'company_name': company_name, 'company_logo': company_logo}
 
 @app.template_filter('fmt_date')
 def fmt_date(value):
@@ -428,14 +441,14 @@ def init_db():
     c.execute("SELECT COUNT(*) FROM employees")
     if c.fetchone()[0] == 0:
         c.execute("INSERT INTO employees (name, position, is_direktor, is_blagajnik, is_default) VALUES (?, ?, 1, 1, 0)",
-                  ("Karla Korlaet Kuleš", "Direktorica"))
+                  ("", ""))
         c.execute("INSERT INTO employees (name, position, is_default) VALUES (?, ?, 1)",
-                  ("Krešimir Kuleš", ""))
+                  ("", ""))
 
     c.execute("SELECT COUNT(*) FROM vehicles")
     if c.fetchone()[0] == 0:
         c.execute("INSERT INTO vehicles (name, reg_plate, is_default) VALUES (?, ?, 1)",
-                  ("Službeni auto Toyota C-Hr", "ZG3453KF"))
+                  ("", ""))
 
     c.execute("SELECT COUNT(*) FROM expense_categories")
     if c.fetchone()[0] == 0:
@@ -453,13 +466,13 @@ def init_db():
         c.execute("INSERT INTO settings (key, value) VALUES ('daily_allowance_rate', '30')")
     c.execute("SELECT value FROM settings WHERE key='company_name'")
     if not c.fetchone():
-        c.execute("INSERT INTO settings (key, value) VALUES ('company_name', 'Softman d.o.o.')")
+        c.execute("INSERT INTO settings (key, value) VALUES ('company_name', '')")
     c.execute("SELECT value FROM settings WHERE key='company_address'")
     if not c.fetchone():
-        c.execute("INSERT INTO settings (key, value) VALUES ('company_address', 'Stonska ulica 1, Zagreb 10000 Croatia')")
+        c.execute("INSERT INTO settings (key, value) VALUES ('company_address', '')")
     c.execute("SELECT value FROM settings WHERE key='company_oib'")
     if not c.fetchone():
-        c.execute("INSERT INTO settings (key, value) VALUES ('company_oib', '69887394072')")
+        c.execute("INSERT INTO settings (key, value) VALUES ('company_oib', '')")
     c.execute("SELECT value FROM settings WHERE key='last_order_number'")
     if not c.fetchone():
         c.execute("INSERT INTO settings (key, value) VALUES ('last_order_number', '12')")
@@ -649,25 +662,25 @@ def init_db():
         c.execute("INSERT INTO settings (key, value) VALUES ('last_quote_year', '2024')")
     c.execute("SELECT value FROM settings WHERE key='company_phone'")
     if not c.fetchone():
-        c.execute("INSERT INTO settings (key, value) VALUES ('company_phone', '099/2743-036')")
+        c.execute("INSERT INTO settings (key, value) VALUES ('company_phone', '')")
     c.execute("SELECT value FROM settings WHERE key='company_email'")
     if not c.fetchone():
-        c.execute("INSERT INTO settings (key, value) VALUES ('company_email', 'karla.korlaetkules@softman.hr')")
+        c.execute("INSERT INTO settings (key, value) VALUES ('company_email', '')")
     c.execute("SELECT value FROM settings WHERE key='company_iban'")
     if not c.fetchone():
-        c.execute("INSERT INTO settings (key, value) VALUES ('company_iban', 'HR0823600001102851911')")
+        c.execute("INSERT INTO settings (key, value) VALUES ('company_iban', '')")
     c.execute("SELECT value FROM settings WHERE key='company_bank'")
     if not c.fetchone():
-        c.execute("INSERT INTO settings (key, value) VALUES ('company_bank', 'Zagrebačka banka')")
+        c.execute("INSERT INTO settings (key, value) VALUES ('company_bank', '')")
     c.execute("SELECT value FROM settings WHERE key='company_mbs'")
     if not c.fetchone():
-        c.execute("INSERT INTO settings (key, value) VALUES ('company_mbs', '081295032')")
+        c.execute("INSERT INTO settings (key, value) VALUES ('company_mbs', '')")
     c.execute("SELECT value FROM settings WHERE key='company_capital'")
     if not c.fetchone():
-        c.execute("INSERT INTO settings (key, value) VALUES ('company_capital', '2.654,46 EUR uplaćen u cijelosti')")
+        c.execute("INSERT INTO settings (key, value) VALUES ('company_capital', '')")
     c.execute("SELECT value FROM settings WHERE key='company_director'")
     if not c.fetchone():
-        c.execute("INSERT INTO settings (key, value) VALUES ('company_director', 'Karla Korlaet Kuleš')")
+        c.execute("INSERT INTO settings (key, value) VALUES ('company_director', '')")
     c.execute("SELECT value FROM settings WHERE key='quote_pdv_rate'")
     if not c.fetchone():
         c.execute("INSERT INTO settings (key, value) VALUES ('quote_pdv_rate', '25')")
@@ -716,7 +729,7 @@ def init_db():
         from werkzeug.security import generate_password_hash
         c.execute('''INSERT INTO users (username, password_hash, is_admin, display_name, email, auth_provider)
                      VALUES (?, ?, 1, ?, ?, 'local')''',
-                  ('admin', generate_password_hash('softman2026', method='pbkdf2:sha256'), 'Administrator', 'admin@softman.hr'))
+                  ('admin', generate_password_hash('changeme123', method='pbkdf2:sha256'), 'Administrator', ''))
 
     # Migration: create profiles table
     c.executescript('''
@@ -1653,7 +1666,7 @@ def report_popis_export():
         cell.border = border
 
     # ── Title block ──
-    company = settings.get('company_name', 'Softman d.o.o.')
+    company = settings.get('company_name', '')
     ws.merge_cells('A1:H1')
     title_cell = ws['A1']
     title_cell.value = f"POPIS PUTNIH NALOGA — {year_filter}"
@@ -1968,7 +1981,7 @@ def create_pdf(order, expenses, employee, vehicle, approved_by, validator, blaga
                              topMargin=15*mm, bottomMargin=15*mm,
                              leftMargin=20*mm, rightMargin=20*mm,
                              title=f"PN {order['auto_id']}",
-                             author="Softman d.o.o.")
+                             author=settings.get("company_name", ""))
 
     styles = getSampleStyleSheet()
     W = A4[0] - 40*mm  # content width
@@ -2032,7 +2045,13 @@ def create_pdf(order, expenses, employee, vehicle, approved_by, validator, blaga
         BOLD_FONT = 'Helvetica-Bold'
 
     # ── HEADER ────────────────────────────────────────────────────────────────
-    logo_path = os.path.join(os.path.dirname(__file__), 'logo.png')
+    conn_logo1 = get_db()
+    _logo_row1 = conn_logo1.execute("SELECT value FROM settings WHERE key='company_logo'").fetchone()
+    conn_logo1.close()
+    _logo_file1 = _logo_row1['value'] if _logo_row1 and _logo_row1['value'] else 'logo.png'
+    logo_path = os.path.join(os.path.dirname(__file__), 'static', _logo_file1)
+    if not os.path.exists(logo_path):
+        logo_path = os.path.join(os.path.dirname(__file__), 'static', 'logo.png')
     header_data = [[]]
     if os.path.exists(logo_path):
         img = Image(logo_path, width=41.2*mm, height=12.7*mm)
@@ -2405,6 +2424,45 @@ def create_pdf(order, expenses, employee, vehicle, approved_by, validator, blaga
 
 # ─── SETTINGS API ─────────────────────────────────────────────────────────────
 
+@app.route('/api/settings/logo', methods=['POST'])
+@admin_required
+def upload_company_logo():
+    if 'logo' not in request.files:
+        return jsonify({'error': 'Nema datoteke'}), 400
+    f = request.files['logo']
+    if not f.filename:
+        return jsonify({'error': 'Nema naziva datoteke'}), 400
+    ext = os.path.splitext(f.filename)[1].lower()
+    if ext not in ['.png', '.jpg', '.jpeg', '.svg']:
+        return jsonify({'error': 'Dozvoljeni formati: PNG, JPG, SVG'}), 400
+    logo_path = os.path.join(os.path.dirname(__file__), 'static', 'company_logo' + ext)
+    # Obriši stari logo ako postoji
+    for old_ext in ['.png', '.jpg', '.jpeg', '.svg']:
+        old_path = os.path.join(os.path.dirname(__file__), 'static', 'company_logo' + old_ext)
+        if os.path.exists(old_path):
+            os.remove(old_path)
+    f.save(logo_path)
+    conn = get_db()
+    conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('company_logo', ?)",
+                 ('company_logo' + ext,))
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True, 'logo': 'company_logo' + ext})
+
+@app.route('/api/settings/logo', methods=['DELETE'])
+@admin_required
+def delete_company_logo():
+    conn = get_db()
+    row = conn.execute("SELECT value FROM settings WHERE key='company_logo'").fetchone()
+    if row and row['value']:
+        logo_path = os.path.join(os.path.dirname(__file__), 'static', row['value'])
+        if os.path.exists(logo_path):
+            os.remove(logo_path)
+    conn.execute("DELETE FROM settings WHERE key='company_logo'")
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True})
+
 # ─── QUOTES ───────────────────────────────────────────────────────────────────
 
 def get_next_quote_id():
@@ -2703,10 +2761,16 @@ def create_quote_pdf(quote, items, client, prepared_by, settings):
     def safe(t): return str(t).strip() if t else ''
 
     story = []
-    logo_path = os.path.join(os.path.dirname(__file__), 'logo.png')
+    conn_logo2 = get_db()
+    _logo_row2 = conn_logo2.execute("SELECT value FROM settings WHERE key='company_logo'").fetchone()
+    conn_logo2.close()
+    _logo_file2 = _logo_row2['value'] if _logo_row2 and _logo_row2['value'] else 'logo.png'
+    logo_path = os.path.join(os.path.dirname(__file__), 'static', _logo_file2)
+    if not os.path.exists(logo_path):
+        logo_path = os.path.join(os.path.dirname(__file__), 'static', 'logo.png')
 
     # ── HEADER: logo lijevo, firma desno ──────────────────────────────────
-    comp_name = settings.get('company_name', 'Softman d.o.o.')
+    comp_name = settings.get('company_name', '')
     comp_oib  = settings.get('company_oib', '')
     comp_addr = settings.get('company_address', '')
     comp_phone= settings.get('company_phone', '')
@@ -3254,9 +3318,9 @@ def parse_vehicle_csv():
     if not home_addr:
         home_addr = _s.get('vehicle_home_address', '').strip()
     if not home_city:
-        home_city = _s.get('vehicle_home_city', 'Osijek').strip()
+        home_city = _s.get('vehicle_home_city', '').strip()
     _conn_s.close()
-    home_city = home_city or 'Osijek'
+    home_city = home_city or ''
 
     def is_home(addr):
         # Vraća True SAMO ako adresa sadrži točnu kućnu adresu
@@ -3566,7 +3630,7 @@ def vehicle_log_excel(log_id):
     # Rows 4-7: Meta info
     meta = [
         ('Vozilo:', (vehicle['name'] + ' ' + vehicle['reg_plate']) if vehicle else '—'),
-        ('Vlasnik:', settings.get('company_name', 'Softman d.o.o.')),
+        ('Vlasnik:', settings.get('company_name', '')),
         ('Korisnik:', settings.get('company_director', '')),
         ('Mjesec:', f"{month_name} {year}"),
     ]
@@ -3735,7 +3799,7 @@ def vehicle_log_excel(log_id):
 
     veh_name  = (vehicle['name']) if vehicle else 'Toyota C-HR'
     reg_plate = vehicle['reg_plate'] if vehicle else ''
-    owner     = settings.get('company_name', 'SOFTMAN d.o.o.')
+    owner     = settings.get('company_name', '')
     user_name = settings.get('company_director', '')
     month_label = f"{month:02d}-{str(year)[2:]}"
 
@@ -4033,7 +4097,13 @@ def vehicle_log_pdf(log_id):
     story = []
 
     # ── HEADER: logo + naslov ──────────────────────────────────────────────
-    logo_path = os.path.join(app_dir, 'logo.png')
+    conn_logo = get_db()
+    _logo_row = conn_logo.execute("SELECT value FROM settings WHERE key='company_logo'").fetchone()
+    conn_logo.close()
+    _logo_file = _logo_row['value'] if _logo_row and _logo_row['value'] else 'logo.png'
+    logo_path = os.path.join(app_dir, 'static', _logo_file)
+    if not os.path.exists(logo_path):
+        logo_path = os.path.join(app_dir, 'logo.png')
     title_block = [
         P('EVIDENCIJA KORIŠTENJA SLUŽBENOG VOZILA', name='t', size=13, bold=True, align=TA_RIGHT, color=BLUE),
         P(f"{month_name.upper()} {year}", name='s', size=10, align=TA_RIGHT, color=GRAY),
@@ -4667,7 +4737,7 @@ def create_user():
                         employee_id, display_name, email, auth_provider, profile_id)
                         VALUES (?, ?, ?, ?, ?, ?, ?, 'local', ?)''',
                     (data['username'],
-                     generate_password_hash(data.get('password', 'softman2026'), method='pbkdf2:sha256'),
+                     generate_password_hash(data.get('password', 'changeme123'), method='pbkdf2:sha256'),
                      1 if data.get('is_admin') else 0,
                      1 if data.get('is_active', True) else 0,
                      data.get('employee_id') or None,
@@ -5312,7 +5382,7 @@ def create_worktime_pdf(report, entries, days_in_month, settings):
 
     year, month = report['year'], report['month']
     month_name = MONTHS_HR.get(month, str(month)).upper()
-    company = settings.get('company_name', 'Softman d.o.o.')
+    company = settings.get('company_name', '')
     employee = report.get('employee_name', '')
     director_name = report.get('director_name', '')
     employee_sig_path = report.get('employee_signature')
@@ -5476,7 +5546,7 @@ def create_worktime_pdf(report, entries, days_in_month, settings):
 
 # ─── ULAZNI RAČUNI MODULE ────────────────────────────────────────────────────
 
-INVOICE_STORAGE_BASE = "/Users/karlakorlaetkules/Library/CloudStorage/OneDrive-Softmand.o.o/Softman folder/Računi/Ulazni računi"
+INVOICE_STORAGE_BASE = os.environ.get("INVOICE_STORAGE_PATH", os.path.join(os.path.dirname(__file__), "uploads", "racuni"))
 
 def get_invoice_folder(year, month):
     """Returns folder path like /path/02 2026, creates it if missing."""
@@ -5493,7 +5563,7 @@ def ocr_file(file_path, mime_type):
         from PIL import Image
 
         # Set tesseract path explicitly for macOS Homebrew
-        pytesseract.pytesseract.tesseract_cmd = '/opt/homebrew/bin/tesseract'
+        pytesseract.pytesseract.tesseract_cmd = os.environ.get('TESSERACT_PATH', '/opt/homebrew/bin/tesseract')
 
         if mime_type == 'application/pdf' or file_path.lower().endswith('.pdf'):
             # First try direct text extraction (digital PDF)
@@ -5512,7 +5582,7 @@ def ocr_file(file_path, mime_type):
             # Scanned PDF — convert to images and OCR
             from pdf2image import convert_from_path
             pages = convert_from_path(file_path, dpi=300,
-                                      poppler_path='/opt/homebrew/bin')
+                                      poppler_path=os.environ.get('POPPLER_PATH', '/opt/homebrew/bin'))
             text = ""
             for page_img in pages:
                 text += pytesseract.image_to_string(page_img, lang='hrv+eng') + "\n"
@@ -5665,8 +5735,12 @@ def parse_invoice_data(text):
     company_suffixes = ['d.o.o', 'd.d', 'j.d.o.o', 'obrt', 'ltd', 'gmbh', ' ad', 's.p.', 's.r.o']
     known_companies = ['petrol', 'konzum', 'dm', 'lidl', 'kaufland', 'spar', 'tommy', 'ina', 'hep',
                        'hrvatska', 'telekom', 't-com', 'optima', 'a1 ', 'vip', 'iskon']
+    conn_skip = get_db()
+    _company_skip = conn_skip.execute("SELECT value FROM settings WHERE key='company_name'").fetchone()
+    conn_skip.close()
+    _company_name = (_company_skip['value'].lower() if _company_skip and _company_skip['value'] else '')
     skip_words = ['oib', 'iban', 'račun', 'invoice', 'fisk', 'datum', 'ukupno', 'plaćanje',
-                  'kartica', 'pdv', 'softman', 'softhan']
+                  'kartica', 'pdv'] + ([_company_name] if _company_name else [])
 
     for line in lines[:15]:
         l = line.strip()
@@ -5792,7 +5866,7 @@ def invoice_upload():
 @app.route('/invoices/save', methods=['POST'])
 @require_perm('can_edit_invoices')
 def invoice_save():
-    """Save invoice record and copy file to correct OneDrive folder."""
+    """Save invoice record and copy file to configured storage folder."""
     import os, shutil, tempfile
     from datetime import datetime as dt
 

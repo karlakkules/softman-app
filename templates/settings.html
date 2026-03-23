@@ -127,7 +127,64 @@
       </button>
     </div>
   </div>
+
+  <div class="card" style="margin-top:16px;">
+    <div class="card-header"><span class="card-title">Logo tvrtke</span></div>
+    <div class="card-body">
+      <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:12px;color:var(--gray-400);margin-bottom:8px;">Trenutni logo:</div>
+          <img id="current-logo-preview" src="/static/{{ company_logo }}" alt="Logo"
+               style="height:48px;object-fit:contain;border:1px solid var(--gray-100);border-radius:8px;padding:6px;background:#fff;"
+               onerror="this.style.display='none'">
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <label class="form-label">Upload novog loga (PNG, JPG, SVG)</label>
+          <input type="file" class="form-control" id="logo-upload-input" accept=".png,.jpg,.jpeg,.svg">
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button class="btn btn-primary" onclick="uploadLogo()">📤 Upload loga</button>
+            <button class="btn btn-danger" onclick="deleteLogo()">🗑 Ukloni logo</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
+
+<script>
+function uploadLogo() {
+  const input = document.getElementById('logo-upload-input');
+  if (!input.files || !input.files[0]) {
+    alert('Odaberi datoteku!');
+    return;
+  }
+  const formData = new FormData();
+  formData.append('logo', input.files[0]);
+  fetch('/api/settings/logo', {method: 'POST', body: formData})
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        alert('Logo uspješno uploadan!');
+        document.getElementById('current-logo-preview').src = '/static/' + d.logo + '?t=' + Date.now();
+        document.getElementById('current-logo-preview').style.display = '';
+      } else {
+        alert('Greška: ' + (d.error || 'Nepoznata greška'));
+      }
+    });
+}
+
+function deleteLogo() {
+  if (!confirm('Ukloniti logo?')) return;
+  fetch('/api/settings/logo', {method: 'DELETE'})
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        alert('Logo uklonjen!');
+        document.getElementById('current-logo-preview').style.display = 'none';
+      }
+    });
+}
+</script>
 
 <!-- ── EMPLOYEES ── -->
 <div id="tab-employees" class="tab-content">
@@ -256,7 +313,7 @@
       </div>
       <div class="form-group">
         <label class="form-label">Registarska oznaka</label>
-        <input type="text" class="form-control" id="vm-reg" placeholder="npr. ZG3453KF">
+        <input type="text" class="form-control" id="vm-reg" placeholder="npr. ZG123ZG">
       </div>
       <div class="form-group">
         <label class="form-label">Tip korištenja</label>
@@ -552,7 +609,7 @@
       <div class="form-row form-row-2">
         <div class="form-group">
           <label class="form-label">Korisničko ime *</label>
-          <input type="text" class="form-control" id="user-username" placeholder="npr. kresimir.kules">
+          <input type="text" class="form-control" id="user-username" placeholder="npr. ivan.ivic">
         </div>
         <div class="form-group">
           <label class="form-label">Lozinka <span id="pwd-hint" style="color:var(--gray-400);font-size:11px;">(prazno = ne mijenja)</span></label>
