@@ -192,13 +192,10 @@ function applyFiltersLocal() {
     const matchPaid = !paid || row.dataset.paid === paid;
     const matchSearch = !search || row.dataset.search.toLowerCase().includes(search);
 
-    // Date filter - compare ISO date strings (YYYY-MM-DD)
-    const rowDate = row.querySelector('td[data-val]')?.parentElement
-      ?.querySelectorAll('td')[1]?.dataset.val || '';
+    const rowDate = row.querySelectorAll('td')[1]?.dataset.val || '';
     const matchDateFrom = !dateFrom || rowDate >= dateFrom;
     const matchDateTo = !dateTo || rowDate <= dateTo;
 
-    // PN number filter - extract number part from auto_id e.g. "2026-15" -> 15
     const autoId = row.querySelectorAll('td')[0]?.dataset.val || '';
     const pnNum = parseInt(autoId.split('-')[1]) || 0;
     const matchPnFrom = !pnFrom || pnNum >= pnFrom;
@@ -217,7 +214,6 @@ function applyFiltersLocal() {
   const ftEl = document.getElementById('footer-total');
   if (ftEl) ftEl.textContent = visibleTotal.toFixed(2) + ' €';
 
-  // Show/hide clear button
   const hasFilters = paid || search || dateFrom || dateTo || pnFrom || pnTo;
   const clearBtn = document.getElementById('clear-report-btn');
   if (clearBtn) clearBtn.style.display = hasFilters ? '' : 'none';
@@ -233,23 +229,57 @@ function clearLocalFilters() {
   applyFiltersLocal();
 }
 
-// Sorting
-let sortCol = -1, sortDir = 1;
+// ── Sorting ───────────────────────────────────────────────────────────────
+let sortCol = 0, sortDir = -1; // default: Broj PN descending
+
 function sortReport(col) {
   const tbody = document.getElementById('report-tbody');
   const rows = Array.from(tbody.querySelectorAll('tr[data-paid]'));
   sortDir = (sortCol === col) ? sortDir * -1 : 1;
   sortCol = col;
-  document.querySelectorAll('th.sortable').forEach(th => th.classList.remove('sort-asc','sort-desc'));
+
+  document.querySelectorAll('th.sortable').forEach(th => th.classList.remove('sort-asc', 'sort-desc'));
   document.querySelectorAll('th.sortable')[col]?.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+
   rows.sort((a, b) => {
     const aVal = (a.querySelectorAll('td')[col]?.dataset.val || '').trim();
     const bVal = (b.querySelectorAll('td')[col]?.dataset.val || '').trim();
+
+    // Kolona 0 = Broj PN: format YYYY-N, sortiraj numerički
+    if (col === 0) {
+      const aParts = aVal.split('-').map(Number);
+      const bParts = bVal.split('-').map(Number);
+      const ay = aParts[0] || 0, an = aParts[1] || 0;
+      const by = bParts[0] || 0, bn = bParts[1] || 0;
+      return (ay !== by ? ay - by : an - bn) * sortDir;
+    }
+    // Numerički sort za iznos
     const aNum = parseFloat(aVal), bNum = parseFloat(bVal);
     if (!isNaN(aNum) && !isNaN(bNum)) return (aNum - bNum) * sortDir;
+    // String sort za ostalo
     return aVal.localeCompare(bVal, 'hr') * sortDir;
   });
+
   rows.forEach(row => tbody.appendChild(row));
 }
+
+// ── Init: sortiraj po Broju PN od najvećeg prema najmanjem ───────────────
+document.addEventListener('DOMContentLoaded', () => {
+  // Postavi vizualni indikator na header kolone Broj PN
+  document.querySelectorAll('th.sortable')[0]?.classList.add('sort-desc');
+  // Pokreni sort (sortCol=0, sortDir=-1 su već postavljeni)
+  const tbody = document.getElementById('report-tbody');
+  const rows = Array.from(tbody.querySelectorAll('tr[data-paid]'));
+  rows.sort((a, b) => {
+    const aVal = (a.querySelectorAll('td')[0]?.dataset.val || '').trim();
+    const bVal = (b.querySelectorAll('td')[0]?.dataset.val || '').trim();
+    const aParts = aVal.split('-').map(Number);
+    const bParts = bVal.split('-').map(Number);
+    const ay = aParts[0] || 0, an = aParts[1] || 0;
+    const by = bParts[0] || 0, bn = bParts[1] || 0;
+    return (ay !== by ? ay - by : an - bn) * -1; // -1 = descending
+  });
+  rows.forEach(row => tbody.appendChild(row));
+});
 </script>
 {% endblock %}
