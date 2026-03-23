@@ -1585,7 +1585,7 @@ def report_popis_naloga():
     if employee_filter:
         query += " AND to2.employee_id = ?"
         params.append(employee_filter)
-    query += " ORDER BY to2.auto_id ASC"
+    query += " ORDER BY CAST(substr(to2.auto_id, 1, 4) AS INTEGER) DESC, CAST(substr(to2.auto_id, 6) AS INTEGER) DESC"
     
     orders = conn.execute(query, params).fetchall()
     employees = conn.execute("SELECT * FROM employees ORDER BY name").fetchall()
@@ -1636,7 +1636,7 @@ def report_popis_export():
     if employee_filter:
         query += " AND to2.employee_id = ?"
         params.append(employee_filter)
-    query += " ORDER BY to2.auto_id ASC"
+    query += " ORDER BY CAST(substr(to2.auto_id, 1, 4) AS INTEGER) DESC, CAST(substr(to2.auto_id, 6) AS INTEGER) DESC"
 
     orders = conn.execute(query, params).fetchall()
     settings = {row['key']: row['value'] for row in conn.execute("SELECT * FROM settings").fetchall()}
