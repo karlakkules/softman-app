@@ -42,3 +42,8 @@ import_orders.py
 # Uploadani potpisi i logovi
 uploads/
 static/company_logo.*
+
+# Static - osobni fileovi
+static/company_logo.*
+static/.DS_Store
+static/uploads/
