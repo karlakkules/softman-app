@@ -145,24 +145,33 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
-def inject_user():
-    """Get current user for templates."""
-    return get_current_user()
+# Cache za settings koji se rijetko mijenjaju — osvježava se svaki put kad
+# admin spremi postavke (via /api/settings), inače se čuva u memoriji.
+_settings_cache = {}
 
+def _get_cached_settings():
+    """Vrati company_name i company_logo iz cachea. Puni cache ako je prazan."""
+    if not _settings_cache:
+        try:
+            conn = get_db()
+            row = conn.execute("SELECT value FROM settings WHERE key='company_name'").fetchone()
+            logo_row = conn.execute("SELECT value FROM settings WHERE key='company_logo'").fetchone()
+            conn.close()
+            _settings_cache['company_name'] = row['value'] if row and row['value'] else 'MicroBusiness App'
+            _settings_cache['company_logo'] = logo_row['value'] if logo_row and logo_row['value'] else 'logo.png'
+        except:
+            _settings_cache['company_name'] = 'MicroBusiness App'
+            _settings_cache['company_logo'] = 'logo.png'
+    return _settings_cache['company_name'], _settings_cache['company_logo']
+
+def _invalidate_settings_cache():
+    """Obriši cache — poziva se nakon spremanja postavki."""
+    _settings_cache.clear()
 
 @app.context_processor
 def inject_current_user():
     user = get_current_user()
-    try:
-        conn = get_db()
-        row = conn.execute("SELECT value FROM settings WHERE key='company_name'").fetchone()
-        logo_row = conn.execute("SELECT value FROM settings WHERE key='company_logo'").fetchone()
-        conn.close()
-        company_name = row['value'] if row and row['value'] else 'MicroBusiness App'
-        company_logo = logo_row['value'] if logo_row and logo_row['value'] else 'logo.png'
-    except:
-        company_name = 'MicroBusiness App'
-        company_logo = 'logo.png'
+    company_name, company_logo = _get_cached_settings()
     return {'current_user': user or {}, 'company_name': company_name, 'company_logo': company_logo}
 
 @app.template_filter('fmt_date')
@@ -1047,16 +1056,46 @@ def get_next_auto_id():
     conn.close()
     return auto_id, current_year, next_num
 
-def save_next_auto_id(year, num, conn=None):
-    close_after = False
-    if conn is None:
-        conn = get_db()
-        close_after = True
-    conn.execute("UPDATE settings SET value=? WHERE key='last_order_number'", (str(num),))
-    conn.execute("UPDATE settings SET value=? WHERE key='last_order_year'", (str(year),))
-    if close_after:
-        conn.commit()
-        conn.close()
+def _calc_loan_repaid(loan, payments):
+    """Izračunaj ukupno otplaćeno do danas."""
+    today = date.today().isoformat()
+    total = 0.0
+    for p in payments:
+        if isinstance(p, dict):
+            ptype = p.get('payment_type')
+            amount = float(p.get('amount') or 0)
+            pdate = p.get('payment_date') or ''
+            rstart = p.get('recurring_start') or ''
+            rend = p.get('recurring_end') or today
+            rday = p.get('recurring_day') or 1
+        else:
+            ptype = p['payment_type']
+            amount = float(p['amount'] or 0)
+            pdate = p['payment_date'] or ''
+            rstart = p['recurring_start'] or ''
+            rend = p['recurring_end'] or today
+            rday = p['recurring_day'] or 1
+
+        if ptype in ('one_time', 'conversion'):
+            if pdate and pdate <= today:
+                total += amount
+        elif ptype == 'recurring':
+            if rstart:
+                import calendar
+                try:
+                    sy, sm = int(rstart[:4]), int(rstart[5:7])
+                    ey, em = int(min(rend, today)[:4]), int(min(rend, today)[5:7])
+                    d = date(sy, sm, 1)
+                    end_d = date(ey, em, 1)
+                    while d <= end_d:
+                        total += amount
+                        m = d.month + 1
+                        y = d.year + (m > 12)
+                        m = m if m <= 12 else 1
+                        d = date(y, m, 1)
+                except: pass
+    return round(total, 2)
+
 
 def calculate_dnevnice(start_dt_str, end_dt_str, rate):
     try:
@@ -1381,12 +1420,13 @@ def new_order():
 @require_perm('can_view_orders')
 def edit_order(order_id):
     conn = get_db()
+    user = get_current_user()
     order = conn.execute("SELECT * FROM travel_orders WHERE id=?", (order_id,)).fetchone()
     if not order:
         return redirect(url_for('orders_list'))
     expenses = conn.execute("SELECT * FROM expenses WHERE travel_order_id=? ORDER BY sort_order", (order_id,)).fetchall()
     employees = conn.execute("SELECT * FROM employees ORDER BY name").fetchall()
-    vehicles = conn.execute("SELECT * FROM vehicles ORDER BY name").fetchall()
+    vehicles = get_vehicles_for_user(conn, user)
     destinations = conn.execute("SELECT * FROM destinations ORDER BY name").fetchall()
     categories = conn.execute("SELECT * FROM expense_categories ORDER BY name").fetchall()
     templates = conn.execute("SELECT * FROM report_templates ORDER BY name").fetchall()
@@ -4849,6 +4889,7 @@ def save_settings():
         conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
     conn.commit()
     conn.close()
+    _invalidate_settings_cache()  # Osvježi cache nakon promjene postavki
     return jsonify({'success': True})
 
 # Generic codebook CRUD
@@ -6336,48 +6377,6 @@ def loan_edit(loan_id):
                            payments=rows_to_dicts(payments), active='loans',
                            can_lock=current_user.get('is_admin') or current_user.get('can_lock_loans', 0))
 
-def _calc_loan_repaid(loan, payments):
-    """Izračunaj ukupno otplaćeno do danas."""
-    from datetime import date
-    today = date.today().isoformat()
-    total = 0.0
-    for p in payments:
-        if isinstance(p, dict):
-            ptype = p.get('payment_type')
-            amount = float(p.get('amount') or 0)
-            pdate = p.get('payment_date') or ''
-            rstart = p.get('recurring_start') or ''
-            rend = p.get('recurring_end') or today
-            rday = p.get('recurring_day') or 1
-        else:
-            ptype = p['payment_type']
-            amount = float(p['amount'] or 0)
-            pdate = p['payment_date'] or ''
-            rstart = p['recurring_start'] or ''
-            rend = p['recurring_end'] or today
-            rday = p['recurring_day'] or 1
-
-        if ptype in ('one_time', 'conversion'):
-            if pdate and pdate <= today:
-                total += amount
-        elif ptype == 'recurring':
-            if rstart:
-                import calendar
-                from datetime import date as dt_date
-                try:
-                    sy, sm = int(rstart[:4]), int(rstart[5:7])
-                    ey, em = int(min(rend, today)[:4]), int(min(rend, today)[5:7])
-                    d = dt_date(sy, sm, 1)
-                    end_d = dt_date(ey, em, 1)
-                    while d <= end_d:
-                        total += amount
-                        m = d.month + 1
-                        y = d.year + (m > 12)
-                        m = m if m <= 12 else 1
-                        d = dt_date(y, m, 1)
-                except: pass
-    return round(total, 2)
-
 @app.route('/api/loans/<int:loan_id>/lock', methods=['POST'])
 @login_required
 def loan_lock(loan_id):
@@ -6505,7 +6504,7 @@ def storage_test_path():
 
 # Suppliers CRUD
 @app.route('/api/suppliers', methods=['GET'])
-@login_required
+@require_perm('can_view_invoices')
 def suppliers_list():
     conn = get_db()
     rows = conn.execute("SELECT * FROM suppliers ORDER BY name").fetchall()
@@ -6513,7 +6512,7 @@ def suppliers_list():
     return jsonify(rows_to_dicts(rows))
 
 @app.route('/api/suppliers', methods=['POST'])
-@login_required
+@admin_required
 def supplier_create():
     data = request.json
     if not data.get('name'):
@@ -6527,7 +6526,7 @@ def supplier_create():
     return jsonify({'success': True, 'id': new_id})
 
 @app.route('/api/suppliers/<int:sid>', methods=['PUT'])
-@login_required
+@admin_required
 def supplier_update(sid):
     data = request.json
     conn = get_db()
@@ -6538,7 +6537,7 @@ def supplier_update(sid):
     return jsonify({'success': True})
 
 @app.route('/api/suppliers/<int:sid>', methods=['DELETE'])
-@login_required
+@admin_required
 def supplier_delete(sid):
     conn = get_db()
     conn.execute("DELETE FROM suppliers WHERE id=?", (sid,))

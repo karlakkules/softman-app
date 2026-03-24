@@ -10,7 +10,6 @@
 .modal-overlay { display: none; }
 .modal-overlay.open { display: flex !important; }
 
-/* Dvostruki tab sustav */
 .tabs-primary {
   display: flex;
   gap: 0;
@@ -94,6 +93,7 @@
 <div class="tabs-secondary" id="subtabs-sustav" style="display:none;">
   <button class="tab-secondary-btn" onclick="showTab('templates')">Predlošci izvješća</button>
   <button class="tab-secondary-btn" onclick="showTab('storage')">Pohrana</button>
+  <button class="tab-secondary-btn" onclick="showTab('email')">📧 Email / SMTP</button>
 </div>
 
 <!-- ── GENERAL ── -->
@@ -120,7 +120,6 @@
                  value="{{ settings.daily_allowance_rate or '30' }}">
           <div style="font-size:11px;color:var(--gray-400);margin-top:4px;" data-hr="&lt;8h = 0 | 8-12h = 0.5 | &gt;12h = 1 dnevnica" data-en="&lt;8h = 0 | 8-12h = 0.5 | &gt;12h = 1 allowance">&lt;8h = 0 | 8-12h = 0.5 | &gt;12h = 1 dnevnica</div>
         </div>
-
       </div>
       <button class="btn btn-primary" onclick="saveGeneralSettings()" title="Spremi opće postavke">
         💾 <span data-hr="Spremi postavke" data-en="Save settings">Spremi postavke</span>
@@ -154,10 +153,7 @@
 <script>
 function uploadLogo() {
   const input = document.getElementById('logo-upload-input');
-  if (!input.files || !input.files[0]) {
-    alert('Odaberi datoteku!');
-    return;
-  }
+  if (!input.files || !input.files[0]) { alert('Odaberi datoteku!'); return; }
   const formData = new FormData();
   formData.append('logo', input.files[0]);
   fetch('/api/settings/logo', {method: 'POST', body: formData})
@@ -167,22 +163,14 @@ function uploadLogo() {
         alert('Logo uspješno uploadan!');
         document.getElementById('current-logo-preview').src = '/static/' + d.logo + '?t=' + Date.now();
         document.getElementById('current-logo-preview').style.display = '';
-      } else {
-        alert('Greška: ' + (d.error || 'Nepoznata greška'));
-      }
+      } else { alert('Greška: ' + (d.error || 'Nepoznata greška')); }
     });
 }
-
 function deleteLogo() {
   if (!confirm('Ukloniti logo?')) return;
   fetch('/api/settings/logo', {method: 'DELETE'})
     .then(r => r.json())
-    .then(d => {
-      if (d.success) {
-        alert('Logo uklonjen!');
-        document.getElementById('current-logo-preview').style.display = 'none';
-      }
-    });
+    .then(d => { if (d.success) { alert('Logo uklonjen!'); document.getElementById('current-logo-preview').style.display = 'none'; } });
 }
 </script>
 
@@ -230,11 +218,7 @@ function deleteLogo() {
                 {% if e.is_knjizio %}<span class="badge badge-draft">Knjižio</span>{% endif %}
               </div>
             </td>
-            <td>
-              {% if e.is_default %}
-                <span style="color:var(--accent);">⭐</span>
-              {% endif %}
-            </td>
+            <td>{% if e.is_default %}<span style="color:var(--accent);">⭐</span>{% endif %}</td>
             <td>
               <div style="display:flex;gap:4px;">
                 <button class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;" onclick="editEmployeeById({{ e.id }})">✏️</button>
@@ -259,11 +243,7 @@ function deleteLogo() {
     <div class="table-wrap">
       <table>
         <thead><tr>
-          <th>Naziv</th>
-          <th>Reg. oznaka</th>
-          <th>Tip</th>
-          <th>Dodijeljeno zaposleniku</th>
-          <th>Akcije</th>
+          <th>Naziv</th><th>Reg. oznaka</th><th>Tip</th><th>Dodijeljeno zaposleniku</th><th>Akcije</th>
         </tr></thead>
         <tbody id="vehicles-tbody">
           {% for v in vehicles %}
@@ -284,10 +264,8 @@ function deleteLogo() {
             </td>
             <td>
               <div style="display:flex;gap:4px;">
-                <button class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;"
-                  onclick="editVehicleById({{ v.id }})" title="Uredi vozilo">✏️</button>
-                <button style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;border-radius:6px;cursor:pointer;"
-                  onclick="deleteItem('vehicles', {{ v.id }}, 'veh-row-{{ v.id }}')">🗑</button>
+                <button class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;" onclick="editVehicleById({{ v.id }})" title="Uredi vozilo">✏️</button>
+                <button style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;border-radius:6px;cursor:pointer;" onclick="deleteItem('vehicles', {{ v.id }}, 'veh-row-{{ v.id }}')">🗑</button>
               </div>
             </td>
           </tr>
@@ -320,17 +298,11 @@ function deleteLogo() {
         <div style="display:flex;gap:12px;margin-top:6px;">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 16px;border:2px solid var(--gray-200);border-radius:8px;flex:1;transition:all 0.15s;" id="vm-type-pool-label">
             <input type="radio" name="vm-type" value="pool" id="vm-type-pool" onchange="onVehicleTypeChange()">
-            <div>
-              <div style="font-weight:600;font-size:13px;">🔄 Pool auto</div>
-              <div style="font-size:11px;color:var(--gray-500);">Dijele ga zaposlenici</div>
-            </div>
+            <div><div style="font-weight:600;font-size:13px;">🔄 Pool auto</div><div style="font-size:11px;color:var(--gray-500);">Dijele ga zaposlenici</div></div>
           </label>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 16px;border:2px solid var(--gray-200);border-radius:8px;flex:1;transition:all 0.15s;" id="vm-type-assigned-label">
             <input type="radio" name="vm-type" value="assigned" id="vm-type-assigned" onchange="onVehicleTypeChange()">
-            <div>
-              <div style="font-weight:600;font-size:13px;">👤 24/7 dodijeljeno</div>
-              <div style="font-size:11px;color:var(--gray-500);">Jedan zaposlenik</div>
-            </div>
+            <div><div style="font-weight:600;font-size:13px;">👤 24/7 dodijeljeno</div><div style="font-size:11px;color:var(--gray-500);">Jedan zaposlenik</div></div>
           </label>
         </div>
       </div>
@@ -338,9 +310,7 @@ function deleteLogo() {
         <label class="form-label">Dodijeljeni zaposlenik</label>
         <select class="form-control" id="vm-employee">
           <option value="">— odaberi zaposlenika —</option>
-          {% for e in employees %}
-          <option value="{{ e.id }}">{{ e.name }}</option>
-          {% endfor %}
+          {% for e in employees %}<option value="{{ e.id }}">{{ e.name }}</option>{% endfor %}
         </select>
       </div>
       <div style="border-top:1px solid var(--gray-100);padding-top:14px;">
@@ -388,8 +358,7 @@ function deleteLogo() {
             <td style="text-align:center;">{% if d.is_default %}⭐{% endif %}</td>
             <td style="text-align:center;">
               <input type="checkbox" {% if d.is_place_of_report %}checked{% endif %}
-                onchange="setPlaceOfReport({{ d.id }}, this.checked)"
-                title="Označi kao mjesto izvještaja">
+                onchange="setPlaceOfReport({{ d.id }}, this.checked)" title="Označi kao mjesto izvještaja">
             </td>
             <td>
               <div style="display:flex;gap:4px;">
@@ -416,10 +385,7 @@ function deleteLogo() {
     </div>
     <div class="table-wrap">
       <table>
-        <thead><tr>
-          <th>HR</th><th>EN</th>
-          <th data-hr="Zadano" data-en="Default">Zadano</th><th>Akcije</th>
-        </tr></thead>
+        <thead><tr><th>HR</th><th>EN</th><th data-hr="Zadano" data-en="Default">Zadano</th><th>Akcije</th></tr></thead>
         <tbody>
           {% for c in categories %}
           <tr id="cat-row-{{ c.id }}">
@@ -452,12 +418,9 @@ function deleteLogo() {
     <div class="table-wrap">
       <table>
         <thead><tr>
-          <th>Naziv</th>
-          <th>Adresa</th>
-          <th>OIB</th>
+          <th>Naziv</th><th>Adresa</th><th>OIB</th>
           <th style="text-align:center;" title="Prikazuje se u putnim nalozima">Klijent ✓</th>
-          <th>Zadano</th>
-          <th>Akcije</th>
+          <th>Zadano</th><th>Akcije</th>
         </tr></thead>
         <tbody>
           {% for cl in clients %}
@@ -525,15 +488,9 @@ function deleteLogo() {
     <div class="table-wrap">
       <table id="users-table">
         <thead><tr>
-          <th>Korisničko ime</th>
-          <th>Ime i prezime</th>
-          <th>Email</th>
-          <th>Zaposlenik</th>
-          <th style="text-align:center;">Admin</th>
-          <th style="text-align:center;">Aktivan</th>
-          <th>Profil</th>
-          <th>Zadnja prijava</th>
-          <th>Akcije</th>
+          <th>Korisničko ime</th><th>Ime i prezime</th><th>Email</th><th>Zaposlenik</th>
+          <th style="text-align:center;">Admin</th><th style="text-align:center;">Aktivan</th>
+          <th>Profil</th><th>Zadnja prijava</th><th>Akcije</th>
         </tr></thead>
         <tbody id="users-tbody">
           <tr><td colspan="9" style="text-align:center;padding:24px;color:var(--gray-400);">Klikni tab za učitavanje...</td></tr>
@@ -552,12 +509,7 @@ function deleteLogo() {
     </div>
     <div class="table-wrap">
       <table>
-        <thead><tr>
-          <th>Naziv profila</th>
-          <th>Opis</th>
-          <th>Moduli</th>
-          <th style="width:80px;">Akcije</th>
-        </tr></thead>
+        <thead><tr><th>Naziv profila</th><th>Opis</th><th>Moduli</th><th style="width:80px;">Akcije</th></tr></thead>
         <tbody id="profiles-tbody">
           <tr><td colspan="10" style="text-align:center;padding:24px;color:var(--gray-400);">Učitavam...</td></tr>
         </tbody>
@@ -630,9 +582,7 @@ function deleteLogo() {
         <label class="form-label">Zaposlenik (veza)</label>
         <select class="form-control" id="user-employee">
           <option value="">— bez veze —</option>
-          {% for e in employees %}
-          <option value="{{ e.id }}">{{ e.name }}</option>
-          {% endfor %}
+          {% for e in employees %}<option value="{{ e.id }}">{{ e.name }}</option>{% endfor %}
         </select>
       </div>
       <div class="form-group" style="margin-top:12px;">
@@ -742,12 +692,8 @@ function deleteLogo() {
     <div class="table-wrap">
       <table>
         <thead><tr>
-          <th>Naziv</th>
-          <th>Zadnje 4 znamenke</th>
-          <th>Vrsta</th>
-          <th>Napomena</th>
-          <th style="text-align:center;">Aktivna</th>
-          <th>Akcije</th>
+          <th>Naziv</th><th>Zadnje 4 znamenke</th><th>Vrsta</th>
+          <th>Napomena</th><th style="text-align:center;">Aktivna</th><th>Akcije</th>
         </tr></thead>
         <tbody id="cards-tbody">
           <tr><td colspan="6" style="text-align:center;padding:20px;color:var(--gray-400);">Kliknite na tab za učitavanje...</td></tr>
@@ -807,35 +753,112 @@ function deleteLogo() {
   </div>
 </div>
 
+<!-- ── EMAIL / SMTP TAB ── -->
+<div id="tab-email" class="tab-content">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">📧 Email postavke — SMTP konfiguracija</span>
+    </div>
+    <div class="card-body">
+      <p style="font-size:13px;color:var(--gray-500);margin-bottom:20px;line-height:1.6;">
+        Koristi se za automatsko slanje podsjetnika o dospjelim ratama pozajmica.<br>
+        Podržani: <strong>Gmail</strong> (smtp.gmail.com : 587),
+        <strong>Outlook</strong> (smtp-mail.outlook.com : 587), Mailgun, SendGrid i sl.
+      </p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:20px;">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid var(--accent-light);">🔌 SMTP server</div>
+          <div class="form-group">
+            <label class="form-label">SMTP Host</label>
+            <input type="text" class="form-control" id="smtp_host" value="{{ settings.smtp_host or '' }}" placeholder="smtp.gmail.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label">SMTP Port</label>
+            <input type="number" class="form-control" id="smtp_port" value="{{ settings.smtp_port or '587' }}" placeholder="587" style="width:100px;">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Korisničko ime (email)</label>
+            <input type="text" class="form-control" id="smtp_user" value="{{ settings.smtp_user or '' }}" placeholder="vasa@email.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Lozinka / App password</label>
+            <input type="password" class="form-control" id="smtp_password" value="{{ settings.smtp_password or '' }}" placeholder="••••••••">
+            <div style="font-size:11px;color:var(--gray-400);margin-top:4px;">Gmail: Google Account → Security → 2-Step Verification → App passwords</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">From adresa (prikazuje se primatelju)</label>
+            <input type="text" class="form-control" id="smtp_from" value="{{ settings.smtp_from or '' }}" placeholder="Softman App &lt;noreply@firma.hr&gt;">
+          </div>
+          <div class="form-group">
+            <label class="form-label">TLS enkripcija</label>
+            <select class="form-control" id="smtp_use_tls">
+              <option value="1" {% if (settings.smtp_use_tls or '1') == '1' %}selected{% endif %}>Da — STARTTLS (preporučeno, port 587)</option>
+              <option value="0" {% if (settings.smtp_use_tls or '1') == '0' %}selected{% endif %}>Ne — SSL direktno (port 465)</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid var(--accent-light);">⏰ Podsjetnik — pozajmice</div>
+          <div class="form-group">
+            <label class="form-label">Slati podsjetnik N dana prije dospijeća</label>
+            <input type="number" class="form-control" id="loan_reminder_days_before" value="{{ settings.loan_reminder_days_before or '3' }}" min="0" max="30" style="width:80px;">
+            <div style="font-size:11px;color:var(--gray-400);margin-top:4px;">0 = na dan dospijeća &nbsp;·&nbsp; 1 = dan ranije &nbsp;·&nbsp; 3 = zadano</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Predmet (subject) emaila</label>
+            <input type="text" class="form-control" id="loan_reminder_subject" value="{{ settings.loan_reminder_subject or '' }}" placeholder="Podsjetnik: rata pozajmice {loan_name} dospijeva {date}">
+            <div style="font-size:11px;color:var(--gray-400);margin-top:4px;">Varijable: <code>{loan_name}</code> &nbsp; <code>{date}</code> &nbsp; <code>{amount}</code> &nbsp; <code>{company_name}</code></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tekst emaila (body)</label>
+            <textarea class="form-control" id="loan_reminder_body" rows="10" style="font-family:monospace;font-size:12px;resize:vertical;">{{ settings.loan_reminder_body or '' }}</textarea>
+            <div style="font-size:11px;color:var(--gray-400);margin-top:4px;">Varijable: <code>{loan_name}</code> &nbsp; <code>{date}</code> &nbsp; <code>{amount}</code> &nbsp; <code>{company_name}</code></div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding-top:16px;border-top:1px solid var(--gray-100);">
+        <button class="btn btn-primary" onclick="saveEmailSettings()">💾 Spremi email postavke</button>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" id="testEmailAddr" placeholder="test@email.com" style="width:220px;padding:8px 10px;border:1px solid var(--gray-200);border-radius:6px;font-size:13px;">
+          <button class="btn btn-secondary" onclick="sendTestEmail()">📨 Pošalji test email</button>
+        </div>
+        <button class="btn btn-secondary" onclick="triggerReminders()" title="Provjeri sve pozajmice i odmah pošalji remindere">🔔 Pokreni provjeru odmah</button>
+      </div>
+      <div id="emailResult" style="margin-top:12px;font-size:13px;min-height:24px;"></div>
+      <div style="margin-top:20px;background:var(--accent-light);border-left:4px solid var(--accent);border-radius:6px;padding:14px 16px;">
+        <strong style="color:var(--navy);">ℹ️ Kako radi automatsko slanje?</strong>
+        <p style="font-size:12px;color:var(--gray-600);margin-top:8px;line-height:1.7;">
+          Provjera se pokreće automatski <strong>jednom dnevno</strong> pri prvoj prijavi admina. Možeš je i ručno pokrenuti gumbom iznad.<br>
+          Na svakoj pozajmici definiraš email adrese primatelja (comma-separated, npr. <code>ana@firma.hr, pero@firma.hr</code>).<br>
+          Isti reminder za isti datum <strong>nikad se ne šalje dva puta</strong> — log se čuva u tablici <code>loan_reminders</code>.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ── STORAGE TAB ── -->
 <div id="tab-storage" class="tab-content">
   <div class="card" style="max-width:700px;">
-    <div class="card-header">
-      <span class="card-title">Pohrana dokumenata</span>
-    </div>
+    <div class="card-header"><span class="card-title">Pohrana dokumenata</span></div>
     <div class="card-body">
       <p style="font-size:13px;color:var(--gray-500);margin-bottom:20px;">
         Definirajte gdje se pohranjuju ulazni računi. Mape će se automatski kreirati po formatu <code>MM YYYY</code> unutar odabrane mape.
       </p>
-
       <div class="form-group" style="margin-bottom:16px;">
         <label class="form-label">Putanja pohrane ulaznih računa</label>
         <div style="display:flex;gap:8px;align-items:center;">
-          <input type="text" class="form-control" id="storage-invoice-path"
-            placeholder="/putanja/do/mape/Ulazni računi"
-            style="font-family:monospace;font-size:13px;">
+          <input type="text" class="form-control" id="storage-invoice-path" placeholder="/putanja/do/mape/Ulazni računi" style="font-family:monospace;font-size:13px;">
           <button class="btn btn-secondary" onclick="testStoragePath()" style="white-space:nowrap;">🔍 Provjeri</button>
         </div>
         <div id="storage-path-status" style="margin-top:6px;font-size:12px;"></div>
       </div>
-
       <div style="background:var(--gray-50);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--gray-600);margin-bottom:20px;">
         <strong>Primjer:</strong><br>
         <code style="color:var(--navy);">/Users/ime/OneDrive/Računi/Ulazni računi</code><br><br>
         Program će unutar te mape automatski kreirati podmape:<br>
         <code>01 2026</code>, <code>02 2026</code>, <code>03 2026</code>, ...
       </div>
-
       <button class="btn btn-primary" onclick="saveStoragePath()">💾 Spremi postavke pohrane</button>
     </div>
   </div>
@@ -850,14 +873,7 @@ function deleteLogo() {
     </div>
     <div class="table-wrap">
       <table id="suppliers-table">
-        <thead>
-          <tr>
-            <th>Naziv</th>
-            <th>OIB</th>
-            <th>Adresa</th>
-            <th style="width:80px;">Akcije</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Naziv</th><th>OIB</th><th>Adresa</th><th style="width:80px;">Akcije</th></tr></thead>
         <tbody id="suppliers-tbody">
           <tr><td colspan="4" style="text-align:center;padding:24px;color:var(--gray-400);">Učitavanje...</td></tr>
         </tbody>
@@ -899,7 +915,6 @@ function deleteLogo() {
 
 {% block scripts %}
 <script>
-// ── Lookup tablice za edit gumbe (sigurna alternativa tojson u HTML atributima) ──
 const VEHICLES_DATA = {{ vehicles | tojson }};
 const EMPLOYEES_DATA = {{ employees | tojson }};
 
@@ -907,31 +922,26 @@ function editVehicleById(id) {
   const v = VEHICLES_DATA.find(x => x.id === id);
   if (v) openVehicleModal(v);
 }
-
 function editEmployeeById(id) {
   const e = EMPLOYEES_DATA.find(x => x.id === id);
   if (e) editEmployee(e);
 }
 
-// ── Tabs ──────────────────────────────────────────────────────────────────
-// Mapiranje tab -> primarna kategorija
+// ── Tabs ──────────────────────────────────────────────────────────────────────
 const TAB_TO_PRIMARY = {
   general: 'organizacija', employees: 'organizacija', users: 'organizacija', profiles: 'organizacija',
   vehicles: 'putni-nalozi', destinations: 'putni-nalozi', categories: 'putni-nalozi',
   clients: 'poslovni-podaci', suppliers: 'poslovni-podaci', bankcards: 'poslovni-podaci',
-  templates: 'sustav', storage: 'sustav'
+  templates: 'sustav', storage: 'sustav', email: 'sustav'
 };
 
 function showPrimaryTab(primary) {
-  // Ažuriraj primarne gumbe
   document.querySelectorAll('.tab-primary-btn').forEach(b => b.classList.remove('active'));
   const primaryBtn = document.querySelector(`.tab-primary-btn[onclick*="${primary}"]`);
   if (primaryBtn) primaryBtn.classList.add('active');
-  // Prikaži odgovarajuće sekundarne tabove
   document.querySelectorAll('.tabs-secondary').forEach(s => s.style.display = 'none');
   const secEl = document.getElementById('subtabs-' + primary);
   if (secEl) secEl.style.display = 'flex';
-  // Aktiviraj prvi sekundarni tab
   const firstSecBtn = secEl ? secEl.querySelector('.tab-secondary-btn') : null;
   if (firstSecBtn) firstSecBtn.click();
 }
@@ -940,7 +950,6 @@ function showTab(name) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   const tabEl = document.getElementById('tab-' + name);
   if (tabEl) tabEl.classList.add('active');
-  // Ažuriraj sekundarni gumb
   document.querySelectorAll('.tab-secondary-btn').forEach(b => b.classList.remove('active'));
   const primary = TAB_TO_PRIMARY[name] || 'organizacija';
   const secEl = document.getElementById('subtabs-' + primary);
@@ -953,7 +962,6 @@ function showTab(name) {
   localStorage.setItem('settings_primary_tab', primary);
 }
 
-// Restore last tab on load
 document.addEventListener('DOMContentLoaded', () => {
   const savedTab = localStorage.getItem('settings_tab') || 'general';
   const savedPrimary = localStorage.getItem('settings_primary_tab') || TAB_TO_PRIMARY[savedTab] || 'organizacija';
@@ -961,38 +969,28 @@ document.addEventListener('DOMContentLoaded', () => {
   showTab(savedTab);
 });
 
-// ── VEHICLE MODAL ────────────────────────────────────────────────────────────
+// ── VEHICLE MODAL ─────────────────────────────────────────────────────────────
 function onVehicleTypeChange() {
   const isAssigned = document.getElementById('vm-type-assigned').checked;
   document.getElementById('vm-employee-group').style.display = isAssigned ? '' : 'none';
-  // Vizualni highlight odabranog tipa
   document.getElementById('vm-type-pool-label').style.borderColor = isAssigned ? 'var(--gray-200)' : 'var(--accent)';
   document.getElementById('vm-type-assigned-label').style.borderColor = isAssigned ? 'var(--accent)' : 'var(--gray-200)';
 }
-
 function openVehicleModal(vehicle) {
   document.getElementById('vm-id').value = vehicle ? vehicle.id : '';
   document.getElementById('vm-name').value = vehicle ? vehicle.name : '';
   document.getElementById('vm-reg').value = vehicle ? (vehicle.reg_plate || '') : '';
   document.getElementById('vm-home-address').value = vehicle ? (vehicle.home_address || '') : '';
   document.getElementById('vm-home-city').value = vehicle ? (vehicle.home_city || '') : '';
-
   const type = vehicle ? (vehicle.vehicle_type || 'pool') : 'pool';
   document.getElementById('vm-type-pool').checked = type === 'pool';
   document.getElementById('vm-type-assigned').checked = type === 'assigned';
-
-  const empId = vehicle ? (vehicle.assigned_employee_id || '') : '';
-  document.getElementById('vm-employee').value = empId;
-
+  document.getElementById('vm-employee').value = vehicle ? (vehicle.assigned_employee_id || '') : '';
   document.getElementById('vehicle-modal-title').textContent = vehicle ? 'Uredi vozilo' : 'Novo vozilo';
   onVehicleTypeChange();
   document.getElementById('vehicle-modal').classList.add('open');
 }
-
-function closeVehicleModal() {
-  document.getElementById('vehicle-modal').classList.remove('open');
-}
-
+function closeVehicleModal() { document.getElementById('vehicle-modal').classList.remove('open'); }
 async function saveVehicle() {
   const id = document.getElementById('vm-id').value;
   const type = document.querySelector('input[name="vm-type"]:checked')?.value || 'pool';
@@ -1005,21 +1003,15 @@ async function saveVehicle() {
     home_city: document.getElementById('vm-home-city').value.trim() || null,
   };
   if (!payload.name) { toast('Unesite naziv vozila!', 'error'); return; }
-
   const url = id ? `/api/vehicles/${id}` : '/api/vehicles';
   const method = id ? 'PUT' : 'POST';
   const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
   const d = await res.json();
-  if (d.id || d.success || d.name) {
-    toast('Vozilo spremljeno!', 'success');
-    closeVehicleModal();
-    setTimeout(() => location.reload(), 500);
-  } else {
-    toast(d.error || 'Greška!', 'error');
-  }
+  if (d.id || d.success || d.name) { toast('Vozilo spremljeno!', 'success'); closeVehicleModal(); setTimeout(() => location.reload(), 500); }
+  else { toast(d.error || 'Greška!', 'error'); }
 }
 
-// ── General settings ──────────────────────────────────────────────────────
+// ── General settings ──────────────────────────────────────────────────────────
 async function saveGeneralSettings() {
   const data = {
     company_name: document.getElementById('company_name').value,
@@ -1027,26 +1019,22 @@ async function saveGeneralSettings() {
     company_address: document.getElementById('company_address').value,
     daily_allowance_rate: document.getElementById('daily_allowance_rate').value,
   };
-  const res = await fetch('/api/settings', {
-    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data)
-  });
+  const res = await fetch('/api/settings', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
   if (res.ok) toast(t('Postavke spremljene!', 'Settings saved!'), 'success');
 }
 
-// ── Employee modal ────────────────────────────────────────────────────────
+// ── Employee modal ─────────────────────────────────────────────────────────────
 function openModal(type) {
   if (type === 'employee') {
     document.getElementById('emp-id').value = '';
     document.getElementById('emp-name').value = '';
     document.getElementById('emp-position').value = '';
-    ['direktor','validator','blagajnik','knjizio','default'].forEach(r =>
-      document.getElementById(`emp-${r}`).checked = false);
+    ['direktor','validator','blagajnik','knjizio','default'].forEach(r => document.getElementById(`emp-${r}`).checked = false);
     document.getElementById('emp-modal-title').textContent = t('Novi zaposlenik', 'New Employee');
     document.getElementById('employee-modal').classList.add('open');
   }
 }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-
 function editEmployee(emp) {
   document.getElementById('emp-id').value = emp.id;
   document.getElementById('emp-name').value = emp.name;
@@ -1059,12 +1047,10 @@ function editEmployee(emp) {
   document.getElementById('emp-modal-title').textContent = emp.name;
   document.getElementById('employee-modal').classList.add('open');
 }
-
 async function saveEmployee() {
   const id = document.getElementById('emp-id').value;
   const data = {
-    name: document.getElementById('emp-name').value,
-    position: document.getElementById('emp-position').value,
+    name: document.getElementById('emp-name').value, position: document.getElementById('emp-position').value,
     is_direktor: document.getElementById('emp-direktor').checked ? 1 : 0,
     is_validator: document.getElementById('emp-validator').checked ? 1 : 0,
     is_blagajnik: document.getElementById('emp-blagajnik').checked ? 1 : 0,
@@ -1076,7 +1062,6 @@ async function saveEmployee() {
   const res = await fetch(url, {method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)});
   if (res.ok) { toast(t('Zaposlenik spremljen!', 'Employee saved!'), 'success'); setTimeout(() => { localStorage.setItem('settings_tab', localStorage.getItem('settings_tab') || 'general'); location.reload(); }, 600); }
 }
-
 async function uploadSignature(empId) {
   const file = document.getElementById(`sig-upload-${empId}`).files[0];
   if (!file) return;
@@ -1086,132 +1071,73 @@ async function uploadSignature(empId) {
   if (res.ok) { toast(t('Potpis učitan!', 'Signature uploaded!'), 'success'); setTimeout(() => { localStorage.setItem('settings_tab', localStorage.getItem('settings_tab') || 'general'); location.reload(); }, 600); }
 }
 
-// ── Simple codebook modal ─────────────────────────────────────────────────
-let simpleModalTable = '';
-let simpleModalFields = [];
-let simpleModalId = null;
-let simpleModalIsNew = false;
-
+// ── Simple codebook modal ──────────────────────────────────────────────────────
+let simpleModalTable = '', simpleModalFields = [], simpleModalId = null, simpleModalIsNew = false;
 function editSimple(table, item, fields, isNew=false) {
-  simpleModalTable = table;
-  simpleModalFields = fields;
-  simpleModalId = item.id || null;
-  simpleModalIsNew = isNew && !item.id;
-
+  simpleModalTable = table; simpleModalFields = fields;
+  simpleModalId = item.id || null; simpleModalIsNew = isNew && !item.id;
   const body = document.getElementById('simple-modal-body');
   body.innerHTML = fields.map(f => {
     const [key, labelHr, labelEn] = f.split(':');
     const val = item[key] !== undefined ? item[key] : '';
-    return `
-      <div class="form-group">
-        <label class="form-label" data-hr="${labelHr}" data-en="${labelEn}">${currentLang==='en' ? labelEn : labelHr}</label>
-        <input type="text" class="form-control" id="simple-field-${key}" value="${val}">
-      </div>`;
+    return `<div class="form-group"><label class="form-label" data-hr="${labelHr}" data-en="${labelEn}">${currentLang==='en' ? labelEn : labelHr}</label><input type="text" class="form-control" id="simple-field-${key}" value="${val}"></div>`;
   }).join('');
-
-  document.getElementById('simple-modal-title').textContent = simpleModalIsNew ?
-    t('Novo', 'New') : t('Uredi', 'Edit');
+  document.getElementById('simple-modal-title').textContent = simpleModalIsNew ? t('Novo', 'New') : t('Uredi', 'Edit');
   document.getElementById('simple-modal').classList.add('open');
 }
-
 async function saveSimpleItem() {
   const data = {};
-  simpleModalFields.forEach(f => {
-    const key = f.split(':')[0];
-    data[key] = document.getElementById(`simple-field-${key}`).value;
-  });
+  simpleModalFields.forEach(f => { const key = f.split(':')[0]; data[key] = document.getElementById(`simple-field-${key}`).value; });
   const url = simpleModalId ? `/api/${simpleModalTable}/${simpleModalId}` : `/api/${simpleModalTable}`;
   const method = simpleModalId ? 'PUT' : 'POST';
   const res = await fetch(url, {method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)});
   if (res.ok) { toast(t('Spremljeno!', 'Saved!'), 'success'); setTimeout(() => { localStorage.setItem('settings_tab', localStorage.getItem('settings_tab') || 'general'); location.reload(); }, 600); }
 }
 
-// ── Report template modal ─────────────────────────────────────────────────
+// ── Report template modal ──────────────────────────────────────────────────────
 function openTemplateModal() {
-  document.getElementById('tpl-id').value = '';
-  document.getElementById('tpl-name').value = '';
-  document.getElementById('tpl-content').value = '';
+  document.getElementById('tpl-id').value = ''; document.getElementById('tpl-name').value = ''; document.getElementById('tpl-content').value = '';
   document.getElementById('template-modal').classList.add('open');
 }
 function editTemplate(tpl) {
-  document.getElementById('tpl-id').value = tpl.id;
-  document.getElementById('tpl-name').value = tpl.name;
-  document.getElementById('tpl-content').value = tpl.content;
+  document.getElementById('tpl-id').value = tpl.id; document.getElementById('tpl-name').value = tpl.name; document.getElementById('tpl-content').value = tpl.content;
   document.getElementById('template-modal').classList.add('open');
 }
 async function saveTemplate() {
   const id = document.getElementById('tpl-id').value;
-  const data = {
-    name: document.getElementById('tpl-name').value,
-    content: document.getElementById('tpl-content').value
-  };
+  const data = { name: document.getElementById('tpl-name').value, content: document.getElementById('tpl-content').value };
   const url = id ? `/api/report_templates/${id}` : '/api/report_templates';
   const method = id ? 'PUT' : 'POST';
   const res = await fetch(url, {method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)});
   if (res.ok) { toast(t('Predložak spremljen!', 'Template saved!'), 'success'); setTimeout(() => { localStorage.setItem('settings_tab', localStorage.getItem('settings_tab') || 'general'); location.reload(); }, 600); }
 }
+function editTemplateBtn(btn) { editTemplate(JSON.parse(btn.dataset.tpl)); }
+function editSimpleBtn(btn) { const table = btn.dataset.table; const item = JSON.parse(btn.dataset.item); const fields = btn.dataset.fields.split('|'); editSimple(table, item, fields, false); }
 
-
-
-
-function editTemplateBtn(btn) {
-  editTemplate(JSON.parse(btn.dataset.tpl));
-}
-// ── Employee edit via data attribute ─────────────────────────────────────
-function editEmployeeBtn(btn) {
-  const emp = JSON.parse(btn.dataset.emp);
-  editEmployee(emp);
-}
-// ── Data-attribute helper for edit buttons ────────────────────────────────
-function editSimpleBtn(btn) {
-  const table = btn.dataset.table;
-  const item = JSON.parse(btn.dataset.item);
-  const fields = btn.dataset.fields.split('|');
-  editSimple(table, item, fields, false);
-}
-// ── Delete any item ───────────────────────────────────────────────────────
 async function deleteItem(table, id, rowId) {
   if (!confirm(t('Obrisati ovaj unos?', 'Delete this entry?'))) return;
   const res = await fetch(`/api/${table}/${id}`, {method: 'DELETE'});
-  if (res.ok) {
-    document.getElementById(rowId)?.remove();
-    toast(t('Obrisano!', 'Deleted!'), 'success');
-  }
+  if (res.ok) { document.getElementById(rowId)?.remove(); toast(t('Obrisano!', 'Deleted!'), 'success'); }
 }
 async function setPlaceOfReport(id, checked) {
   const res = await fetch('/api/destinations/' + id + '/place-of-report', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({is_place_of_report: checked ? 1 : 0})
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({is_place_of_report: checked ? 1 : 0})
   });
-  if (res.ok) {
-    toast(t('Mjesto izvještaja ažurirano!', 'Report place updated!'), 'success');
-  }
+  if (res.ok) toast(t('Mjesto izvještaja ažurirano!', 'Report place updated!'), 'success');
 }
-// ── Profiles ───────────────────────────────────────────────────────────────────
+
+// ── Profiles ──────────────────────────────────────────────────────────────────
 const PERM_LABELS = {
-  can_view_orders: 'Putni nalozi — pregled',
-  can_edit_orders: 'Putni nalozi — kreiranje/uređivanje',
-  can_delete_orders: 'Putni nalozi — brisanje',
-  can_approve_orders: 'Putni nalozi — odobravanje',
-  can_view_quotes: 'Ponude — pregled',
-  can_edit_quotes: 'Ponude — kreiranje/uređivanje',
-  can_delete_quotes: 'Ponude — brisanje',
+  can_view_orders: 'Putni nalozi — pregled', can_edit_orders: 'Putni nalozi — kreiranje/uređivanje',
+  can_delete_orders: 'Putni nalozi — brisanje', can_approve_orders: 'Putni nalozi — odobravanje',
+  can_view_quotes: 'Ponude — pregled', can_edit_quotes: 'Ponude — kreiranje/uređivanje', can_delete_quotes: 'Ponude — brisanje',
   can_view_reports: 'Izvještaji — pregled',
-  can_view_vehicle_log: 'Službeni automobil — pregled',
-  can_view_pool_vehicles: 'Evidencija pool automobila',
-  can_view_worktime: 'Radno vrijeme — pregled',
-  can_edit_worktime: 'Radno vrijeme — kreiranje/uređivanje',
-  can_confirm_worktime: 'Radno vrijeme — potvrđivanje',
-  can_reopen_worktime: 'Radno vrijeme — vraćanje u prethodni status',
-  can_copy_worktime: 'Radno vrijeme — kopiranje',
-  can_view_invoices: 'Ulazni računi — pregled',
-  can_edit_invoices: 'Ulazni računi — unos/uređivanje',
-  can_liquidate_invoices: 'Ulazni računi — likvidacija',
-  can_edit_invoices_liquidated: 'Ulazni računi — uređivanje nakon likvidacije',
-  can_view_loans: 'Pozajmice — pregled',
-  can_edit_loans: 'Pozajmice — kreiranje/uređivanje',
-  can_lock_loans: 'Pozajmice — zaključavanje plana otplate',
+  can_view_vehicle_log: 'Službeni automobil — pregled', can_view_pool_vehicles: 'Evidencija pool automobila',
+  can_view_worktime: 'Radno vrijeme — pregled', can_edit_worktime: 'Radno vrijeme — kreiranje/uređivanje',
+  can_confirm_worktime: 'Radno vrijeme — potvrđivanje', can_reopen_worktime: 'Radno vrijeme — vraćanje u prethodni status', can_copy_worktime: 'Radno vrijeme — kopiranje',
+  can_view_invoices: 'Ulazni računi — pregled', can_edit_invoices: 'Ulazni računi — unos/uređivanje',
+  can_liquidate_invoices: 'Ulazni računi — likvidacija', can_edit_invoices_liquidated: 'Ulazni računi — uređivanje nakon likvidacije',
+  can_view_loans: 'Pozajmice — pregled', can_edit_loans: 'Pozajmice — kreiranje/uređivanje', can_lock_loans: 'Pozajmice — zaključavanje plana otplate',
 };
 
 async function loadProfiles() {
@@ -1219,10 +1145,7 @@ async function loadProfiles() {
   const profiles = await res.json();
   const tbody = document.getElementById('profiles-tbody');
   if (!tbody) return;
-  if (!profiles.length) {
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--gray-400);">Nema profila</td></tr>';
-    return;
-  }
+  if (!profiles.length) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--gray-400);">Nema profila</td></tr>'; return; }
   tbody.innerHTML = profiles.map(p => {
     const mods = [];
     if (p.can_view_orders || p.can_edit_orders) mods.push('Putni nalozi');
@@ -1239,37 +1162,29 @@ async function loadProfiles() {
       <td>${badges||'<span style="color:var(--gray-400);font-size:12px;">Bez pristupa</span>'}</td>
       <td>
         <div style="display:flex;gap:4px;">
-          <button class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;" title="Uredi profil" onclick='editProfile(${JSON.stringify(p).replace(/"/g,"&quot;")})'>✏️</button>
+          <button class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;" title="Uredi profil" onclick='editProfile(${JSON.stringify(p).replace(/"/g,"&quot;")})'>✏️</button>
           <button class="btn btn-sm" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;border-radius:6px;cursor:pointer;" title="Obriši profil" onclick="deleteProfile(${p.id},'${p.name}')">🗑</button>
         </div>
       </td>
     </tr>`;
   }).join('');
-
-  // Also refresh profile dropdown in user modal
   const sel = document.getElementById('user-profile');
   if (sel) {
     const current = sel.value;
-    sel.innerHTML = '<option value="">— minimalna prava (bez profila) —</option>' +
-      profiles.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    sel.innerHTML = '<option value="">— minimalna prava (bez profila) —</option>' + profiles.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
     sel.value = current;
   }
 }
 
 function openNewProfile() {
   document.getElementById('profile-modal-title').textContent = 'Novi profil';
-  document.getElementById('profile-id').value = '';
-  document.getElementById('profile-name').value = '';
-  document.getElementById('profile-description').value = '';
+  document.getElementById('profile-id').value = ''; document.getElementById('profile-name').value = ''; document.getElementById('profile-description').value = '';
   renderPermsGrid({});
   document.getElementById('profile-modal').classList.add('open');
 }
-
 function editProfile(p) {
   document.getElementById('profile-modal-title').textContent = 'Uredi profil';
-  document.getElementById('profile-id').value = p.id;
-  document.getElementById('profile-name').value = p.name;
-  document.getElementById('profile-description').value = p.description||'';
+  document.getElementById('profile-id').value = p.id; document.getElementById('profile-name').value = p.name; document.getElementById('profile-description').value = p.description||'';
   renderPermsGrid(p);
   document.getElementById('profile-modal').classList.add('open');
 }
@@ -1284,8 +1199,7 @@ const PERM_GROUPS = [
   { label: 'Pozajmice', perms: ['can_view_loans','can_edit_loans','can_lock_loans'] },
 ];
 const PERM_SHORT = {
-  can_view_orders: 'Pregled', can_edit_orders: 'Kreiranje/uređivanje',
-  can_delete_orders: 'Brisanje', can_approve_orders: 'Odobravanje',
+  can_view_orders: 'Pregled', can_edit_orders: 'Kreiranje/uređivanje', can_delete_orders: 'Brisanje', can_approve_orders: 'Odobravanje',
   can_view_quotes: 'Pregled', can_edit_quotes: 'Kreiranje/uređivanje', can_delete_quotes: 'Brisanje',
   can_view_reports: 'Pregled',
   can_view_vehicle_log: 'Pregled', can_view_pool_vehicles: 'Evidencija pool auta',
@@ -1293,74 +1207,49 @@ const PERM_SHORT = {
   can_view_invoices: 'Pregled', can_edit_invoices: 'Unos/uređivanje', can_liquidate_invoices: 'Likvidacija', can_edit_invoices_liquidated: 'Uredi likvidirano',
   can_view_loans: 'Pregled', can_edit_loans: 'Kreiranje/uređivanje', can_lock_loans: 'Zaključavanje',
 };
-
 function renderPermsGrid(p) {
   const grid = document.getElementById('perms-grid');
   grid.innerHTML = PERM_GROUPS.map(group => `
     <div style="margin-bottom:14px;">
       <div style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid var(--accent-light);">${group.label}</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;">
-        ${group.perms.map(key => `
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 12px;border:1px solid var(--gray-200);border-radius:6px;background:white;font-size:12px;">
-            <input type="checkbox" id="perm-${key}" ${p[key]?'checked':''}> ${PERM_SHORT[key]}
-          </label>
-        `).join('')}
+        ${group.perms.map(key => `<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 12px;border:1px solid var(--gray-200);border-radius:6px;background:white;font-size:12px;"><input type="checkbox" id="perm-${key}" ${p[key]?'checked':''}> ${PERM_SHORT[key]}</label>`).join('')}
       </div>
-    </div>
-  `).join('');
+    </div>`).join('');
 }
-
-function closeProfileModal() {
-  document.getElementById('profile-modal').classList.remove('open');
-}
-
+function closeProfileModal() { document.getElementById('profile-modal').classList.remove('open'); }
 async function saveProfile() {
   const id = document.getElementById('profile-id').value;
-  const payload = {
-    name: document.getElementById('profile-name').value,
-    description: document.getElementById('profile-description').value,
-  };
-  Object.keys(PERM_LABELS).forEach(k => {
-    payload[k] = document.getElementById('perm-'+k)?.checked ? 1 : 0;
-  });
+  const payload = { name: document.getElementById('profile-name').value, description: document.getElementById('profile-description').value };
+  Object.keys(PERM_LABELS).forEach(k => { payload[k] = document.getElementById('perm-'+k)?.checked ? 1 : 0; });
   const url = id ? `/api/profiles/${id}` : '/api/profiles';
   const method = id ? 'PUT' : 'POST';
   const res = await fetch(url, {method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
   const d = await res.json();
   if (d.error) { toast(d.error, 'error'); return; }
-  toast('Profil spremljen!', 'success');
-  closeProfileModal();
-  loadProfiles();
+  toast('Profil spremljen!', 'success'); closeProfileModal(); loadProfiles();
 }
-
 async function deleteProfile(id, name) {
   if (!confirm(`Obrisati profil "${name}"? Korisnici s ovim profilom dobit će minimalna prava.`)) return;
   const res = await fetch(`/api/profiles/${id}`, {method:'DELETE'});
   const d = await res.json();
   if (d.success) { toast('Profil obrisan!', 'success'); loadProfiles(); }
 }
-
-// Load profiles into user modal when it opens
 async function loadProfilesForSelect() {
   const res = await fetch('/api/profiles');
   const profiles = await res.json();
   const sel = document.getElementById('user-profile');
   if (!sel) return;
-  sel.innerHTML = '<option value="">— minimalna prava (bez profila) —</option>' +
-    profiles.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  sel.innerHTML = '<option value="">— minimalna prava (bez profila) —</option>' + profiles.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
 }
 
-
-// ── Users management ──────────────────────────────────────────────────────────
+// ── Users management ───────────────────────────────────────────────────────────
 async function loadUsers() {
   const res = await fetch('/api/users');
   const users = await res.json();
   const tbody = document.getElementById('users-tbody');
   if (!tbody) return;
-  if (!users.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--gray-400);">Nema korisnika</td></tr>';
-    return;
-  }
+  if (!users.length) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--gray-400);">Nema korisnika</td></tr>'; return; }
   tbody.innerHTML = users.map(u => `
     <tr>
       <td><strong>${u.username}</strong></td>
@@ -1373,63 +1262,39 @@ async function loadUsers() {
       <td style="font-size:11px;color:var(--gray-400);">${u.last_login ? u.last_login.substring(0,16).replace('T',' ') : '—'}</td>
       <td>
         <div style="display:flex;gap:4px;">
-          <button class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;" title="Uredi korisnika" onclick="editUser(${JSON.stringify(u).replace(/"/g,'&quot;')})">✏️</button>
+          <button class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;" title="Uredi korisnika" onclick="editUser(${JSON.stringify(u).replace(/"/g,'&quot;')})">✏️</button>
           <button class="btn btn-sm" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;background:#fff8e1;color:#7a5c00;border:1px solid #ffe082;border-radius:6px;" title="Postavi privremenu lozinku" onclick="resetUserPassword(${u.id}, '${u.username}')">🔑</button>
           <button class="btn btn-sm" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;border-radius:6px;" title="Obriši korisnika" onclick="deleteUser(${u.id}, '${u.username}')">🗑</button>
         </div>
       </td>
-    </tr>
-  `).join('');
+    </tr>`).join('');
 }
-
-
 function openNewUser() {
   document.getElementById('user-modal-title').textContent = 'Novi korisnik';
-  document.getElementById('user-id').value = '';
-  document.getElementById('user-username').value = '';
-  document.getElementById('user-username').disabled = false;
-  document.getElementById('user-password').value = '';
-  document.getElementById('user-display-name').value = '';
-  document.getElementById('user-email').value = '';
-  document.getElementById('user-employee').value = '';
-  document.getElementById('user-is-admin').checked = false;
-  document.getElementById('user-is-active').checked = true;
-  document.getElementById('pwd-hint').style.display = 'none';
-  document.getElementById('user-profile').value = '';
+  document.getElementById('user-id').value = ''; document.getElementById('user-username').value = ''; document.getElementById('user-username').disabled = false;
+  document.getElementById('user-password').value = ''; document.getElementById('user-display-name').value = ''; document.getElementById('user-email').value = '';
+  document.getElementById('user-employee').value = ''; document.getElementById('user-is-admin').checked = false; document.getElementById('user-is-active').checked = true;
+  document.getElementById('pwd-hint').style.display = 'none'; document.getElementById('user-profile').value = '';
   loadProfilesForSelect();
   document.getElementById('user-modal').classList.add('open');
 }
-
 function editUser(u) {
   document.getElementById('user-modal-title').textContent = 'Uredi korisnika';
-  document.getElementById('user-id').value = u.id;
-  document.getElementById('user-username').value = u.username;
-  document.getElementById('user-username').disabled = true;
-  document.getElementById('user-password').value = '';
-  document.getElementById('user-display-name').value = u.display_name || '';
-  document.getElementById('user-email').value = u.email || '';
-  document.getElementById('user-employee').value = u.employee_id || '';
-  document.getElementById('user-is-admin').checked = !!u.is_admin;
-  document.getElementById('user-is-active').checked = !!u.is_active;
+  document.getElementById('user-id').value = u.id; document.getElementById('user-username').value = u.username; document.getElementById('user-username').disabled = true;
+  document.getElementById('user-password').value = ''; document.getElementById('user-display-name').value = u.display_name || ''; document.getElementById('user-email').value = u.email || '';
+  document.getElementById('user-employee').value = u.employee_id || ''; document.getElementById('user-is-admin').checked = !!u.is_admin; document.getElementById('user-is-active').checked = !!u.is_active;
   document.getElementById('pwd-hint').style.display = '';
   loadProfilesForSelect().then(() => { document.getElementById('user-profile').value = u.profile_id || ''; });
   document.getElementById('user-modal').classList.add('open');
 }
-
-function closeUserModal() {
-  document.getElementById('user-modal').classList.remove('open');
-}
-
+function closeUserModal() { document.getElementById('user-modal').classList.remove('open'); }
 async function saveUser() {
   const id = document.getElementById('user-id').value;
   const payload = {
-    username: document.getElementById('user-username').value,
-    password: document.getElementById('user-password').value || undefined,
-    display_name: document.getElementById('user-display-name').value,
-    email: document.getElementById('user-email').value,
+    username: document.getElementById('user-username').value, password: document.getElementById('user-password').value || undefined,
+    display_name: document.getElementById('user-display-name').value, email: document.getElementById('user-email').value,
     employee_id: document.getElementById('user-employee').value || null,
-    is_admin: document.getElementById('user-is-admin').checked,
-    is_active: document.getElementById('user-is-active').checked,
+    is_admin: document.getElementById('user-is-admin').checked, is_active: document.getElementById('user-is-active').checked,
     profile_id: document.getElementById('user-profile').value || null,
   };
   const url = id ? `/api/users/${id}` : '/api/users';
@@ -1437,44 +1302,32 @@ async function saveUser() {
   const res = await fetch(url, {method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
   const d = await res.json();
   if (d.error) { toast(d.error, 'error'); return; }
-  toast('Korisnik spremljen!', 'success');
-  closeUserModal();
-  loadUsers();
+  toast('Korisnik spremljen!', 'success'); closeUserModal(); loadUsers();
 }
-
 async function resetUserPassword(id, username) {
   const temp = prompt(`Unesite privremenu lozinku za korisnika "${username}":\n(Korisnik će je morati promijeniti pri sljedećoj prijavi)`);
   if (!temp) return;
   if (temp.length < 4) { toast('Lozinka mora imati najmanje 4 znaka!', 'error'); return; }
-  const res = await fetch(`/api/users/${id}/reset-password`, {
-    method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({temp_password: temp})
-  });
+  const res = await fetch(`/api/users/${id}/reset-password`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({temp_password: temp}) });
   const d = await res.json();
   if (d.success) toast(`Privremena lozinka postavljena za "${username}"!`, 'success');
   else toast(d.error || 'Greška!', 'error');
 }
-
 async function deleteUser(id, username) {
   if (!confirm(`Obrisati korisnika "${username}"?`)) return;
   const res = await fetch(`/api/users/${id}`, {method:'DELETE'});
   const d = await res.json();
   if (d.error) { toast(d.error, 'error'); return; }
-  toast('Korisnik obrisan!', 'success');
-  loadUsers();
+  toast('Korisnik obrisan!', 'success'); loadUsers();
 }
-</script>
 
-<script>
+// ── Bank cards ─────────────────────────────────────────────────────────────────
 async function loadCards() {
   const res = await fetch('/api/bank_cards');
   const cards = await res.json();
   const tbody = document.getElementById('cards-tbody');
   if (!tbody) return;
-  if (!cards.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--gray-400);">Nema kartica. Dodajte prvu!</td></tr>';
-    return;
-  }
+  if (!cards.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--gray-400);">Nema kartica. Dodajte prvu!</td></tr>'; return; }
   tbody.innerHTML = cards.map(c => `<tr>
     <td><strong>${c.card_name}</strong></td>
     <td style="font-family:monospace;letter-spacing:2px;">**** **** **** ${c.last4}</td>
@@ -1483,50 +1336,29 @@ async function loadCards() {
     <td style="text-align:center;">${c.is_active ? '✅' : '❌'}</td>
     <td>
       <div style="display:flex;gap:4px;">
-        <button class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;"
-          onclick='editCard(${JSON.stringify(c).replace(/"/g,"&quot;")})'
-          title="Uredi">✏️</button>
-        <button style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;border-radius:6px;cursor:pointer;"
-          onclick="deleteCard(${c.id},'${c.card_name}')"
-          title="Obriši">🗑</button>
+        <button class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;" onclick='editCard(${JSON.stringify(c).replace(/"/g,"&quot;")})' title="Uredi">✏️</button>
+        <button style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;border-radius:6px;cursor:pointer;" onclick="deleteCard(${c.id},'${c.card_name}')" title="Obriši">🗑</button>
       </div>
     </td>
   </tr>`).join('');
 }
-
 function openNewCard() {
   document.getElementById('card-modal-title').textContent = 'Nova kartica';
-  document.getElementById('card-id').value = '';
-  document.getElementById('card-name').value = '';
-  document.getElementById('card-last4').value = '';
-  document.getElementById('card-type').value = '';
-  document.getElementById('card-active').value = '1';
-  document.getElementById('card-notes').value = '';
+  ['card-id','card-name','card-last4','card-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('card-type').value = ''; document.getElementById('card-active').value = '1';
   document.getElementById('card-modal').classList.add('open');
 }
-
 function editCard(c) {
   document.getElementById('card-modal-title').textContent = 'Uredi karticu';
-  document.getElementById('card-id').value = c.id;
-  document.getElementById('card-name').value = c.card_name||'';
-  document.getElementById('card-last4').value = c.last4||'';
-  document.getElementById('card-type').value = c.card_type||'';
-  document.getElementById('card-active').value = String(c.is_active||1);
-  document.getElementById('card-notes').value = c.notes||'';
+  document.getElementById('card-id').value = c.id; document.getElementById('card-name').value = c.card_name||'';
+  document.getElementById('card-last4').value = c.last4||''; document.getElementById('card-type').value = c.card_type||'';
+  document.getElementById('card-active').value = String(c.is_active||1); document.getElementById('card-notes').value = c.notes||'';
   document.getElementById('card-modal').classList.add('open');
 }
-
 function closeCard() { document.getElementById('card-modal').classList.remove('open'); }
-
 async function saveCard() {
   const id = document.getElementById('card-id').value;
-  const data = {
-    card_name: document.getElementById('card-name').value.trim(),
-    last4: document.getElementById('card-last4').value.trim(),
-    card_type: document.getElementById('card-type').value,
-    is_active: parseInt(document.getElementById('card-active').value),
-    notes: document.getElementById('card-notes').value.trim()
-  };
+  const data = { card_name: document.getElementById('card-name').value.trim(), last4: document.getElementById('card-last4').value.trim(), card_type: document.getElementById('card-type').value, is_active: parseInt(document.getElementById('card-active').value), notes: document.getElementById('card-notes').value.trim() };
   if (!data.card_name || !data.last4) { toast('Naziv i zadnje 4 znamenke su obavezni!', 'error'); return; }
   if (!/^\d{4}$/.test(data.last4)) { toast('Unesite točno 4 znamenke!', 'error'); return; }
   const url = id ? `/api/bank_cards/${id}` : '/api/bank_cards';
@@ -1536,7 +1368,6 @@ async function saveCard() {
   if (d.success) { closeCard(); loadCards(); toast('Kartica spremljena!', 'success'); }
   else toast(d.error||'Greška', 'error');
 }
-
 async function deleteCard(id, name) {
   if (!confirm(`Obrisati karticu "${name}"?`)) return;
   const res = await fetch(`/api/bank_cards/${id}`, {method:'DELETE'});
@@ -1545,15 +1376,12 @@ async function deleteCard(id, name) {
   else toast(d.error||'Greška', 'error');
 }
 
-// ── Suppliers ─────────────────────────────────────────────────────────────
+// ── Suppliers ──────────────────────────────────────────────────────────────────
 async function loadSuppliers() {
   const res = await fetch('/api/suppliers');
   const list = await res.json();
   const tbody = document.getElementById('suppliers-tbody');
-  if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--gray-400);">Nema dobavljača. Dodajte prvog!</td></tr>';
-    return;
-  }
+  if (!list.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--gray-400);">Nema dobavljača. Dodajte prvog!</td></tr>'; return; }
   tbody.innerHTML = list.map(s => `
     <tr>
       <td><strong>${s.name}</strong></td>
@@ -1567,21 +1395,14 @@ async function loadSuppliers() {
       </td>
     </tr>`).join('');
 }
-
 function openSupplier(id='', name='', oib='', address='') {
-  document.getElementById('supplier-id').value = id;
-  document.getElementById('supplier-name').value = name;
-  document.getElementById('supplier-oib').value = oib;
-  document.getElementById('supplier-address').value = address;
+  document.getElementById('supplier-id').value = id; document.getElementById('supplier-name').value = name;
+  document.getElementById('supplier-oib').value = oib; document.getElementById('supplier-address').value = address;
   document.getElementById('supplier-modal-title').textContent = id ? 'Uredi dobavljača' : 'Novi dobavljač';
   document.getElementById('supplier-modal').classList.add('open');
   setTimeout(() => document.getElementById('supplier-name').focus(), 100);
 }
-
-function closeSupplier() {
-  document.getElementById('supplier-modal').classList.remove('open');
-}
-
+function closeSupplier() { document.getElementById('supplier-modal').classList.remove('open'); }
 async function saveSupplier() {
   const id = document.getElementById('supplier-id').value;
   const name = document.getElementById('supplier-name').value.trim();
@@ -1594,14 +1415,58 @@ async function saveSupplier() {
   if (d.success || d.id) { closeSupplier(); loadSuppliers(); toast('Dobavljač spremljen!', 'success'); }
   else alert(d.error || 'Greška pri spremanju');
 }
-
 async function deleteSupplier(id, name) {
   if (!confirm(`Obrisati dobavljača "${name}"?`)) return;
   const res = await fetch(`/api/suppliers/${id}`, { method: 'DELETE' });
   if (res.ok) { loadSuppliers(); toast('Dobavljač obrisan!', 'success'); }
 }
 
-// ── Storage settings ──────────────────────────────────────────────────────────
+// ── Email / SMTP settings ──────────────────────────────────────────────────────
+async function saveEmailSettings() {
+  const data = {
+    smtp_host:                 document.getElementById('smtp_host').value.trim(),
+    smtp_port:                 document.getElementById('smtp_port').value.trim(),
+    smtp_user:                 document.getElementById('smtp_user').value.trim(),
+    smtp_password:             document.getElementById('smtp_password').value,
+    smtp_from:                 document.getElementById('smtp_from').value.trim(),
+    smtp_use_tls:              document.getElementById('smtp_use_tls').value,
+    loan_reminder_days_before: document.getElementById('loan_reminder_days_before').value.trim(),
+    loan_reminder_subject:     document.getElementById('loan_reminder_subject').value.trim(),
+    loan_reminder_body:        document.getElementById('loan_reminder_body').value,
+  };
+  const res = await fetch('/api/settings', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+  if (res.ok) {
+    toast('Email postavke spremljene!', 'success');
+    document.getElementById('emailResult').innerHTML = '<span style="color:var(--green);">✅ Postavke spremljene.</span>';
+  } else { toast('Greška pri spremanju!', 'error'); }
+}
+function sendTestEmail() {
+  const addr = document.getElementById('testEmailAddr').value.trim();
+  if (!addr || !addr.includes('@')) { toast('Unesite ispravnu email adresu za test', 'error'); return; }
+  const el = document.getElementById('emailResult');
+  el.innerHTML = '<span style="color:var(--gray-500);">⏳ Slanje test emaila...</span>';
+  fetch('/api/loans/test-email', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({test_to: addr}) })
+  .then(r => r.json())
+  .then(d => {
+    if (d.success) { el.innerHTML = `<span style="color:var(--green);">✅ Test email poslan! ${d.message||''}</span>`; toast('Test email poslan!', 'success'); }
+    else { el.innerHTML = `<span style="color:var(--red);">❌ Greška: ${d.message||d.error||'Nepoznata greška'}</span>`; toast('Slanje nije uspjelo — provjeri SMTP postavke', 'error'); }
+  })
+  .catch(e => { el.innerHTML = `<span style="color:var(--red);">❌ ${e}</span>`; });
+}
+function triggerReminders() {
+  const el = document.getElementById('emailResult');
+  el.innerHTML = '<span style="color:var(--gray-500);">⏳ Pokretanje provjere svih pozajmica...</span>';
+  fetch('/api/loans/check-reminders', {method: 'POST'})
+  .then(r => r.json())
+  .then(d => {
+    if (!d.results || d.results.length === 0) { el.innerHTML = '<span style="color:var(--gray-500);">ℹ️ Nema rata za slanje danas (ili nema pozajmica s email adresama).</span>'; return; }
+    el.innerHTML = d.results.map(r => `${r.ok?'✅':'❌'} <strong>${r.loan}</strong> (${r.date}): ${r.msg}`).join('<br>');
+    toast(`Provjera završena: ${d.results.length} rata obrađeno`, 'success');
+  })
+  .catch(e => { el.innerHTML = `<span style="color:var(--red);">❌ ${e}</span>`; });
+}
+
+// ── Storage settings ───────────────────────────────────────────────────────────
 async function loadStoragePath() {
   try {
     const res = await fetch('/api/storage/get-path');
@@ -1610,71 +1475,37 @@ async function loadStoragePath() {
     document.getElementById('storage-invoice-path').value = d.path || '';
   } catch(e) {}
 }
-
 async function saveStoragePath() {
   const path = document.getElementById('storage-invoice-path').value.trim();
   if (!path) { alert('Unesite putanju!'); return; }
-  const res = await fetch('/api/settings', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ invoice_storage_path: path })
-  });
+  const res = await fetch('/api/settings', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ invoice_storage_path: path }) });
   const d = await res.json();
-  if (d.success) {
-    toast('Putanja pohrane spremljena!', 'success');
-    document.getElementById('storage-path-status').innerHTML =
-      '<span style="color:#27ae60;">✅ Spremljeno</span>';
-  } else {
-    alert(d.error || 'Greška');
-  }
+  if (d.success) { toast('Putanja pohrane spremljena!', 'success'); document.getElementById('storage-path-status').innerHTML = '<span style="color:#27ae60;">✅ Spremljeno</span>'; }
+  else { alert(d.error || 'Greška'); }
 }
-
 async function testStoragePath() {
   const path = document.getElementById('storage-invoice-path').value.trim();
   if (!path) { alert('Unesite putanju!'); return; }
   const status = document.getElementById('storage-path-status');
-
-  // Postavi odmah vidljivi tekst
-  status.style.display = 'block';
-  status.style.minHeight = '20px';
-  status.textContent = '⏳ Provjera...';
-
+  status.style.display = 'block'; status.style.minHeight = '20px'; status.textContent = '⏳ Provjera...';
   let msg = '';
   try {
-    const res = await fetch('/api/storage/test-path', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ path })
-    });
+    const res = await fetch('/api/storage/test-path', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ path }) });
     const text = await res.text();
     let d;
-    try { d = JSON.parse(text); } catch(pe) {
-      msg = '❌ Server odgovor nije JSON: ' + text.substring(0, 100);
-      status.textContent = msg;
-      return;
-    }
-    if (!res.ok) {
-      msg = '❌ HTTP ' + res.status + (d.error ? ': ' + d.error : '');
-    } else if (d.exists) {
-      msg = '✅ Mapa postoji i dostupna je';
-    } else if (d.parent_exists) {
-      msg = '⚠️ Mapa ne postoji, ali nadređena postoji — bit će kreirana automatski';
-    } else {
-      msg = '❌ Putanja nije dostupna' + (d.error ? ': ' + d.error : '');
-    }
-  } catch(e) {
-    msg = '❌ Greška: ' + e.message;
-  }
+    try { d = JSON.parse(text); } catch(pe) { msg = '❌ Server odgovor nije JSON: ' + text.substring(0, 100); status.textContent = msg; return; }
+    if (!res.ok) { msg = '❌ HTTP ' + res.status + (d.error ? ': ' + d.error : ''); }
+    else if (d.exists) { msg = '✅ Mapa postoji i dostupna je'; }
+    else if (d.parent_exists) { msg = '⚠️ Mapa ne postoji, ali nadređena postoji — bit će kreirana automatski'; }
+    else { msg = '❌ Putanja nije dostupna' + (d.error ? ': ' + d.error : ''); }
+  } catch(e) { msg = '❌ Greška: ' + e.message; }
   status.textContent = msg;
   toast(msg.substring(0,80), msg.startsWith('✅') ? 'success' : 'error');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Učitaj storage path kada se tab otvori
-  const storageTab = document.querySelector('[onclick*="showTab('storage')"]');
-  if (storageTab) {
-    storageTab.addEventListener('click', loadStoragePath);
-  }
+  const storageTab = document.querySelector('[onclick*="showTab(\'storage\')"]');
+  if (storageTab) { storageTab.addEventListener('click', loadStoragePath); }
 });
 </script>
 {% endblock %}

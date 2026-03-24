@@ -89,9 +89,21 @@
 </div>
 
 <div class="card" style="margin-bottom:16px;padding:16px 20px;">
-  <div class="form-group" style="margin:0;">
-    <label class="form-label">Napomene</label>
-    <textarea class="form-control" id="loan-notes" rows="2" placeholder="Napomene...">{{ loan.notes if loan else '' }}</textarea>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div class="form-group" style="margin:0;">
+      <label class="form-label">Napomene</label>
+      <textarea class="form-control" id="loan-notes" rows="2" placeholder="Napomene...">{{ loan.notes if loan else '' }}</textarea>
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label class="form-label">📧 Email adrese za podsjetnik o rati</label>
+      <input type="text" class="form-control" id="loan-reminder-emails"
+             value="{{ loan.reminder_emails if loan and loan.reminder_emails else '' }}"
+             placeholder="ana@firma.hr, pero@firma.hr">
+      <div style="font-size:11px;color:var(--gray-400);margin-top:4px;">
+        Više adresa odvojiti zarezom. Ostavite prazno za isključivanje podsjetnika.
+        Broj dana unaprijed se definira u <a href="/settings" style="color:var(--accent);">Postavkama → Email / SMTP</a>.
+      </div>
+    </div>
   </div>
 </div>
 
@@ -308,7 +320,6 @@ function updateSummary() {
 
   const today = new Date().toISOString().slice(0,10);
 
-  // Konvertirano = konverzije čiji datum je <= danas (ili označene u rasporedu)
   let converted = 0;
   if (schedule.length > 0) {
     schedule.forEach(s => { if(s.paid && s.type==='conversion') converted += parseFloat(s.amount)||0; });
@@ -318,12 +329,10 @@ function updateSummary() {
     });
   }
 
-  // Otplaćeno = označene (paid) stavke u rasporedu koje nisu konverzija
   let repaid = 0;
   if (schedule.length > 0) {
     schedule.forEach(s => { if(s.paid && s.type!=='conversion') repaid += parseFloat(s.amount)||0; });
   } else {
-    // Fallback: plan do danas
     payments.forEach(p => {
       const amt = parseFloat(p.amount)||0;
       if (p.payment_type==='one_time'&&p.payment_date&&p.payment_date<=today) repaid+=amt;
@@ -384,8 +393,6 @@ function renderSchedule() {
     tr.style.cssText = `background:${s.paid ? '#f0faf5' : (isPast && !s.paid ? '#fff8f0' : '')};border-bottom:1px solid var(--gray-100);`;
     const dateD = s.date.split('-').reverse().join('.');
     const paidDateVal = s.paid_date || '';
-    const paidDateDisplay = paidDateVal ? paidDateVal.split('-').reverse().join('.') : '';
-
     const noteVal = s.note || '';
     tr.innerHTML = `
       <td style="text-align:center;padding:5px 8px;">
@@ -429,11 +436,9 @@ function renderSchedule() {
 
 function togglePaid(idx, val) {
   schedule[idx].paid = val;
-  // Ako označujemo kao plaćeno i nema datum uplate, postavi danas
   if (val && !schedule[idx].paid_date) {
     schedule[idx].paid_date = new Date().toISOString().slice(0,10);
   }
-  // Ako odznačujemo, makni datum
   if (!val) schedule[idx].paid_date = '';
   renderSchedule(); updateSummary();
 }
@@ -459,7 +464,6 @@ function onDragStart(e) {
 function onDragOver(e) {
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
-  // Vizualni indikator
   document.querySelectorAll('tr[data-pid]').forEach(r => r.style.borderTop = '');
   this.style.borderTop = '2px solid var(--accent)';
   return false;
@@ -505,7 +509,6 @@ async function toggleLock(lock) {
 async function saveLoan() {
   try {
     const name = document.getElementById('loan-name').value.trim();
-    // Prihvati iznos iz display polja (formatirano) ili hidden polja
     const displayVal = document.getElementById('loan-amount-display').value;
     const hiddenVal = document.getElementById('loan-amount').value;
     const amt = parseAmt(displayVal) || parseFloat(hiddenVal) || 0;
@@ -522,6 +525,7 @@ async function saveLoan() {
       repayment_start: document.getElementById('loan-start').value,
       repayment_end: document.getElementById('loan-end').value,
       notes: document.getElementById('loan-notes').value,
+      reminder_emails: document.getElementById('loan-reminder-emails').value.trim(),
       payments: payments.map(p => ({
         payment_type: p.payment_type,
         amount: parseFloat(p.amount) || 0,
@@ -560,24 +564,19 @@ async function saveLoan() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Zaključaj forme ako je plan zaključan
   if (IS_LOCKED) {
-    // Zaključaj gornja polja (podaci o zajmu)
-    ['loan-name','loan-amount-display','loan-rate','loan-date','loan-start','loan-end'].forEach(id => {
+    ['loan-name','loan-amount-display','loan-rate','loan-date','loan-start','loan-end','loan-reminder-emails'].forEach(id => {
       const el = document.getElementById(id);
       if (el) { el.disabled = true; el.style.background = 'var(--gray-50)'; el.style.color = 'var(--gray-500)'; }
     });
-    // Zaključaj plan otplate (payments-body)
     document.querySelectorAll('#payments-body input, #payments-body button, #payments-body select').forEach(el => {
       el.disabled = true;
       el.style.opacity = '0.6';
       el.style.cursor = 'not-allowed';
     });
-    // Sakrij gumbe za dodavanje/generiranje u planu otplate
     document.querySelectorAll('[onclick*="addPayment"], [onclick*="generateSchedule"]').forEach(btn => {
       btn.style.display = 'none';
     });
-    // Prikaži locked banner u headeru plana otplate
     document.querySelectorAll('.card-header').forEach(header => {
       const title = header.querySelector('.card-title');
       if (title && title.textContent.trim() === 'Plan otplate') {
@@ -586,7 +585,6 @@ document.addEventListener('DOMContentLoaded', () => {
         title.appendChild(banner);
       }
     });
-    // Evidencija uplata (schedule-body checkboxovi) ostaje aktivna
   }
 
   EXISTING_PAYMENTS.forEach(p => payments.push({
