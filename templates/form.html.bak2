@@ -476,20 +476,6 @@
         <div style="background:#e8f0f7;border:1px solid #aac4db;border-radius:6px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:var(--navy);font-weight:600;">📋 R1 račun — vidljivo i u modulu Ulazni računi</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
           <div class="form-group" style="grid-column:1/-1;"><label class="form-label">Naziv partnera</label><input type="text" class="form-control" id="pnexp-partner-name"></div>
-          <div class="form-group" style="grid-column:1/-1;">
-            <label class="form-label" style="font-size:11px;color:var(--gray-500);margin-bottom:4px;">Dobavljač s liste</label>
-            <div style="display:flex;gap:6px;align-items:center;">
-              <div style="flex:1;position:relative;">
-                <input type="text" class="form-control" id="pnexp-supplier-search"
-                  placeholder="Pretraži dobavljača..." style="font-size:13px;" autocomplete="off"
-                  oninput="filterPnExpSupplierDropdown()" onfocus="showPnExpSupplierDropdown()">
-                <input type="hidden" id="pnexp-supplier-id">
-                <div id="pnexp-supplier-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--gray-300);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:99999;max-height:200px;overflow-y:auto;margin-top:2px;"></div>
-              </div>
-              <button type="button" class="btn btn-sm btn-secondary" onclick="quickAddPnExpSupplier()" title="Dodaj novog dobavljača" style="padding:0 10px;height:36px;flex-shrink:0;">➕</button>
-            </div>
-            <div id="pnexp-supplier-match" style="display:none;margin-top:4px;font-size:12px;color:#27ae60;font-weight:600;"></div>
-          </div>
           <div class="form-group"><label class="form-label">OIB partnera</label><input type="text" class="form-control" id="pnexp-partner-oib" maxlength="11"></div>
           <div class="form-group"><label class="form-label">Broj računa</label><input type="text" class="form-control" id="pnexp-invoice-number"></div>
           <div class="form-group"><label class="form-label">Datum dospijeća</label><input type="date" class="form-control" id="pnexp-due-date"></div>
@@ -980,113 +966,6 @@ async function deletePnExp(expId) {
   } catch(e) { toast('Greška: ' + e.message, 'error'); }
 }
 
-
-
-// ═══════════════════════════════════════════════════════════════════
-// SUPPLIER DROPDOWN za pn_expense forme (form.html)
-// ═══════════════════════════════════════════════════════════════════
-let _pnExpSuppliersCache = [];
-
-async function loadPnExpSuppliers() {
-  try {
-    const res = await fetch('/api/suppliers');
-    const d = await res.json();
-    _pnExpSuppliersCache = d.suppliers || d || [];
-  } catch(e) { _pnExpSuppliersCache = []; }
-  return _pnExpSuppliersCache;
-}
-
-async function showPnExpSupplierDropdown() {
-  if (!_pnExpSuppliersCache.length) await loadPnExpSuppliers();
-  filterPnExpSupplierDropdown();
-  const el = document.getElementById('pnexp-supplier-dropdown');
-  if (el) el.style.display = 'block';
-}
-
-function filterPnExpSupplierDropdown() {
-  const q = (document.getElementById('pnexp-supplier-search')?.value || '').toLowerCase();
-  const list = document.getElementById('pnexp-supplier-dropdown');
-  if (!list) return;
-  const filtered = _pnExpSuppliersCache.filter(s =>
-    !q || s.name.toLowerCase().includes(q) || (s.oib && s.oib.includes(q))
-  );
-  if (!filtered.length) {
-    list.innerHTML = '<div style="padding:10px 14px;color:var(--gray-400);font-size:13px;">Nema rezultata</div>';
-  } else {
-    list.innerHTML = filtered.map(s =>
-      `<div data-sid="${s.id}" style="padding:8px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--gray-100);">
-        <div style="font-weight:600;color:var(--navy);">${s.name}</div>
-        ${s.oib ? `<div style="font-size:11px;color:var(--gray-400);">OIB: ${s.oib}${s.address ? ' · ' + s.address : ''}</div>` : ''}
-      </div>`
-    ).join('');
-    list.querySelectorAll('[data-sid]').forEach(el => {
-      el.addEventListener('mousedown', function(e) {
-        e.preventDefault();
-        const s = _pnExpSuppliersCache.find(x => String(x.id) === this.dataset.sid);
-        if (!s) return;
-        selectPnExpSupplier(s);
-      });
-      el.addEventListener('mouseover', function() { this.style.background = 'var(--accent-light)'; });
-      el.addEventListener('mouseout', function() { this.style.background = ''; });
-    });
-  }
-  list.style.display = 'block';
-}
-
-function selectPnExpSupplier(s) {
-  document.getElementById('pnexp-supplier-search').value = s.name;
-  document.getElementById('pnexp-supplier-id').value = s.id;
-  document.getElementById('pnexp-partner-name').value = s.name;
-  document.getElementById('pnexp-partner-oib').value = s.oib || '';
-  document.getElementById('pnexp-supplier-dropdown').style.display = 'none';
-  const badge = document.getElementById('pnexp-supplier-match');
-  if (badge) { badge.style.display = 'block'; badge.textContent = '\u2705 ' + s.name; }
-}
-
-async function quickAddPnExpSupplier() {
-  const name = document.getElementById('pnexp-partner-name')?.value || '';
-  const oib = document.getElementById('pnexp-partner-oib')?.value || '';
-  const supplierName = prompt('Naziv dobavljača:', name);
-  if (!supplierName) return;
-  const supplierOib = prompt('OIB (opcionalno):', oib);
-  try {
-    const res = await fetch('/api/suppliers', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ name: supplierName, oib: supplierOib || '', address: '' })
-    });
-    const d = await res.json();
-    if (d.success || d.id) {
-      toast('Dobavljač dodan!', 'success');
-      await loadPnExpSuppliers();
-      const newS = _pnExpSuppliersCache.find(s => s.id == d.id);
-      if (newS) selectPnExpSupplier(newS);
-    } else { toast(d.error || 'Greška', 'error'); }
-  } catch(e) { toast('Greška: ' + e.message, 'error'); }
-}
-
-document.addEventListener('click', function(e) {
-  const dd = document.getElementById('pnexp-supplier-dropdown');
-  const search = document.getElementById('pnexp-supplier-search');
-  if (dd && search && !search.contains(e.target) && !dd.contains(e.target)) dd.style.display = 'none';
-});
-
-// Patch openPnExpDetail da učita supplier-e i auto-match
-const _origOpenPnExpDetail = typeof openPnExpDetail === 'function' ? openPnExpDetail : null;
-if (_origOpenPnExpDetail) {
-  const _wrapped = openPnExpDetail;
-  openPnExpDetail = async function(ocrResult) {
-    _wrapped(ocrResult);
-    if (_pnExpDocType === 'r1') {
-      await loadPnExpSuppliers();
-      let match = null;
-      const oib = ocrResult.data?.partner_oib || '';
-      const pname = ocrResult.data?.partner_name || '';
-      if (oib && oib.length >= 10) match = _pnExpSuppliersCache.find(s => s.oib && s.oib.trim() === oib.trim());
-      if (!match && pname) match = _pnExpSuppliersCache.find(s => s.name.toLowerCase().trim() === pname.toLowerCase().trim());
-      if (match) selectPnExpSupplier(match);
-    }
-  };
-}
 
 </script>
 {% endblock %}
