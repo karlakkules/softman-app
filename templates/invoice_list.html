@@ -87,7 +87,7 @@
           </td>
           <td style="text-align:center;">
             {% if inv.is_liquidated %}
-              <span class="badge" style="background:#fdecea;color:#c0392b;border:1px solid #f5aca6;">🔴 DA</span>
+              <span class="badge" style="background:#f0faf4;color:#27ae60;border:1px solid #a8d5b5;">✅ DA</span>
             {% else %}
               {% if current_user.get('is_admin') or current_user.get('can_liquidate_invoices') %}
               <button class="btn btn-sm" style="font-size:11px;padding:2px 8px;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;"

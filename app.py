@@ -5590,9 +5590,20 @@ def create_worktime_pdf(report, entries, days_in_month, settings):
 INVOICE_STORAGE_BASE = os.environ.get("INVOICE_STORAGE_PATH", os.path.join(os.path.dirname(__file__), "uploads", "racuni"))
 
 def get_invoice_folder(year, month):
-    """Returns folder path like /path/02 2026, creates it if missing."""
+    """Returns folder path like /path/02 2026, creates it if missing.
+    Reads storage path from DB settings (invoice_storage_path) each time,
+    falling back to INVOICE_STORAGE_BASE if not set."""
     import os
-    folder = os.path.join(INVOICE_STORAGE_BASE, f"{month:02d} {year}")
+    storage_base = INVOICE_STORAGE_BASE
+    try:
+        conn = get_db()
+        row = conn.execute("SELECT value FROM settings WHERE key='invoice_storage_path'").fetchone()
+        conn.close()
+        if row and row['value'] and row['value'].strip():
+            storage_base = row['value'].strip()
+    except:
+        pass
+    folder = os.path.join(storage_base, f"{month:02d} {year}")
     os.makedirs(folder, exist_ok=True)
     return folder
 
@@ -6255,12 +6266,24 @@ def invoice_delete(inv_id):
         except Exception as e:
             conn.close()
             return jsonify({'error': f'Greška pri preimenovanju datoteke: {e}'}), 500
+    # Preimenuj i likvidirani PDF ako postoji
+    liq_path = inv.get('liquidated_pdf_path')
+    new_liq_path = liq_path
+    if liq_path and os.path.exists(liq_path):
+        liq_dir = os.path.dirname(liq_path)
+        liq_base, liq_ext = os.path.splitext(os.path.basename(liq_path))
+        liq_new_filename = f"{liq_base} BRISANO{liq_ext}"
+        new_liq_path = os.path.join(liq_dir, liq_new_filename)
+        try:
+            os.rename(liq_path, new_liq_path)
+        except:
+            pass  # Ne blokiraj brisanje ako preimenovanje likvidiranog ne uspije
     now = dt.now().isoformat()
     new_fname = os.path.basename(new_stored_path) if new_stored_path else inv.get('stored_filename')
     conn.execute(
         """UPDATE invoices SET is_deleted=1, deleted_at=?, stored_path=?,
-           stored_filename=?, updated_at=? WHERE id=?""",
-        (now, new_stored_path, new_fname, now, inv_id)
+           stored_filename=?, liquidated_pdf_path=?, updated_at=? WHERE id=?""",
+        (now, new_stored_path, new_fname, new_liq_path, now, inv_id)
     )
     conn.commit()
     conn.close()
