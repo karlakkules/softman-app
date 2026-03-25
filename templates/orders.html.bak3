@@ -1089,20 +1089,6 @@ async function openUnmatched() {
 
 function closeUnmatched() { document.getElementById('unmatched-modal').classList.remove('open'); }
 
-function updateUnmatchedBadge() {
-  // Ažuriraj badge broj na gumbu Neupareni troškovi
-  const remaining = document.querySelectorAll('.unmatched-row:not([style*="none"])').length;
-  const badges = document.querySelectorAll('[onclick="openUnmatched()"] span[style*="position:absolute"]');
-  badges.forEach(badge => {
-    if (remaining > 0) {
-      badge.textContent = remaining;
-      badge.style.display = 'flex';
-    } else {
-      badge.style.display = 'none';
-    }
-  });
-}
-
 async function linkUnmatched(expId) {
   const pnId = document.getElementById(`unmatched-pn-${expId}`).value;
   if (!pnId) { toast('Odaberi putni nalog!', 'error'); return; }
@@ -1116,7 +1102,7 @@ async function linkUnmatched(expId) {
     toast('Trošak vezan na PN!', 'success');
     const row = document.getElementById(`unmatched-row-${expId}`);
     if (row) row.style.display = 'none';
-    updateUnmatchedBadge();
+    // Provjeri ima li još neuparenih
     const remaining = document.querySelectorAll('.unmatched-row:not([style*="none"])').length;
     if (!remaining) {
       document.getElementById('unmatched-list').innerHTML =
@@ -1132,7 +1118,6 @@ async function deleteUnmatched(expId) {
     toast('Trošak obrisan.', 'success');
     const row = document.getElementById(`unmatched-row-${expId}`);
     if (row) row.style.display = 'none';
-    updateUnmatchedBadge();
   } else { toast('Greška pri brisanju', 'error'); }
 }
 
