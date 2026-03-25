@@ -13,7 +13,7 @@
       <span style="background:var(--accent-light);color:var(--accent);padding:2px 8px;border-radius:20px;font-size:12px;font-weight:700;">{{ logs|length }}</span>
     </div>
     <div style="display:flex;gap:8px;">
-      <select id="filter-year" class="form-control" style="width:100px;" onchange="filterLogs()">
+      <select id="filter-year" class="form-control" style="width:120px;" onchange="filterLogs()">
         <option value="">Sve godine</option>
         {% for y in logs|map(attribute='year')|unique|sort(reverse=True) %}
         <option value="{{ y }}">{{ y }}</option>
