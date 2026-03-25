@@ -1001,6 +1001,54 @@ def init_db():
         c.execute("CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at)")
     except: pass
 
+    # ── Migration: pn_expenses tablica (troškovi s dokumentima za PN) ──
+    try:
+        c.executescript('''
+            CREATE TABLE IF NOT EXISTS pn_expenses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                doc_type TEXT NOT NULL DEFAULT 'receipt',
+                travel_order_id INTEGER DEFAULT NULL,
+                invoice_id INTEGER DEFAULT NULL,
+                category_id INTEGER,
+                description TEXT,
+                amount REAL DEFAULT 0,
+                doc_date TEXT,
+                payment_method TEXT DEFAULT 'private',
+                bank_card_id INTEGER DEFAULT NULL,
+                original_filename TEXT,
+                stored_filename TEXT,
+                stored_path TEXT,
+                ocr_raw TEXT,
+                partner_name TEXT,
+                partner_oib TEXT,
+                invoice_number TEXT,
+                due_date TEXT,
+                created_by INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (travel_order_id) REFERENCES travel_orders(id) ON DELETE SET NULL,
+                FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE SET NULL,
+                FOREIGN KEY (category_id) REFERENCES expense_categories(id),
+                FOREIGN KEY (bank_card_id) REFERENCES bank_cards(id)
+            );
+        ''')
+    except: pass
+    try:
+        c.execute("CREATE INDEX IF NOT EXISTS idx_pn_exp_to ON pn_expenses(travel_order_id)")
+    except: pass
+    try:
+        c.execute("CREATE INDEX IF NOT EXISTS idx_pn_exp_inv ON pn_expenses(invoice_id)")
+    except: pass
+
+    # Expense (PN troškovi) storage path default
+    try:
+        r = c.execute("SELECT value FROM settings WHERE key='expense_storage_path'").fetchone()
+        if not r:
+            import os as _os
+            _def = _os.path.join(_os.path.dirname(__file__), 'uploads', 'troskovi')
+            c.execute("INSERT INTO settings (key, value) VALUES ('expense_storage_path', ?)", (_def,))
+    except: pass
+
     conn.commit()
     conn.close()
 
@@ -1330,6 +1378,15 @@ def orders_list():
     if not default_veh:
         default_veh = conn.execute("SELECT * FROM vehicles WHERE vehicle_type='pool' OR vehicle_type IS NULL LIMIT 1").fetchone()
         default_veh = dict(default_veh) if default_veh else None
+    unmatched_count = conn.execute(
+        "SELECT COUNT(*) FROM pn_expenses WHERE travel_order_id IS NULL"
+    ).fetchone()[0]
+    expense_categories = conn.execute(
+        "SELECT * FROM expense_categories ORDER BY name"
+    ).fetchall()
+    bank_cards = conn.execute(
+        "SELECT * FROM bank_cards WHERE is_active=1 ORDER BY card_name"
+    ).fetchall()
     conn.close()
     return render_template('orders.html', orders=orders, show_trash=False,
                           employees_all=rows_to_dicts(employees_all),
@@ -1339,7 +1396,10 @@ def orders_list():
                           default_destination_name=default_dest_row['name'] if default_dest_row else '',
                           directors=rows_to_dicts(directors),
                           validators=rows_to_dicts(validators),
-                          default_vehicle_id=default_veh['id'] if default_veh else None)
+                          default_vehicle_id=default_veh['id'] if default_veh else None,
+                          unmatched_count=unmatched_count,
+                          expense_categories=rows_to_dicts(expense_categories),
+                          bank_cards=rows_to_dicts(bank_cards))
 
 @app.route('/orders/trash')
 @require_perm('can_view_orders')
@@ -1436,6 +1496,18 @@ def edit_order(order_id):
     directors = conn.execute("SELECT * FROM employees WHERE is_direktor=1").fetchall()
     clients_list = conn.execute("SELECT * FROM clients ORDER BY name").fetchall()
     default_place = conn.execute("SELECT name FROM destinations WHERE is_place_of_report=1 LIMIT 1").fetchone()
+    pn_expenses = conn.execute('''
+        SELECT pe.*, ec.name as category_name,
+               bc.card_name, bc.last4 as card_last4
+        FROM pn_expenses pe
+        LEFT JOIN expense_categories ec ON pe.category_id = ec.id
+        LEFT JOIN bank_cards bc ON pe.bank_card_id = bc.id
+        WHERE pe.travel_order_id = ?
+        ORDER BY pe.doc_date, pe.created_at
+    ''', (order_id,)).fetchall()
+    bank_cards = conn.execute(
+        "SELECT * FROM bank_cards WHERE is_active=1 ORDER BY card_name"
+    ).fetchall()
     conn.close()
     today = date.today().strftime('%Y-%m-%d')
     is_deleted = bool(order['is_deleted'])
@@ -1453,7 +1525,9 @@ def edit_order(order_id):
         validators=rows_to_dicts(validators),
         directors=rows_to_dicts(directors),
         order=dict(order), expenses=rows_to_dicts(expenses),
-        is_deleted=is_deleted)
+        is_deleted=is_deleted,
+        pn_expenses=rows_to_dicts(pn_expenses),
+        bank_cards=rows_to_dicts(bank_cards))
 
 @app.route('/api/orders', methods=['POST'])
 @login_required
@@ -6694,6 +6768,418 @@ def audit_log_page():
                            filters={'user': user_filter, 'module': module_filter,
                                     'action': action_filter, 'date_from': date_from, 'date_to': date_to},
                            active='audit')
+
+
+# ─── PN EXPENSES — Troškovi putnih naloga ─────────────────────────────────────
+
+def get_expense_storage_folder(doc_date=None):
+    """Vraća folder za pohranu dokumenata troškova, kreira ako ne postoji."""
+    conn = get_db()
+    row = conn.execute("SELECT value FROM settings WHERE key='expense_storage_path'").fetchone()
+    conn.close()
+    base = row['value'] if row else os.path.join(os.path.dirname(__file__), 'uploads', 'troskovi')
+    if doc_date:
+        try:
+            dt = datetime.strptime(doc_date[:10], '%Y-%m-%d')
+            folder = os.path.join(base, f"{dt.month:02d} {dt.year}")
+        except:
+            folder = base
+    else:
+        folder = base
+    os.makedirs(folder, exist_ok=True)
+    return folder
+
+
+def find_matching_travel_order(doc_date):
+    """Traži PN čije razdoblje obuhvaća datum dokumenta."""
+    if not doc_date:
+        return None
+    conn = get_db()
+    d = doc_date[:10]
+    match = conn.execute("""
+        SELECT id FROM travel_orders
+        WHERE (is_deleted = 0 OR is_deleted IS NULL)
+        AND date(?) BETWEEN date(substr(trip_start_datetime,1,10))
+                        AND date(substr(trip_end_datetime,1,10))
+        ORDER BY id DESC LIMIT 1
+    """, (d,)).fetchone()
+    conn.close()
+    return match['id'] if match else None
+
+
+@app.route('/api/pn-expenses/upload', methods=['POST'])
+@require_perm('can_edit_orders')
+def pn_expense_upload():
+    """Upload dokumenta troška — OCR obrada i vraćanje parsiranih podataka."""
+    if 'file' not in request.files:
+        return jsonify({'error': 'Nema datoteke'}), 400
+    file = request.files['file']
+    if not file.filename:
+        return jsonify({'error': 'Prazno ime datoteke'}), 400
+
+    doc_type = request.form.get('doc_type', 'receipt')
+
+    from werkzeug.utils import secure_filename
+    import uuid
+    ext = os.path.splitext(file.filename)[1].lower()
+    temp_name = f"pn_temp_{uuid.uuid4().hex}{ext}"
+    temp_path = os.path.join(UPLOAD_FOLDER, temp_name)
+    file.save(temp_path)
+
+    mime = file.content_type or 'application/octet-stream'
+    ocr_text = ocr_file(temp_path, mime)
+    parsed = parse_invoice_data(ocr_text) if not ocr_text.startswith('OCR_ERROR') else {}
+
+    # Konvertiraj datum i traži odgovarajući PN
+    doc_date = parsed.get('invoice_date', '')
+    doc_date_iso = ''
+    if doc_date:
+        try:
+            parts = doc_date.replace('.', ' ').split()
+            if len(parts) >= 3:
+                doc_date_iso = f"{parts[2]}-{parts[1].zfill(2)}-{parts[0].zfill(2)}"
+        except:
+            pass
+
+    matching_pn = find_matching_travel_order(doc_date_iso)
+    pn_info = None
+    if matching_pn:
+        conn = get_db()
+        pn = conn.execute("""
+            SELECT to2.id, to2.auto_id, to2.destination, to2.purpose,
+                   e.name as employee_name
+            FROM travel_orders to2
+            LEFT JOIN employees e ON to2.employee_id = e.id
+            WHERE to2.id = ?
+        """, (matching_pn,)).fetchone()
+        conn.close()
+        if pn:
+            pn_info = dict(pn)
+
+    return jsonify({
+        'success': True,
+        'doc_type': doc_type,
+        'temp_filename': temp_name,
+        'original_filename': file.filename,
+        'data': {
+            'partner_name': parsed.get('partner_name', ''),
+            'partner_oib': parsed.get('partner_oib', ''),
+            'invoice_number': parsed.get('invoice_number', ''),
+            'invoice_date': parsed.get('invoice_date', ''),
+            'due_date': parsed.get('due_date', ''),
+            'amount_total': parsed.get('amount_total', ''),
+            'ocr_raw': ocr_text if not ocr_text.startswith('OCR_ERROR') else '',
+        },
+        'matching_pn_id': matching_pn,
+        'matching_pn': pn_info,
+    })
+
+
+@app.route('/api/pn-expenses', methods=['POST'])
+@require_perm('can_edit_orders')
+def pn_expense_save():
+    """Sprema trošak. Ako je R1, kreira i invoice zapis."""
+    data = request.json
+    user = get_current_user()
+    conn = get_db()
+    c = conn.cursor()
+
+    doc_type = data.get('doc_type', 'receipt')
+    travel_order_id = data.get('travel_order_id') or None
+    temp_filename = data.get('temp_filename', '')
+
+    # Premjesti datoteku iz temp u trajnu lokaciju
+    doc_date = data.get('doc_date', '')
+    stored_filename = ''
+    stored_path = ''
+
+    if temp_filename:
+        temp_path = os.path.join(UPLOAD_FOLDER, temp_filename)
+        if os.path.exists(temp_path):
+            folder = get_expense_storage_folder(doc_date)
+            import uuid
+            ext = os.path.splitext(temp_filename)[1]
+            stored_filename = f"pn_exp_{uuid.uuid4().hex[:8]}{ext}"
+            stored_path = os.path.join(folder, stored_filename)
+            import shutil
+            shutil.move(temp_path, stored_path)
+
+    invoice_id = None
+
+    # R1 račun — kreiraj i u invoices tablici
+    if doc_type == 'r1':
+        c.execute("""
+            INSERT INTO invoices (
+                invoice_number, partner_name, partner_oib,
+                invoice_date, due_date, amount_total, currency,
+                original_filename, stored_filename, stored_path,
+                ocr_raw, notes, created_by, created_at, updated_at
+            ) VALUES (?,?,?,?,?,?,'EUR',?,?,?,?,?,?,?,?)
+        """, (
+            data.get('invoice_number', ''),
+            data.get('partner_name', ''),
+            data.get('partner_oib', ''),
+            doc_date,
+            data.get('due_date', ''),
+            float(data.get('amount', 0) or 0),
+            data.get('original_filename', ''),
+            stored_filename, stored_path,
+            data.get('ocr_raw', ''),
+            'Uneseno kroz modul Putni nalozi',
+            user.get('user_id') if user else None,
+            datetime.now().isoformat(),
+            datetime.now().isoformat()
+        ))
+        invoice_id = c.lastrowid
+
+    # Spremi pn_expense zapis
+    c.execute("""
+        INSERT INTO pn_expenses (
+            doc_type, travel_order_id, invoice_id,
+            category_id, description, amount, doc_date,
+            payment_method, bank_card_id,
+            original_filename, stored_filename, stored_path, ocr_raw,
+            partner_name, partner_oib, invoice_number, due_date,
+            created_by, created_at, updated_at
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    """, (
+        doc_type, travel_order_id, invoice_id,
+        data.get('category_id') or None,
+        data.get('description', ''),
+        float(data.get('amount', 0) or 0),
+        doc_date,
+        data.get('payment_method', 'private'),
+        data.get('bank_card_id') or None,
+        data.get('original_filename', ''),
+        stored_filename, stored_path,
+        data.get('ocr_raw', ''),
+        data.get('partner_name', '') if doc_type == 'r1' else '',
+        data.get('partner_oib', '') if doc_type == 'r1' else '',
+        data.get('invoice_number', '') if doc_type == 'r1' else '',
+        data.get('due_date', '') if doc_type == 'r1' else '',
+        user.get('user_id') if user else None,
+        datetime.now().isoformat(),
+        datetime.now().isoformat()
+    ))
+    expense_id = c.lastrowid
+    conn.commit()
+    conn.close()
+
+    audit('create', module='pn_expenses', entity='pn_expense', entity_id=expense_id,
+          detail=f"Trošak {doc_type} — {data.get('amount', 0)}€ — PN: {travel_order_id or 'neupareno'}")
+    return jsonify({'success': True, 'id': expense_id, 'invoice_id': invoice_id})
+
+
+@app.route('/api/pn-expenses/<int:expense_id>', methods=['PUT'])
+@require_perm('can_edit_orders')
+def pn_expense_update(expense_id):
+    """Ažurira postojeći trošak."""
+    data = request.json
+    conn = get_db()
+    updates = []
+    params = []
+    for field in ['travel_order_id', 'category_id', 'description', 'amount',
+                  'payment_method', 'bank_card_id', 'doc_date']:
+        if field in data:
+            updates.append(f"{field}=?")
+            val = data[field]
+            if field in ('travel_order_id', 'category_id', 'bank_card_id'):
+                val = val if val else None
+            if field == 'amount':
+                val = float(val or 0)
+            params.append(val)
+    if updates:
+        updates.append("updated_at=?")
+        params.append(datetime.now().isoformat())
+        params.append(expense_id)
+        conn.execute(f"UPDATE pn_expenses SET {', '.join(updates)} WHERE id=?", params)
+        conn.commit()
+    conn.close()
+    audit('update', module='pn_expenses', entity='pn_expense', entity_id=expense_id)
+    return jsonify({'success': True})
+
+
+@app.route('/api/pn-expenses/<int:expense_id>', methods=['DELETE'])
+@require_perm('can_delete_orders')
+def pn_expense_delete(expense_id):
+    """Briše trošak. Ako je R1, soft-delete i vezani invoice."""
+    conn = get_db()
+    exp = conn.execute("SELECT * FROM pn_expenses WHERE id=?", (expense_id,)).fetchone()
+    if not exp:
+        conn.close()
+        return jsonify({'error': 'Nije pronađeno'}), 404
+    if exp['invoice_id']:
+        conn.execute("UPDATE invoices SET is_deleted=1, deleted_at=? WHERE id=?",
+                    (datetime.now().isoformat(), exp['invoice_id']))
+    conn.execute("DELETE FROM pn_expenses WHERE id=?", (expense_id,))
+    conn.commit()
+    conn.close()
+    audit('delete', module='pn_expenses', entity='pn_expense', entity_id=expense_id)
+    return jsonify({'success': True})
+
+
+@app.route('/api/pn-expenses/unmatched')
+@require_perm('can_view_orders')
+def pn_expenses_unmatched():
+    """Vraća neuparene troškove (bez veze na PN)."""
+    conn = get_db()
+    expenses = conn.execute("""
+        SELECT pe.*, ec.name as category_name,
+               bc.card_name, bc.last4 as card_last4
+        FROM pn_expenses pe
+        LEFT JOIN expense_categories ec ON pe.category_id = ec.id
+        LEFT JOIN bank_cards bc ON pe.bank_card_id = bc.id
+        WHERE pe.travel_order_id IS NULL
+        ORDER BY pe.created_at DESC
+    """).fetchall()
+    conn.close()
+    return jsonify({'expenses': rows_to_dicts(expenses)})
+
+
+@app.route('/api/pn-expenses/by-order/<int:order_id>')
+@require_perm('can_view_orders')
+def pn_expenses_by_order(order_id):
+    """Vraća troškove vezane za konkretan PN."""
+    conn = get_db()
+    expenses = conn.execute("""
+        SELECT pe.*, ec.name as category_name,
+               bc.card_name, bc.last4 as card_last4
+        FROM pn_expenses pe
+        LEFT JOIN expense_categories ec ON pe.category_id = ec.id
+        LEFT JOIN bank_cards bc ON pe.bank_card_id = bc.id
+        WHERE pe.travel_order_id = ?
+        ORDER BY pe.doc_date, pe.created_at
+    """, (order_id,)).fetchall()
+    conn.close()
+    return jsonify({'expenses': rows_to_dicts(expenses)})
+
+
+@app.route('/api/pn-expenses/<int:expense_id>/link', methods=['POST'])
+@require_perm('can_edit_orders')
+def pn_expense_link(expense_id):
+    """Veže neupareni trošak na PN."""
+    data = request.json
+    travel_order_id = data.get('travel_order_id')
+    if not travel_order_id:
+        return jsonify({'error': 'Nedostaje travel_order_id'}), 400
+    conn = get_db()
+    conn.execute("UPDATE pn_expenses SET travel_order_id=?, updated_at=? WHERE id=?",
+                (travel_order_id, datetime.now().isoformat(), expense_id))
+    conn.commit()
+    conn.close()
+    audit('link', module='pn_expenses', entity='pn_expense', entity_id=expense_id,
+          detail=f'Vezan na PN #{travel_order_id}')
+    return jsonify({'success': True})
+
+
+@app.route('/api/pn-expenses/quick-pn', methods=['POST'])
+@require_perm('can_edit_orders')
+def pn_expense_quick_create_pn():
+    """Quick Create PN (gumb Munja) — kreira minimalni PN za povezivanje."""
+    data = request.json
+    conn = get_db()
+
+    current_year = datetime.now().year
+    used_rows = conn.execute(
+        "SELECT auto_id FROM travel_orders WHERE auto_id LIKE ?",
+        (f"{current_year}-%",)
+    ).fetchall()
+    used_nums = set()
+    for row in used_rows:
+        try:
+            if row['auto_id'].endswith('-I'):
+                continue
+            used_nums.add(int(row['auto_id'].split('-')[1]))
+        except: pass
+    candidate = 1
+    while candidate in used_nums:
+        candidate += 1
+    auto_id = f"{current_year}-{candidate}"
+
+    now = datetime.now().isoformat()
+    today = datetime.now().strftime('%Y-%m-%d')
+
+    employee_id = data.get('employee_id') or None
+    if not employee_id:
+        emp = conn.execute("SELECT id FROM employees WHERE is_default=1 LIMIT 1").fetchone()
+        employee_id = emp['id'] if emp else None
+
+    director = conn.execute("SELECT id FROM employees WHERE is_direktor=1 LIMIT 1").fetchone()
+    validator_row = conn.execute("SELECT id FROM employees WHERE is_validator=1 LIMIT 1").fetchone()
+    dest = conn.execute("SELECT name FROM destinations WHERE is_default=1 LIMIT 1").fetchone()
+    destination = data.get('destination') or (dest['name'] if dest else 'Zagreb')
+
+    user = get_current_user()
+    default_veh = get_default_vehicle_for_user(conn, user)
+    vehicle_id = default_veh['id'] if default_veh else None
+    if not vehicle_id:
+        pool_veh = conn.execute(
+            "SELECT id FROM vehicles WHERE vehicle_type='pool' OR vehicle_type IS NULL LIMIT 1"
+        ).fetchone()
+        vehicle_id = pool_veh['id'] if pool_veh else None
+
+    c = conn.cursor()
+    c.execute("""
+        INSERT INTO travel_orders (
+            auto_id, status, issue_date, employee_id, destination,
+            purpose, departure_date, vehicle_id,
+            trip_start_datetime, trip_end_datetime,
+            approved_by_id, validator_id, created_at, updated_at
+        ) VALUES (?,'draft',?,?,?,?,?,?,?,?,?,?,?,?)
+    """, (
+        auto_id, today, employee_id, destination,
+        data.get('purpose', 'Službeni put'),
+        data.get('departure_date', today),
+        vehicle_id,
+        data.get('trip_start', f"{today}T07:00"),
+        data.get('trip_end', f"{today}T17:00"),
+        director['id'] if director else None,
+        validator_row['id'] if validator_row else None,
+        now, now
+    ))
+    new_id = c.lastrowid
+    conn.execute("UPDATE settings SET value=? WHERE key='last_order_number'", (str(candidate),))
+    conn.execute("UPDATE settings SET value=? WHERE key='last_order_year'", (str(current_year),))
+    conn.commit()
+    conn.close()
+
+    audit('create', module='putni_nalozi', entity='travel_order', entity_id=new_id,
+          detail=f'Quick Create PN {auto_id} iz modula troškova')
+    return jsonify({'success': True, 'id': new_id, 'auto_id': auto_id, 'destination': destination})
+
+
+@app.route('/api/pn-expenses/<int:expense_id>/pdf')
+@require_perm('can_view_orders')
+def pn_expense_pdf(expense_id):
+    """Servira PDF/sliku dokumenta troška."""
+    conn = get_db()
+    exp = conn.execute("SELECT stored_path, original_filename FROM pn_expenses WHERE id=?",
+                       (expense_id,)).fetchone()
+    conn.close()
+    if not exp or not exp['stored_path'] or not os.path.exists(exp['stored_path']):
+        return "Datoteka nije pronađena", 404
+    return send_file(exp['stored_path'],
+                     download_name=exp['original_filename'] or 'dokument',
+                     as_attachment=False)
+
+
+@app.route('/api/travel-orders/active')
+@require_perm('can_view_orders')
+def active_travel_orders():
+    """Vraća listu aktivnih PN-ova za dropdown odabir u formi troška."""
+    conn = get_db()
+    orders = conn.execute("""
+        SELECT to2.id, to2.auto_id, to2.destination, to2.purpose,
+               to2.trip_start_datetime, to2.trip_end_datetime,
+               e.name as employee_name
+        FROM travel_orders to2
+        LEFT JOIN employees e ON to2.employee_id = e.id
+        WHERE (to2.is_deleted = 0 OR to2.is_deleted IS NULL)
+        ORDER BY to2.id DESC LIMIT 50
+    """).fetchall()
+    conn.close()
+    return jsonify({'orders': rows_to_dicts(orders)})
+
 
 if __name__ == '__main__':
     init_db()
