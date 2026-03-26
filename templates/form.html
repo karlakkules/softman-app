@@ -402,7 +402,7 @@
             <td style="padding:8px 12px;text-align:center;">
               <div style="display:flex;gap:4px;justify-content:center;">
                 {% if pe.stored_path %}
-                <a href="/api/pn-expenses/{{ pe.id }}/pdf" target="_blank" class="btn btn-sm btn-secondary" style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;font-size:12px;" title="Pregled dokumenta">📄</a>
+                <a href="/api/pn-expenses/{{ pe.id }}/pdf" target="_blank" class="btn btn-sm btn-secondary" style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;font-size:12px;" title="Pregled dokumenta"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 1h7l3 3v10a1 1 0 01-1 1H3a1 1 0 01-1-1V2a1 1 0 011-1z" fill="#e74c3c" stroke="#c0392b" stroke-width="0.5"/><path d="M10 1l3 3h-3V1z" fill="#c0392b"/><text x="3.5" y="11.5" font-family="Arial" font-size="4.5" font-weight="bold" fill="white">PDF</text></svg></a>
                 {% endif %}
                 {% if not is_deleted %}
                 <button type="button" class="btn btn-sm" style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;border-radius:6px;cursor:pointer;font-size:12px;" onclick="deletePnExp({{ pe.id }})" title="Obriši trošak">🗑</button>

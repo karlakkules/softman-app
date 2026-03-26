@@ -1446,12 +1446,32 @@ function sendTestEmail() {
   const el = document.getElementById('emailResult');
   el.innerHTML = '<span style="color:var(--gray-500);">⏳ Slanje test emaila...</span>';
   fetch('/api/loans/test-email', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({test_to: addr}) })
-  .then(r => r.json())
-  .then(d => {
-    if (d.success) { el.innerHTML = `<span style="color:var(--green);">✅ Test email poslan! ${d.message||''}</span>`; toast('Test email poslan!', 'success'); }
-    else { el.innerHTML = `<span style="color:var(--red);">❌ Greška: ${d.message||d.error||'Nepoznata greška'}</span>`; toast('Slanje nije uspjelo — provjeri SMTP postavke', 'error'); }
+  .then(async r => {
+    // Provjeri content-type — ako nije JSON (npr. server vrati HTML redirect), prikaži jasnu grešku
+    const ct = r.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      if (r.status === 401 || r.status === 403) {
+        el.innerHTML = '<span style="color:var(--red);">❌ Sesija je istekla. Osvježi stranicu i prijavi se ponovno.</span>';
+        toast('Sesija istekla — prijavi se ponovno', 'error');
+      } else {
+        el.innerHTML = `<span style="color:var(--red);">❌ Neočekivan odgovor servera (HTTP ${r.status}). Provjeri logs.</span>`;
+        toast('Greška servera — provjeri logs', 'error');
+      }
+      return;
+    }
+    const d = await r.json();
+    if (d.success) {
+      el.innerHTML = `<span style="color:var(--green);">✅ Test email poslan! ${d.message||''}</span>`;
+      toast('Test email poslan!', 'success');
+    } else {
+      el.innerHTML = `<span style="color:var(--red);">❌ Greška: ${d.message||d.error||'Nepoznata greška'}</span>`;
+      toast('Slanje nije uspjelo — provjeri SMTP postavke', 'error');
+    }
   })
-  .catch(e => { el.innerHTML = `<span style="color:var(--red);">❌ ${e}</span>`; });
+  .catch(e => {
+    el.innerHTML = `<span style="color:var(--red);">❌ Mrežna greška: ${e.message||e}</span>`;
+    toast('Mrežna greška pri slanju', 'error');
+  });
 }
 function triggerReminders() {
   const el = document.getElementById('emailResult');

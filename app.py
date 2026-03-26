@@ -149,6 +149,17 @@ def admin_required(f):
 # admin spremi postavke (via /api/settings), inače se čuva u memoriji.
 _settings_cache = {}
 
+
+def api_login_required(f):
+    """Login required za API rute — vraća JSON 401 umjesto HTML redirecta."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        user = get_current_user()
+        if not user:
+            return jsonify({'success': False, 'error': 'Unauthorized', 'message': 'Sesija je istekla. Prijavite se ponovno.'}), 401
+        return f(*args, **kwargs)
+    return decorated
+
 def _get_cached_settings():
     """Vrati company_name i company_logo iz cachea. Puni cache ako je prazan."""
     if not _settings_cache:
@@ -571,6 +582,9 @@ def init_db():
     except: pass
     try:
         c.execute("ALTER TABLE loans ADD COLUMN schedule_json TEXT")
+    except: pass
+    try:
+        c.execute("ALTER TABLE loans ADD COLUMN reminder_emails TEXT DEFAULT ''")
     except: pass
     try:
         c.executescript("""
@@ -6505,6 +6519,7 @@ def loan_save():
         'repayment_start': data.get('repayment_start',''),
         'repayment_end': data.get('repayment_end',''),
         'notes': data.get('notes',''),
+        'reminder_emails': data.get('reminder_emails', ''),
         'updated_at': datetime.now().isoformat(),
     }
     import json as _json
@@ -7179,6 +7194,246 @@ def active_travel_orders():
     """).fetchall()
     conn.close()
     return jsonify({'orders': rows_to_dicts(orders)})
+
+
+@app.route('/api/loans/test-email', methods=['POST'])
+@api_login_required
+def test_email_send():
+    """Šalje test email koristeći SMTP postavke iz settings tablice."""
+    try:
+        data = request.json or {}
+        test_to = (data.get('test_to') or '').strip()
+        if not test_to or '@' not in test_to:
+            return jsonify({'success': False, 'message': 'Nevažeća email adresa.'})
+
+        conn = get_db()
+        s = {row['key']: row['value'] for row in conn.execute("SELECT key, value FROM settings").fetchall()}
+        conn.close()
+
+        smtp_host     = (s.get('smtp_host') or '').strip()
+        smtp_port     = int(s.get('smtp_port') or 587)
+        smtp_user     = (s.get('smtp_user') or '').strip()
+        smtp_password = (s.get('smtp_password') or '')
+        smtp_from     = (s.get('smtp_from') or smtp_user).strip()
+        use_tls       = str(s.get('smtp_use_tls', '1')) == '1'
+        company       = (s.get('company_name') or 'Softman App').strip()
+
+        if not smtp_host or not smtp_user:
+            return jsonify({'success': False, 'message': 'SMTP host i korisničko ime nisu konfigurirani.'})
+
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = f'Test email — {company}'
+        msg['From']    = smtp_from or smtp_user
+        msg['To']      = test_to
+
+        html_body = f"""<html><body>
+<p>Ovo je <strong>test email</strong> poslan iz aplikacije <strong>{company}</strong>.</p>
+<p>SMTP konfiguracija radi ispravno! ✅</p>
+<hr>
+<p style="color:#888;font-size:12px;">Softman App · {smtp_host}:{smtp_port}</p>
+</body></html>"""
+
+        msg.attach(MIMEText('Test email - SMTP konfiguracija radi ispravno!', 'plain', 'utf-8'))
+        msg.attach(MIMEText(html_body, 'html', 'utf-8'))
+
+        if use_tls:
+            server = smtplib.SMTP(smtp_host, smtp_port, timeout=15)
+            server.ehlo()
+            server.starttls()
+        else:
+            server = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=15)
+
+        server.login(smtp_user, smtp_password)
+        server.sendmail(smtp_from or smtp_user, [test_to], msg.as_string())
+        server.quit()
+
+        return jsonify({'success': True, 'message': f'Email poslan na {test_to}'})
+
+    except smtplib.SMTPAuthenticationError:
+        return jsonify({'success': False, 'message': 'SMTP autentifikacija nije uspjela. Provjeri korisničko ime i lozinku / App Password.'})
+    except smtplib.SMTPConnectError as e:
+        return jsonify({'success': False, 'message': f'Ne mogu se spojiti na SMTP server: {e}'})
+    except smtplib.SMTPRecipientsRefused:
+        return jsonify({'success': False, 'message': f'Server je odbio primatelja: {test_to}'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Greška: {str(e)}'})
+
+
+
+@app.route('/api/loans/check-reminders', methods=['POST'])
+@api_login_required
+def check_loan_reminders():
+    """Pošalji email podsjetnik za rate koje dospijevaju danas (ili za N dana)."""
+    try:
+        import smtplib, json as _json
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        from datetime import timedelta
+
+        conn = get_db()
+        s = {r['key']: r['value'] for r in conn.execute("SELECT key, value FROM settings").fetchall()}
+
+        smtp_host     = (s.get('smtp_host') or '').strip()
+        smtp_port     = int(s.get('smtp_port') or 587)
+        smtp_user     = (s.get('smtp_user') or '').strip()
+        smtp_password = (s.get('smtp_password') or '')
+        smtp_from     = (s.get('smtp_from') or smtp_user).strip()
+        use_tls       = str(s.get('smtp_use_tls', '1')) == '1'
+        company       = (s.get('company_name') or 'Softman App').strip()
+        days_before   = int(s.get('loan_reminder_days_before') or 0)
+        subject_tpl   = (s.get('loan_reminder_subject') or
+                         'Podsjetnik: rata pozajmice {loan_name} dospijeva {date}')
+        body_tpl      = (s.get('loan_reminder_body') or
+                         'Postovani,\n\nPodsjecamo Vas da rata pozajmice "{loan_name}" '
+                         'u iznosu {amount} EUR dospijeva {date}.\n\nLijep pozdrav,\n{company_name}')
+
+        if not smtp_host or not smtp_user:
+            conn.close()
+            return jsonify({'success': False, 'results': [],
+                            'message': 'SMTP nije konfiguriran. Postavite ga u Postavke → Email / SMTP.'})
+
+        today       = datetime.now().date()
+        target_date = (today + timedelta(days=days_before)).isoformat()
+
+        # Dohvati sve pozajmice s email adresama
+        all_loans = conn.execute(
+            "SELECT * FROM loans WHERE reminder_emails IS NOT NULL AND reminder_emails != ''"
+        ).fetchall()
+
+        # Kreiraj loan_reminders tablicu ako ne postoji
+        conn.execute("""CREATE TABLE IF NOT EXISTS loan_reminders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            loan_id INTEGER NOT NULL,
+            payment_date TEXT NOT NULL,
+            sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            recipients TEXT,
+            UNIQUE(loan_id, payment_date)
+        )""")
+        conn.commit()
+
+        results = []
+
+        for loan in all_loans:
+            loan_d = dict(loan)
+            emails = [e.strip() for e in (loan_d.get('reminder_emails') or '').split(',')
+                      if e.strip() and '@' in e]
+            if not emails:
+                continue
+
+            # Parsiraj schedule_json
+            schedule = []
+            try:
+                schedule = _json.loads(loan_d.get('schedule_json') or '[]')
+            except:
+                pass
+
+            for entry in schedule:
+                rate_date = entry.get('date', '')
+
+                # Preskoci ako datum ne odgovara
+                if rate_date != target_date:
+                    continue
+
+                # Preskoci placene rate
+                if entry.get('paid'):
+                    continue
+
+                # Provjeri je li reminder vec poslan za ovaj loan + datum
+                already = conn.execute(
+                    "SELECT id FROM loan_reminders WHERE loan_id=? AND payment_date=?",
+                    (loan_d['id'], rate_date)
+                ).fetchone()
+                if already:
+                    results.append({
+                        'loan': loan_d['name'], 'date': rate_date,
+                        'ok': False, 'msg': 'Reminder vec poslan za ovaj datum'
+                    })
+                    continue
+
+                # Pripremi i pošalji email
+                amount = entry.get('amount', 0)
+                subst = {
+                    'loan_name':    loan_d['name'],
+                    'date':         rate_date,
+                    'amount':       f"{float(amount):,.2f}".replace(',', '.'),
+                    'company_name': company,
+                }
+                subject = subject_tpl.format(**subst)
+                body    = body_tpl.format(**subst)
+
+                try:
+                    msg = MIMEMultipart('alternative')
+                    msg['Subject'] = subject
+                    msg['From']    = smtp_from or smtp_user
+                    msg['To']      = ', '.join(emails)
+                    msg.attach(MIMEText(body, 'plain', 'utf-8'))
+
+                    html_body = body.replace('\n', '<br>').replace('\n', '<br>')
+                    msg.attach(MIMEText(
+                        f'<html><body style="font-family:Arial,sans-serif;font-size:14px;">'
+                        f'<p>{html_body}</p></body></html>',
+                        'html', 'utf-8'
+                    ))
+
+                    if use_tls:
+                        srv = smtplib.SMTP(smtp_host, smtp_port, timeout=15)
+                        srv.ehlo()
+                        srv.starttls()
+                    else:
+                        srv = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=15)
+
+                    srv.login(smtp_user, smtp_password)
+                    srv.sendmail(smtp_from or smtp_user, emails, msg.as_string())
+                    srv.quit()
+
+                    # Logiraj uspješno slanje
+                    conn.execute(
+                        "INSERT OR IGNORE INTO loan_reminders (loan_id, payment_date, recipients) VALUES (?,?,?)",
+                        (loan_d['id'], rate_date, ', '.join(emails))
+                    )
+                    conn.commit()
+
+                    results.append({
+                        'loan': loan_d['name'], 'date': rate_date,
+                        'ok':   True,
+                        'msg':  f"Poslan na: {', '.join(emails)}"
+                    })
+
+                except smtplib.SMTPAuthenticationError:
+                    results.append({
+                        'loan': loan_d['name'], 'date': rate_date,
+                        'ok':   False,
+                        'msg':  'SMTP autentifikacija nije uspjela — provjeri lozinku/App Password'
+                    })
+                except Exception as mail_err:
+                    results.append({
+                        'loan': loan_d['name'], 'date': rate_date,
+                        'ok':   False, 'msg': str(mail_err)
+                    })
+
+        conn.close()
+
+        if not results:
+            return jsonify({
+                'success': True, 'results': [],
+                'message': (f'Nema neplacenih rata koje dospijevaju '
+                            f'{"danas" if days_before == 0 else f"za {days_before} dan(a)"} '
+                            f'({target_date}), ili nema pozajmica s email adresama.')
+            })
+
+        ok_count = sum(1 for r in results if r['ok'])
+        return jsonify({
+            'success': True,
+            'results': results,
+            'message': f'Poslano {ok_count}/{len(results)} podsjetnika.'
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'results': [], 'message': f'Greška: {str(e)}'})
 
 
 if __name__ == '__main__':
