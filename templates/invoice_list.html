@@ -15,17 +15,17 @@
     <span class="card-title">Svi računi</span>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <input type="text" id="inv-search" class="form-control" placeholder="Pretraži..." style="width:180px;" oninput="filterInv()">
-      <select id="inv-paid" class="form-control" style="width:130px;" onchange="filterInv()">
+      <select id="inv-paid" class="form-control" style="min-width:140px;" onchange="filterInv()">
         <option value="">Plaćenost: sve</option>
         <option value="1">Plaćeno</option>
         <option value="0">Nije plaćeno</option>
       </select>
-      <select id="inv-liq" class="form-control" style="width:140px;" onchange="filterInv()">
+      <select id="inv-liq" class="form-control" style="min-width:148px;" onchange="filterInv()">
         <option value="">Likvidacija: sve</option>
         <option value="1">Likvidirano</option>
         <option value="0">Nije likvidirano</option>
       </select>
-      <select id="inv-payment" class="form-control" style="width:160px;" onchange="filterInv()">
+      <select id="inv-payment" class="form-control" style="min-width:172px;" onchange="filterInv()">
         <option value="">Način plaćanja: sve</option>
         <option value="gotovina">Privatna kartica/gotovina</option>
         <option value="virman">Virman/transakcijski</option>
@@ -40,15 +40,15 @@
       <thead>
         <tr>
           <th style="width:32px;"></th>
-          <th style="width:120px;">Broj računa</th>
-          <th>Partner</th>
-          <th style="width:95px;">OIB</th>
-          <th style="text-align:right;width:90px;">Iznos</th>
-          <th style="width:88px;">Datum</th>
-          <th style="width:88px;">Dospijeće</th>
-          <th style="width:90px;white-space:nowrap;">Veza PN</th>
-          <th style="text-align:center;width:72px;">Plaćeno</th>
-          <th style="text-align:center;width:82px;">Likvidirano</th>
+          <th style="width:110px;">Broj računa</th>
+          <th style="min-width:160px;">Partner</th>
+          <th style="width:90px;">OIB</th>
+          <th style="text-align:right;width:80px;">Iznos</th>
+          <th style="width:84px;">Datum</th>
+          <th style="width:84px;">Dospijeće</th>
+          <th style="width:70px;text-align:center;">Veza PN</th>
+          <th style="text-align:center;width:62px;">Plaćeno</th>
+          <th style="text-align:center;width:72px;">Likvidirano</th>
           <th style="width:32px;text-align:center;" title="Napomena">💬</th>
           <th style="width:75px;">Korisnik</th>
           <th style="width:100px;">Akcije</th>
@@ -72,15 +72,15 @@
           </td>
           <td style="font-size:12px;white-space:nowrap;">{{ inv.invoice_date|fmt_date or '—' }}</td>
           <td style="font-size:12px;white-space:nowrap;">{{ inv.due_date|fmt_date or '—' }}</td>
-          <td style="font-size:12px;white-space:nowrap;">
+          <td style="font-size:12px;white-space:nowrap;text-align:center;">
             {% if inv.pn_auto_id %}
             <a href="/orders/{{ inv.pn_order_id }}/edit"
                style="color:var(--accent);font-weight:600;text-decoration:none;"
                title="Otvori putni nalog PN {{ inv.pn_auto_id }}"
                onclick="event.stopPropagation();">
-              📋 PN {{ inv.pn_auto_id }}
+              {{ inv.pn_auto_id }}
             </a>
-            {% else %}—{% endif %}
+            {% else %}<span style="color:var(--gray-300);">—</span>{% endif %}
           </td>
           <td style="text-align:center;">
             {% if inv.is_paid %}
