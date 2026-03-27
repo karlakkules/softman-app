@@ -326,7 +326,7 @@
         </div>
         <div class="form-group">
           <label class="form-label">Datum dokumenta</label>
-          <input type="date" class="form-control" id="exp-doc-date">
+          <input type="date" class="form-control" id="exp-doc-date" onchange="tryAutoMatchPnByDate(this.value)">
         </div>
         <div class="form-group">
           <label class="form-label">Opis</label>
@@ -342,7 +342,7 @@
             ⚡ Kreiraj novi PN
           </button>
         </div>
-        <select class="form-control" id="exp-pn-select" style="font-size:13px;">
+        <select class="form-control" id="exp-pn-select" style="font-size:13px;" onchange="this.dataset.autoMatched='0';document.getElementById('exp-pn-auto-match').style.display='none';">
           <option value="">— Bez veze (neupareno) —</option>
         </select>
         <div id="exp-pn-auto-match" style="display:none;margin-top:6px;font-size:12px;color:#27ae60;font-weight:600;">
@@ -900,9 +900,11 @@ async function openExpenseDetail(ocrResult) {
   const autoMatch = document.getElementById('exp-pn-auto-match');
   if (ocrResult.matching_pn_id) {
     pnSelect.value = ocrResult.matching_pn_id;
+    pnSelect.dataset.autoMatched = '1';
     autoMatch.style.display = '';
   } else {
     pnSelect.value = '';
+    pnSelect.dataset.autoMatched = '0';
     autoMatch.style.display = 'none';
   }
 
@@ -924,6 +926,46 @@ async function loadActivePnList() {
     const label = `PN ${pn.auto_id} — ${pn.destination || ''} — ${pn.employee_name || ''} — ${pn.purpose || ''}`;
     sel.innerHTML += `<option value="${pn.id}">${label}</option>`;
   });
+}
+
+function tryAutoMatchPnByDate(dateVal) {
+  if (!dateVal || !_expActivePnList.length) return;
+  const pnSelect = document.getElementById('exp-pn-select');
+  const autoMatch = document.getElementById('exp-pn-auto-match');
+
+  // Ako je korisnik RUČNO odabrao PN (nije auto-match), ne diramo ga
+  if (pnSelect.value && pnSelect.dataset.autoMatched !== '1') return;
+
+  const docDate = new Date(dateVal);
+  docDate.setHours(12, 0, 0, 0); // postavi na podne radi usporedbe
+
+  let bestMatch = null;
+  for (const pn of _expActivePnList) {
+    const depDate = pn.departure_date || pn.trip_start_datetime?.substring(0, 10);
+    const endDate = pn.trip_end_datetime?.substring(0, 10) || depDate;
+    if (!depDate) continue;
+
+    const start = new Date(depDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    if (docDate >= start && docDate <= end) {
+      bestMatch = pn;
+      break; // uzmi prvi match (lista je sortirana po datumu)
+    }
+  }
+
+  if (bestMatch) {
+    pnSelect.value = bestMatch.id;
+    pnSelect.dataset.autoMatched = '1';
+    autoMatch.textContent = `✅ Pronađen odgovarajući PN: PN ${bestMatch.auto_id} — ${bestMatch.destination || ''}`;
+    autoMatch.style.display = '';
+  } else {
+    pnSelect.value = '';
+    pnSelect.dataset.autoMatched = '0';
+    autoMatch.style.display = 'none';
+  }
 }
 
 function onExpPaymentChange() {
