@@ -226,10 +226,10 @@
       <!-- Preklopnik: tip dokumenta -->
       <div style="display:flex;gap:8px;margin-bottom:16px;">
         <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 16px;border:2px solid var(--accent);border-radius:8px;cursor:pointer;background:var(--accent-light);font-weight:600;font-size:13px;color:var(--navy);transition:all .15s;" id="exp-type-r1-label">
-          <input type="radio" name="exp-doc-type" value="r1" id="exp-type-r1" onchange="onExpTypeChange()"> R1 račun
+          <input type="radio" name="exp-doc-type" value="r1" id="exp-type-r1" checked onchange="onExpTypeChange()"> R1 račun
         </label>
         <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 16px;border:2px solid var(--gray-200);border-radius:8px;cursor:pointer;background:white;font-weight:600;font-size:13px;color:var(--gray-600);transition:all .15s;" id="exp-type-receipt-label">
-          <input type="radio" name="exp-doc-type" value="receipt" id="exp-type-receipt" checked onchange="onExpTypeChange()"> Običan račun/potvrda
+          <input type="radio" name="exp-doc-type" value="receipt" id="exp-type-receipt" onchange="onExpTypeChange()"> Običan račun/potvrda
         </label>
       </div>
 
@@ -799,7 +799,7 @@ function selectQClient(id, name) { document.getElementById('q-client-id').value 
 // PN EXPENSES — Brzi unos troška
 // ═══════════════════════════════════════════════════════════════════════════
 
-let _expDocType = 'receipt';
+let _expDocType = 'r1';
 let _expActivePnList = [];
 
 function onExpTypeChange() {
@@ -818,8 +818,8 @@ function onExpTypeChange() {
 }
 
 function openExpenseUpload() {
-  _expDocType = 'receipt';
-  document.getElementById('exp-type-receipt').checked = true;
+  _expDocType = 'r1';
+  document.getElementById('exp-type-r1').checked = true;
   onExpTypeChange();
   document.getElementById('exp-drop-zone').style.display = '';
   document.getElementById('exp-ocr-progress').style.display = 'none';
