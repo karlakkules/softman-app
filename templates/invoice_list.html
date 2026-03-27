@@ -39,7 +39,6 @@
     <table>
       <thead>
         <tr>
-          <th style="width:32px;"></th>
           <th style="width:110px;">Broj računa</th>
           <th style="min-width:160px;">Partner</th>
           <th style="width:90px;">OIB</th>
@@ -50,7 +49,6 @@
           <th style="text-align:center;width:62px;">Plaćeno</th>
           <th style="text-align:center;width:72px;">Likvidirano</th>
           <th style="width:32px;text-align:center;" title="Napomena">💬</th>
-          <th style="width:75px;">Korisnik</th>
           <th style="width:100px;">Akcije</th>
         </tr>
       </thead>
@@ -63,7 +61,6 @@
             data-payment="{{ inv.paid_card_last4 or '' }}"
             style="cursor:pointer;"
             ondblclick="if(!event.target.closest('button,a,input')) openEditModal(this)">
-          <td style="text-align:center;color:var(--gray-500);font-size:12px;">{{ loop.index }}</td>
           <td><strong style="font-size:13px;">{{ inv.invoice_number or '—' }}</strong></td>
           <td>{{ inv.partner_name or '—' }}</td>
           <td style="font-size:11px;color:var(--gray-500);">{{ inv.partner_oib or '—' }}</td>
@@ -85,23 +82,23 @@
           <td style="text-align:center;">
             {% if inv.is_paid %}
               {% if current_user.get('is_admin') or current_user.get('can_edit_invoices_liquidated') %}
-              <button class="btn btn-sm" style="font-size:11px;padding:2px 8px;background:#f0faf4;color:#27ae60;border:1px solid #a8d5b5;cursor:pointer;"
+              <button class="btn btn-sm" style="font-size:10px;padding:1px 5px;background:#f0faf4;color:#27ae60;border:1px solid #a8d5b5;cursor:pointer;"
                 onclick="openPayModal({{ inv.id }}, '{{ inv.partner_name }}')"
                 title="Uredi podatke plaćanja · {{ inv.paid_at|fmt_date }}{% if inv.paid_card_last4 %} · {{ inv.paid_card_last4 }}{% endif %}">✅ DA</button>
               {% else %}
-              <span class="badge" style="background:#f0faf4;color:#27ae60;border:1px solid #a8d5b5;" title="{{ inv.paid_at|fmt_date }}{% if inv.paid_card_last4 %} · {{ inv.paid_card_last4 }}{% endif %}">✅ DA</span>
+              <span class="badge" style="background:#f0faf4;color:#27ae60;border:1px solid #a8d5b5;font-size:10px;padding:1px 5px;" title="{{ inv.paid_at|fmt_date }}{% if inv.paid_card_last4 %} · {{ inv.paid_card_last4 }}{% endif %}">✅ DA</span>
               {% endif %}
             {% else %}
-              <button class="btn btn-sm" style="font-size:11px;padding:2px 8px;background:#fff8e1;color:#e67e22;border:1px solid #f0c14b;"
+              <button class="btn btn-sm" style="font-size:10px;padding:1px 5px;background:#fff8e1;color:#e67e22;border:1px solid #f0c14b;"
                 onclick="openPayModal({{ inv.id }}, '{{ inv.partner_name }}')">Označi</button>
             {% endif %}
           </td>
           <td style="text-align:center;">
             {% if inv.is_liquidated %}
-              <span class="badge" style="background:#f0faf4;color:#27ae60;border:1px solid #a8d5b5;">✅ DA</span>
+              <span class="badge" style="background:#f0faf4;color:#27ae60;border:1px solid #a8d5b5;font-size:10px;padding:1px 5px;">✅ DA</span>
             {% else %}
               {% if current_user.get('is_admin') or current_user.get('can_liquidate_invoices') %}
-              <button class="btn btn-sm" style="font-size:11px;padding:2px 8px;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;"
+              <button class="btn btn-sm" style="font-size:10px;padding:1px 5px;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;"
                 onclick="liquidateInv({{ inv.id }}, '{{ inv.partner_name }}')">Likvidiraj</button>
               {% else %}
               <span style="color:var(--gray-400);font-size:12px;">NE</span>
@@ -151,7 +148,7 @@
           </td>
         </tr>
       {% else %}
-        <tr><td colspan="13" style="text-align:center;padding:40px;color:var(--gray-400);">
+        <tr><td colspan="11" style="text-align:center;padding:40px;color:var(--gray-400);">
           <div style="font-size:32px;margin-bottom:8px;">🧾</div>
           <div>Nema računa. Učitajte prvi!</div>
         </td></tr>
