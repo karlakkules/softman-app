@@ -5932,9 +5932,13 @@ def invoice_list():
     audit('view', module='ulazni_racuni', entity='list')
     conn = get_db()
     invoices = conn.execute('''
-        SELECT i.*, u.username as created_by_username
+        SELECT i.*, u.username as created_by_username,
+               to2.auto_id as pn_auto_id,
+               to2.id as pn_order_id
         FROM invoices i
         LEFT JOIN users u ON u.id = i.created_by
+        LEFT JOIN pn_expenses pe ON pe.invoice_id = i.id AND pe.travel_order_id IS NOT NULL
+        LEFT JOIN travel_orders to2 ON to2.id = pe.travel_order_id
         WHERE i.is_deleted=0 OR i.is_deleted IS NULL
         ORDER BY i.invoice_date DESC, i.id DESC
     ''').fetchall()
@@ -6923,13 +6927,30 @@ def pn_expense_save():
 
     # R1 račun — kreiraj i u invoices tablici
     if doc_type == 'r1':
+        # Odredi podatke o plaćanju
+        _payment_method = data.get('payment_method', 'private')
+        _bank_card_id = data.get('bank_card_id') or None
+        _is_paid = 0 if _payment_method == 'transfer' else 1
+        _paid_at = doc_date if _is_paid else None
+        _paid_card_last4 = None
+        if _payment_method == 'card' and _bank_card_id:
+            try:
+                _card = conn.execute(
+                    "SELECT last4 FROM bank_cards WHERE id=?", (_bank_card_id,)
+                ).fetchone()
+                if _card:
+                    _paid_card_last4 = _card['last4']
+            except:
+                pass
+
         c.execute("""
             INSERT INTO invoices (
                 invoice_number, partner_name, partner_oib,
                 invoice_date, due_date, amount_total, currency,
                 original_filename, stored_filename, stored_path,
-                ocr_raw, notes, created_by, created_at, updated_at
-            ) VALUES (?,?,?,?,?,?,'EUR',?,?,?,?,?,?,?,?)
+                ocr_raw, notes, created_by, created_at, updated_at,
+                is_paid, paid_at, paid_card_last4
+            ) VALUES (?,?,?,?,?,?,'EUR',?,?,?,?,?,?,?,?,?,?,?)
         """, (
             data.get('invoice_number', ''),
             data.get('partner_name', ''),
@@ -6943,7 +6964,8 @@ def pn_expense_save():
             'Uneseno kroz modul Putni nalozi',
             user.get('user_id') if user else None,
             datetime.now().isoformat(),
-            datetime.now().isoformat()
+            datetime.now().isoformat(),
+            _is_paid, _paid_at, _paid_card_last4
         ))
         invoice_id = c.lastrowid
 
@@ -7008,6 +7030,36 @@ def pn_expense_update(expense_id):
         params.append(datetime.now().isoformat())
         params.append(expense_id)
         conn.execute(f"UPDATE pn_expenses SET {', '.join(updates)} WHERE id=?", params)
+
+        # Sinkroniziraj plaćanje na vezani invoice ako postoji
+        if any(f in data for f in ('payment_method', 'bank_card_id', 'doc_date')):
+            try:
+                exp_row = conn.execute(
+                    "SELECT invoice_id, payment_method, bank_card_id, doc_date, doc_type FROM pn_expenses WHERE id=?",
+                    (expense_id,)
+                ).fetchone()
+                if exp_row and exp_row['invoice_id'] and exp_row['doc_type'] == 'r1':
+                    _pm = data.get('payment_method', exp_row['payment_method'] or 'private')
+                    _bcid = data.get('bank_card_id', exp_row['bank_card_id'])
+                    _dd = data.get('doc_date', exp_row['doc_date'] or '')
+                    _is_paid = 0 if _pm == 'transfer' else 1
+                    _paid_at = _dd if _is_paid else None
+                    _paid_last4 = None
+                    if _pm == 'card' and _bcid:
+                        _card = conn.execute(
+                            "SELECT last4 FROM bank_cards WHERE id=?", (_bcid,)
+                        ).fetchone()
+                        if _card:
+                            _paid_last4 = _card['last4']
+                    conn.execute("""
+                        UPDATE invoices
+                        SET is_paid=?, paid_at=?, paid_card_last4=?, updated_at=?
+                        WHERE id=?
+                    """, (_is_paid, _paid_at, _paid_last4,
+                          datetime.now().isoformat(), exp_row['invoice_id']))
+            except:
+                pass
+
         conn.commit()
     conn.close()
     audit('update', module='pn_expenses', entity='pn_expense', entity_id=expense_id)
