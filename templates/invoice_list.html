@@ -13,8 +13,8 @@
 <div class="card" style="margin-bottom:12px;">
   <div class="card-header" style="flex-wrap:wrap;gap:8px;">
     <span class="card-title">Svi računi</span>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <input type="text" id="inv-search" class="form-control" placeholder="Pretraži..." style="width:180px;" oninput="filterInv()">
+    <div style="display:flex;gap:6px;flex-wrap:nowrap;align-items:center;">
+      <input type="text" id="inv-search" class="form-control" placeholder="Pretraži..." style="width:150px;flex-shrink:0;" oninput="filterInv()">
       <select id="inv-paid" class="form-control" style="min-width:140px;" onchange="filterInv()">
         <option value="">Plaćenost: sve</option>
         <option value="1">Plaćeno</option>
@@ -87,7 +87,7 @@
               {% if current_user.get('is_admin') or current_user.get('can_edit_invoices_liquidated') %}
               <button class="btn btn-sm" style="font-size:11px;padding:2px 8px;background:#f0faf4;color:#27ae60;border:1px solid #a8d5b5;cursor:pointer;"
                 onclick="openPayModal({{ inv.id }}, '{{ inv.partner_name }}')"
-                title="Uredi podatke plaćanja · {{ inv.paid_at }}{% if inv.paid_card_last4 %} · {{ inv.paid_card_last4 }}{% endif %}">✅ DA</button>
+                title="Uredi podatke plaćanja · {{ inv.paid_at|fmt_date }}{% if inv.paid_card_last4 %} · {{ inv.paid_card_last4 }}{% endif %}">✅ DA</button>
               {% else %}
               <span class="badge" style="background:#f0faf4;color:#27ae60;border:1px solid #a8d5b5;" title="{{ inv.paid_at|fmt_date }}{% if inv.paid_card_last4 %} · {{ inv.paid_card_last4 }}{% endif %}">✅ DA</span>
               {% endif %}
@@ -115,17 +115,14 @@
               title="{{ inv.notes }}">💬</button>
             {% endif %}
           </td>
-          <td style="font-size:12px;color:var(--gray-500);white-space:nowrap;">
-            {{ inv.created_by_username or '—' }}
-          </td>
           <td>
             <div style="display:flex;gap:4px;align-items:center;">
               {% if inv.stored_path or inv.liquidated_pdf_path %}
               <a href="/invoices/{{ inv.id }}/pdf" target="_blank"
                 class="btn btn-sm btn-secondary"
-                style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;"
+                style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;"
                 title="{{ 'Likvidirani PDF' if inv.is_liquidated else 'Originalni dokument' }}">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                   <path d="M3 1h7l3 3v10a1 1 0 01-1 1H3a1 1 0 01-1-1V2a1 1 0 011-1z" fill="#e74c3c" stroke="#c0392b" stroke-width="0.5"/>
                   <path d="M10 1l3 3h-3V1z" fill="#c0392b"/>
                   <text x="3.5" y="11.5" font-family="Arial" font-size="4.5" font-weight="bold" fill="white">PDF</text>
@@ -135,15 +132,18 @@
               {% if current_user.get('is_admin') or current_user.get('can_edit_invoices') %}
               {% if not inv.is_liquidated or current_user.get('is_admin') or current_user.get('can_edit_invoices_liquidated') %}
               <button class="btn btn-sm btn-secondary"
-                style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;"
+                style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;font-size:15px;"
                 onclick="openEditModal(this)"
                 title="Uredi podatke">✏️</button>
               {% else %}
               <button class="btn btn-sm btn-secondary"
-                style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;opacity:0.3;cursor:not-allowed;"
+                style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;font-size:15px;opacity:0.3;cursor:not-allowed;"
                 disabled title="Račun je likvidiran — nemate pravo uređivanja">✏️</button>
               {% endif %}
-              <button style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;border-radius:6px;cursor:pointer;"
+              <button style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;background:#e8f0f7;color:#1a3a5c;border:1px solid #aac4db;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;"
+                onclick="openInfoPopup({{ inv.id }}, {{ inv | tojson }})"
+                title="Info · Korisnik: {{ inv.created_by_username }}{{ ' · Plaćeno: ' + inv.paid_at|fmt_date if inv.paid_at else '' }}{{ ' · ' + inv.paid_card_last4 if inv.paid_card_last4 else '' }}">ℹ</button>
+              <button style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;border-radius:6px;cursor:pointer;"
                 onclick="deleteInv({{ inv.id }}, '{{ inv.partner_name }}')"
                 title="Obriši račun">🗑</button>
               {% endif %}
@@ -158,6 +158,21 @@
       {% endfor %}
       </tbody>
     </table>
+  </div>
+</div>
+
+<!-- INFO POPUP MODAL -->
+<div class="modal-overlay" id="info-popup-modal">
+  <div class="modal" style="width:360px;">
+    <div class="modal-header">
+      <span class="modal-title" id="info-popup-title" style="font-size:13px;font-family:'DM Mono',monospace;"></span>
+      <button class="btn btn-ghost btn-icon" onclick="closeInfoPopup()">✕</button>
+    </div>
+    <div class="modal-body" id="info-popup-body" style="padding:16px 20px;">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeInfoPopup()">Zatvori</button>
+    </div>
   </div>
 </div>
 
