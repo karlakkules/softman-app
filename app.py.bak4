@@ -1591,18 +1591,9 @@ def save_order():
     rate = float(rate_row['value']) if rate_row else 30.0
     calc = calculate_dnevnice(data.get('trip_start_datetime',''), data.get('trip_end_datetime',''), rate)
 
-    # Calculate totals — čita iz pn_expenses (privatno plaćeni troškovi)
-    order_id_for_calc = data.get('id') or None
-    private_total = 0.0
-    if order_id_for_calc:
-        try:
-            pn_exp_rows = conn.execute(
-                "SELECT amount FROM pn_expenses WHERE travel_order_id=? AND payment_method='private'",
-                (order_id_for_calc,)
-            ).fetchall()
-            private_total = sum(float(r['amount'] or 0) for r in pn_exp_rows)
-        except:
-            pass
+    # Calculate totals
+    expenses = data.get('expenses', [])
+    private_total = sum(float(e.get('amount', 0)) for e in expenses if e.get('paid_privately'))
     total_expenses = private_total
     daily_total = calc['total']
     total_amount = total_expenses + daily_total
