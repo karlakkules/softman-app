@@ -1170,14 +1170,11 @@ def calculate_dnevnice(start_dt_str, end_dt_str, rate):
         total_days = total_hours // 24
         remaining_hours = total_hours % 24
 
-        # Calculate dnevnice (prema HR pravilima)
-        # < 8h  → nema extra dnevnice
-        # 8–11h → pola dnevnice (0.5)
-        # ≥ 12h → puna dnevnica (1.0)
+        # Calculate dnevnice
         dnevnice = total_days  # full days
         if remaining_hours < 8:
-            pass  # nema extra dnevnice
-        elif remaining_hours < 12:
+            pass  # no extra dnevnica
+        elif remaining_hours <= 12:
             dnevnice += 0.5
         else:
             dnevnice += 1.0
