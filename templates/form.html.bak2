@@ -211,7 +211,8 @@
     <div class="form-row form-row-2">
       <div class="form-group">
         <label class="form-label" data-hr="Centar troškova" data-en="Cost center">Centar troškova</label>
-        
+        <input type="hidden" id="cost_center_id" value="{{ order.cost_center_id if order and order.cost_center_id else '' }}">
+        <input type="text" class="form-control" value="—" disabled style="background:#f7f9fc;color:var(--gray-400);cursor:not-allowed;" placeholder="Nije konfigurirano">
       </div>
       <div class="form-group">
         <label class="form-label" data-hr="Akontacija (€)" data-en="Advance payment (€)">Akontacija (€)</label>
@@ -304,40 +305,7 @@
   </div>
 </div>
 
-<!-- ── SECTION: TROŠKOVI ── -->
-<div class="section-divider">
-  <span class="section-divider-label" data-hr="💰 Troškovi" data-en="💰 Expenses">💰 Troškovi</span>
-  <div class="section-divider-line"></div>
-</div>
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header">
-    <span class="card-title" data-hr="Popis troškova" data-en="Expense list">Popis troškova</span>
-    {% if not locked %}
-    <button type="button" class="btn btn-sm btn-secondary" onclick="addExpenseRow()" title="Dodaj novi redak troška">
-      ➕ <span data-hr="Dodaj trošak" data-en="Add expense">Dodaj trošak</span>
-    </button>
-    {% endif %}
-  </div>
-  <div class="card-body">
-    <!-- Header labels -->
-    <div style="display:grid;grid-template-columns:160px 1fr 110px 130px 36px;gap:8px;padding-bottom:6px;border-bottom:2px solid var(--gray-200);margin-bottom:4px;">
-      <span style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;" data-hr="Kategorija" data-en="Category">Kategorija</span>
-      <span style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;" data-hr="Opis" data-en="Description">Opis</span>
-      <span style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;" data-hr="Privatno" data-en="Privately paid">Privatno</span>
-      <span style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;" data-hr="Iznos (€)" data-en="Amount (€)">Iznos (€)</span>
-      <span></span>
-    </div>
-    <div id="expenses-container">
-      <!-- Rows injected by JS -->
-    </div>
-    <div style="display:flex;justify-content:flex-end;margin-top:12px;padding-top:12px;border-top:2px solid var(--gray-200);">
-      <div style="text-align:right;">
-        <div style="font-size:11px;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.05em;" data-hr="Ukupno ostali troškovi" data-en="Total other expenses">Ukupno ostali troškovi</div>
-        <div style="font-size:20px;font-weight:700;color:var(--navy);font-family:'DM Mono',monospace;" id="expenses-total">0,00 €</div>
-      </div>
-    </div>
-  </div>
-</div>
+<!-- SECTION TROŠKOVI uklonjen — troškovi se unose kroz Troškovi s dokumentima -->
 
 <!-- ── SECTION: TROŠKOVI S DOKUMENTIMA (pn_expenses) ── -->
 {% if order %}
@@ -402,7 +370,7 @@
             <td style="padding:8px 12px;text-align:center;">
               <div style="display:flex;gap:4px;justify-content:center;">
                 {% if pe.stored_path %}
-                <a href="/api/pn-expenses/{{ pe.id }}/pdf" target="_blank" class="btn btn-sm btn-secondary" style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;font-size:12px;" title="Pregled dokumenta">📄</a>
+                <a href="/api/pn-expenses/{{ pe.id }}/pdf" target="_blank" class="btn btn-sm btn-secondary" style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;font-size:12px;" title="Pregled dokumenta"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 1h7l3 3v10a1 1 0 01-1 1H3a1 1 0 01-1-1V2a1 1 0 011-1z" fill="#e74c3c" stroke="#c0392b" stroke-width="0.5"/><path d="M10 1l3 3h-3V1z" fill="#c0392b"/><text x="3.5" y="11.5" font-family="Arial" font-size="4.5" font-weight="bold" fill="white">PDF</text></svg></a>
                 {% endif %}
                 {% if not is_deleted %}
                 <button type="button" class="btn btn-sm" style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;border-radius:6px;cursor:pointer;font-size:12px;" onclick="deletePnExp({{ pe.id }})" title="Obriši trošak">🗑</button>
@@ -476,6 +444,20 @@
         <div style="background:#e8f0f7;border:1px solid #aac4db;border-radius:6px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:var(--navy);font-weight:600;">📋 R1 račun — vidljivo i u modulu Ulazni računi</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
           <div class="form-group" style="grid-column:1/-1;"><label class="form-label">Naziv partnera</label><input type="text" class="form-control" id="pnexp-partner-name"></div>
+          <div class="form-group" style="grid-column:1/-1;">
+            <label class="form-label" style="font-size:11px;color:var(--gray-500);margin-bottom:4px;">Dobavljač s liste</label>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <div style="flex:1;position:relative;">
+                <input type="text" class="form-control" id="pnexp-supplier-search"
+                  placeholder="Pretraži dobavljača..." style="font-size:13px;" autocomplete="off"
+                  oninput="filterPnExpSupplierDropdown()" onfocus="showPnExpSupplierDropdown()">
+                <input type="hidden" id="pnexp-supplier-id">
+                <div id="pnexp-supplier-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--gray-300);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:99999;max-height:200px;overflow-y:auto;margin-top:2px;"></div>
+              </div>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="quickAddPnExpSupplier()" title="Dodaj novog dobavljača" style="padding:0 10px;height:36px;flex-shrink:0;">➕</button>
+            </div>
+            <div id="pnexp-supplier-match" style="display:none;margin-top:4px;font-size:12px;color:#27ae60;font-weight:600;"></div>
+          </div>
           <div class="form-group"><label class="form-label">OIB partnera</label><input type="text" class="form-control" id="pnexp-partner-oib" maxlength="11"></div>
           <div class="form-group"><label class="form-label">Broj računa</label><input type="text" class="form-control" id="pnexp-invoice-number"></div>
           <div class="form-group"><label class="form-label">Datum dospijeća</label><input type="date" class="form-control" id="pnexp-due-date"></div>
@@ -670,15 +652,18 @@ function getExpenses() {
 }
 
 function updateTotals() {
-  const exps = getExpenses();
-  const expTotal = exps.filter(e => e.paid_privately).reduce((s, e) => s + (e.amount || 0), 0);
+  // Zbroji SAMO troškove plaćene privatno (gotovina/privatna kartica)
+  // 'card' = poslovna kartica tvrtke — NE ulazi u isplatu zaposleniku
+  const pnExps = window._pnExpensesData || [];
+  const expTotal = pnExps
+    .filter(e => e.payment_method === 'private')
+    .reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+
   const advance = parseFloat(document.getElementById('advance_payment').value || 0);
   const dnevTotal = dnevniceData.total || 0;
-  const total = expTotal + dnevTotal;
-  const payout = total - advance;
+  const payout = dnevTotal + expTotal - advance;
 
   const fmt = v => v.toFixed(2).replace('.', ',') + ' €';
-  document.getElementById('expenses-total').textContent = fmt(expTotal);
   document.getElementById('summary-dnevnice').textContent = fmt(dnevTotal);
   document.getElementById('summary-expenses').textContent = fmt(expTotal);
   document.getElementById('summary-advance').textContent = fmt(advance);
@@ -740,8 +725,8 @@ async function saveOrder(status) {
     place_of_report: document.getElementById('place_of_report').value,
     approved_by_id: document.getElementById('approved_by_id').value || null,
     validator_id: document.getElementById('validator_id').value || null,
-    cost_center_id: document.getElementById('cost_center_id').value || null,
-    expenses: getExpenses()
+    cost_center_id: (document.getElementById('cost_center_id') || {value: null}).value || null,
+    // expenses se ne šalju — unose se kroz pn_expenses (Troškovi s dokumentima)
   };
 
   const res = await fetch('/api/orders', {
@@ -794,13 +779,19 @@ document.querySelectorAll('.nav-item, .sidebar-nav a').forEach(link => {
 
 // ── Init ──────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  // Load existing expenses if editing
-  if (EXISTING_EXPENSES.length > 0) {
-    EXISTING_EXPENSES.forEach(e => addExpenseRow(e));
-  } else if (!LOCKED) {
-    addExpenseRow(); // start with one blank row only when editable
+  // Učitaj pn_expenses za rekapitulaciju (privatno/kartica)
+  window._pnExpensesData = [];
+  const _orderId = document.getElementById('order-id')?.value;
+  if (_orderId) {
+    fetch(`/api/pn-expenses/by-order/${_orderId}`)
+      .then(r => r.json())
+      .then(data => {
+        window._pnExpensesData = Array.isArray(data) ? data : (data.expenses || []);
+        updateTotals();
+      })
+      .catch(() => {});
   }
-  // Lock form AFTER expenses are rendered so static inputs also get locked
+  // Lock form
   lockForm();
 
   // Fill position on load
@@ -966,6 +957,113 @@ async function deletePnExp(expId) {
   } catch(e) { toast('Greška: ' + e.message, 'error'); }
 }
 
+
+
+// ═══════════════════════════════════════════════════════════════════
+// SUPPLIER DROPDOWN za pn_expense forme (form.html)
+// ═══════════════════════════════════════════════════════════════════
+let _pnExpSuppliersCache = [];
+
+async function loadPnExpSuppliers() {
+  try {
+    const res = await fetch('/api/suppliers');
+    const d = await res.json();
+    _pnExpSuppliersCache = d.suppliers || d || [];
+  } catch(e) { _pnExpSuppliersCache = []; }
+  return _pnExpSuppliersCache;
+}
+
+async function showPnExpSupplierDropdown() {
+  if (!_pnExpSuppliersCache.length) await loadPnExpSuppliers();
+  filterPnExpSupplierDropdown();
+  const el = document.getElementById('pnexp-supplier-dropdown');
+  if (el) el.style.display = 'block';
+}
+
+function filterPnExpSupplierDropdown() {
+  const q = (document.getElementById('pnexp-supplier-search')?.value || '').toLowerCase();
+  const list = document.getElementById('pnexp-supplier-dropdown');
+  if (!list) return;
+  const filtered = _pnExpSuppliersCache.filter(s =>
+    !q || s.name.toLowerCase().includes(q) || (s.oib && s.oib.includes(q))
+  );
+  if (!filtered.length) {
+    list.innerHTML = '<div style="padding:10px 14px;color:var(--gray-400);font-size:13px;">Nema rezultata</div>';
+  } else {
+    list.innerHTML = filtered.map(s =>
+      `<div data-sid="${s.id}" style="padding:8px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--gray-100);">
+        <div style="font-weight:600;color:var(--navy);">${s.name}</div>
+        ${s.oib ? `<div style="font-size:11px;color:var(--gray-400);">OIB: ${s.oib}${s.address ? ' · ' + s.address : ''}</div>` : ''}
+      </div>`
+    ).join('');
+    list.querySelectorAll('[data-sid]').forEach(el => {
+      el.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        const s = _pnExpSuppliersCache.find(x => String(x.id) === this.dataset.sid);
+        if (!s) return;
+        selectPnExpSupplier(s);
+      });
+      el.addEventListener('mouseover', function() { this.style.background = 'var(--accent-light)'; });
+      el.addEventListener('mouseout', function() { this.style.background = ''; });
+    });
+  }
+  list.style.display = 'block';
+}
+
+function selectPnExpSupplier(s) {
+  document.getElementById('pnexp-supplier-search').value = s.name;
+  document.getElementById('pnexp-supplier-id').value = s.id;
+  document.getElementById('pnexp-partner-name').value = s.name;
+  document.getElementById('pnexp-partner-oib').value = s.oib || '';
+  document.getElementById('pnexp-supplier-dropdown').style.display = 'none';
+  const badge = document.getElementById('pnexp-supplier-match');
+  if (badge) { badge.style.display = 'block'; badge.textContent = '\u2705 ' + s.name; }
+}
+
+async function quickAddPnExpSupplier() {
+  const name = document.getElementById('pnexp-partner-name')?.value || '';
+  const oib = document.getElementById('pnexp-partner-oib')?.value || '';
+  const supplierName = prompt('Naziv dobavljača:', name);
+  if (!supplierName) return;
+  const supplierOib = prompt('OIB (opcionalno):', oib);
+  try {
+    const res = await fetch('/api/suppliers', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ name: supplierName, oib: supplierOib || '', address: '' })
+    });
+    const d = await res.json();
+    if (d.success || d.id) {
+      toast('Dobavljač dodan!', 'success');
+      await loadPnExpSuppliers();
+      const newS = _pnExpSuppliersCache.find(s => s.id == d.id);
+      if (newS) selectPnExpSupplier(newS);
+    } else { toast(d.error || 'Greška', 'error'); }
+  } catch(e) { toast('Greška: ' + e.message, 'error'); }
+}
+
+document.addEventListener('click', function(e) {
+  const dd = document.getElementById('pnexp-supplier-dropdown');
+  const search = document.getElementById('pnexp-supplier-search');
+  if (dd && search && !search.contains(e.target) && !dd.contains(e.target)) dd.style.display = 'none';
+});
+
+// Patch openPnExpDetail da učita supplier-e i auto-match
+const _origOpenPnExpDetail = typeof openPnExpDetail === 'function' ? openPnExpDetail : null;
+if (_origOpenPnExpDetail) {
+  const _wrapped = openPnExpDetail;
+  openPnExpDetail = async function(ocrResult) {
+    _wrapped(ocrResult);
+    if (_pnExpDocType === 'r1') {
+      await loadPnExpSuppliers();
+      let match = null;
+      const oib = ocrResult.data?.partner_oib || '';
+      const pname = ocrResult.data?.partner_name || '';
+      if (oib && oib.length >= 10) match = _pnExpSuppliersCache.find(s => s.oib && s.oib.trim() === oib.trim());
+      if (!match && pname) match = _pnExpSuppliersCache.find(s => s.name.toLowerCase().trim() === pname.toLowerCase().trim());
+      if (match) selectPnExpSupplier(match);
+    }
+  };
+}
 
 </script>
 {% endblock %}

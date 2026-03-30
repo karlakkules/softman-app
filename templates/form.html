@@ -821,6 +821,10 @@ document.addEventListener('DOMContentLoaded', () => {
     updateTotals();
   }
 
+  // ── Auto-fill KM iz evidencije vozila ────────────────────────────
+  // Samo za nalog koji se uređuje i nije zaključan
+  autoFillKmFromVehicleLog();
+
   {% if order and order.daily_allowance_count %}
   // Restore saved dnevnice display
   document.getElementById('dnevnice-box').style.display = 'flex';
@@ -1065,5 +1069,55 @@ if (_origOpenPnExpDetail) {
   };
 }
 
+
+// ── KM auto-fill iz vehicle_log_days ─────────────────────────────────────
+async function autoFillKmFromVehicleLog() {
+  const orderId = document.getElementById('order-id')?.value;
+  if (!orderId) return; // novi nalog — nema što dohvaćati
+
+  // Provjeri jesu li km polja već popunjena
+  const startKmEl = document.getElementById('start_km');
+  const endKmEl   = document.getElementById('end_km');
+  if (!startKmEl || !endKmEl) return;
+
+  const hasStartKm = startKmEl.value && parseFloat(startKmEl.value) > 0;
+  const hasEndKm   = endKmEl.value   && parseFloat(endKmEl.value) > 0;
+
+  // Ako su oba već popunjena, ne diraj
+  if (hasStartKm && hasEndKm) return;
+
+  try {
+    const res = await fetch(`/api/orders/${orderId}/km-from-log`);
+    if (!res.ok) return;
+    const d = await res.json();
+
+    if (!d.found) return;
+
+    let filled = [];
+
+    if (!hasStartKm && d.start_km) {
+      startKmEl.value = Math.round(d.start_km);
+      filled.push('početna KM');
+    }
+    if (!hasEndKm && d.end_km) {
+      endKmEl.value = Math.round(d.end_km);
+      filled.push('završna KM');
+    }
+
+    if (filled.length > 0) {
+      // Prikaži info badge ispod vozilo sekcije
+      const vehicleSection = startKmEl.closest('.card');
+      if (vehicleSection && !document.getElementById('km-autofill-badge')) {
+        const badge = document.createElement('div');
+        badge.id = 'km-autofill-badge';
+        badge.style.cssText = 'background:#e8f4fd;border:1px solid #aac4db;border-radius:6px;padding:7px 12px;margin-top:8px;font-size:12px;color:#1a6b9a;display:flex;align-items:center;gap:6px;';
+        badge.innerHTML = `<span>📍</span><span>Kilometraža automatski preuzeta iz evidencije vozila (${filled.join(', ')}). Možeš je ručno ispraviti.</span>`;
+        vehicleSection.querySelector('.card-body').appendChild(badge);
+      }
+    }
+  } catch(e) {
+    // Tiho — ne prikazuj grešku korisniku
+  }
+}
 </script>
 {% endblock %}

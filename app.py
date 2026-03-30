@@ -1557,6 +1557,9 @@ def save_order():
     order_id = data.get('id')
     new_status = data.get('status', 'draft')
 
+    # Pročitaj expenses ODMAH — mora biti definirano prije bilo kojeg returna
+    expenses = data.get('expenses', [])
+
     # Check if existing order is locked (submitted or approved)
     if order_id:
         existing = conn.execute("SELECT status FROM travel_orders WHERE id=?", (order_id,)).fetchone()
@@ -2034,6 +2037,116 @@ def mark_payment(order_id):
     conn.commit()
     conn.close()
     return jsonify({'success': True})
+
+@app.route('/api/orders/<int:order_id>/km-from-log', methods=['GET'])
+@login_required
+def km_from_log(order_id):
+    """
+    Dohvaća Početna/Završna KM iz vehicle_log_days za dati putni nalog.
+    Traži dane koji odgovaraju rasponu putovanja (departure_date → trip_end_datetime).
+    Vraća start_km prvog i end_km zadnjeg dana.
+    """
+    conn = get_db()
+    order = conn.execute(
+        "SELECT vehicle_id, departure_date, trip_start_datetime, trip_end_datetime FROM travel_orders WHERE id=?",
+        (order_id,)
+    ).fetchone()
+
+    if not order or not order['vehicle_id']:
+        conn.close()
+        return jsonify({'found': False, 'reason': 'no_vehicle'})
+
+    vehicle_id = order['vehicle_id']
+
+    # Odredi raspon datuma putovanja
+    date_start = None
+    date_end   = None
+
+    if order['departure_date']:
+        date_start = str(order['departure_date'])[:10]
+    elif order['trip_start_datetime']:
+        date_start = str(order['trip_start_datetime'])[:10]
+
+    if order['trip_end_datetime']:
+        date_end = str(order['trip_end_datetime'])[:10]
+    elif date_start:
+        date_end = date_start  # jednodnevno putovanje
+
+    if not date_start:
+        conn.close()
+        return jsonify({'found': False, 'reason': 'no_dates'})
+
+    # Pronađi log_id za to vozilo u odgovarajućem mjesecu
+    # vehicle_log je organiziran po (vehicle_id, year, month)
+    # Trebamo pokriti sve mjesece u rasponu putovanja
+    import datetime as _dt
+
+    try:
+        d_start = _dt.date.fromisoformat(date_start)
+        d_end   = _dt.date.fromisoformat(date_end)
+    except:
+        conn.close()
+        return jsonify({'found': False, 'reason': 'bad_dates'})
+
+    # Skupi sve log_id-ove za vozilo koji pokrivaju raspon
+    months_needed = set()
+    cur = d_start.replace(day=1)
+    while cur <= d_end:
+        months_needed.add((cur.year, cur.month))
+        # Sljedeći mjesec
+        if cur.month == 12:
+            cur = cur.replace(year=cur.year+1, month=1)
+        else:
+            cur = cur.replace(month=cur.month+1)
+
+    log_ids = []
+    for (yr, mo) in months_needed:
+        row = conn.execute(
+            "SELECT id FROM vehicle_log WHERE vehicle_id=? AND year=? AND month=?",
+            (vehicle_id, yr, mo)
+        ).fetchone()
+        if row:
+            log_ids.append(row['id'])
+
+    if not log_ids:
+        conn.close()
+        return jsonify({'found': False, 'reason': 'no_log'})
+
+    # Dohvati sve dane u rasponu
+    placeholders = ','.join('?' for _ in log_ids)
+    days = conn.execute(
+        f"""SELECT date, start_km, end_km
+            FROM vehicle_log_days
+            WHERE log_id IN ({placeholders})
+              AND date >= ? AND date <= ?
+              AND (official_km > 0 OR total_km > 0 OR start_km > 0 OR end_km > 0)
+            ORDER BY date ASC""",
+        log_ids + [date_start, date_end]
+    ).fetchall()
+
+    conn.close()
+
+    if not days:
+        return jsonify({'found': False, 'reason': 'no_days'})
+
+    first_day = days[0]
+    last_day  = days[-1]
+
+    start_km = first_day['start_km'] if first_day['start_km'] else None
+    end_km   = last_day['end_km']    if last_day['end_km']    else None
+
+    if not start_km and not end_km:
+        return jsonify({'found': False, 'reason': 'no_km_values'})
+
+    return jsonify({
+        'found': True,
+        'start_km': start_km,
+        'end_km': end_km,
+        'date_start': date_start,
+        'date_end': date_end,
+        'days_count': len(days)
+    })
+
 
 @app.route('/api/calculate_dnevnice', methods=['POST'])
 @require_perm('can_edit_orders')
