@@ -923,7 +923,15 @@ async function loadActivePnList() {
   const sel = document.getElementById('exp-pn-select');
   sel.innerHTML = '<option value="">— Bez veze (neupareno) —</option>';
   _expActivePnList.forEach(pn => {
-    const label = `PN ${pn.auto_id} — ${pn.destination || ''} — ${pn.employee_name || ''} — ${pn.purpose || ''}`;
+    // Formatiraj datum putovanja uz broj PN
+    let dateStr = '';
+    if (pn.departure_date) {
+      const d = pn.departure_date;
+      // YYYY-MM-DD → DD.MM.YYYY.
+      dateStr = d.length >= 10 ? `${d.slice(8,10)}.${d.slice(5,7)}.${d.slice(0,4)}.` : d;
+    }
+    const dateLabel = dateStr ? ` [${dateStr}]` : '';
+    const label = `PN ${pn.auto_id}${dateLabel} — ${pn.destination || ''} — ${pn.employee_name || ''} — ${pn.purpose || ''}`;
     sel.innerHTML += `<option value="${pn.id}">${label}</option>`;
   });
 }
@@ -975,6 +983,36 @@ function onExpPaymentChange() {
 async function saveExpense() {
   const amount = parseFloat(document.getElementById('exp-amount').value);
   if (!amount || amount <= 0) { toast('Unesite iznos!', 'error'); return; }
+
+  // FIX 4: Kategorija je obavezno polje
+  const categoryEl = document.getElementById('exp-category');
+  if (!categoryEl.value) {
+    categoryEl.style.border = '2px solid #c0392b';
+    categoryEl.focus();
+    toast('Kategorija troška je obavezno polje!', 'error');
+    setTimeout(() => { categoryEl.style.border = ''; }, 2500);
+    return;
+  }
+
+  // FIX 2: Provjeri duplikat (isti datum + isti iznos)
+  const docDate = document.getElementById('exp-doc-date').value;
+  if (docDate && amount > 0) {
+    try {
+      const chkRes = await fetch(`/api/pn-expenses/check-duplicate?date=${docDate}&amount=${amount}`);
+      if (chkRes.ok) {
+        const chkData = await chkRes.json();
+        if (chkData.found) {
+          const existing = chkData.expenses.map(e =>
+            `• ${e.doc_date} · ${parseFloat(e.amount).toFixed(2)} € · ${e.description || 'bez opisa'} · ${e.category_name || ''}`
+          ).join('\n');
+          const confirmed = confirm(
+            `⚠️ Upozorenje: Već postoji trošak s istim datumom (${docDate}) i iznosom (${amount.toFixed(2)} €):\n\n${existing}\n\nJesi li siguran/na da želiš evidentirati ovaj trošak?`
+          );
+          if (!confirmed) return;
+        }
+      }
+    } catch(e) { /* tiho — nastavi sa spremanjem */ }
+  }
 
   const paymentVal = document.getElementById('exp-payment-method').value;
   let paymentMethod = paymentVal;

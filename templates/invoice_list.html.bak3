@@ -59,12 +59,6 @@
             data-liq="{{ inv.is_liquidated }}"
             data-search="{{ inv.partner_name }} {{ inv.invoice_number }} {{ inv.partner_oib }}"
             data-payment="{{ inv.paid_card_last4 or '' }}"
-            data-broj="{{ inv.invoice_number or '' }}"
-            data-partner="{{ inv.partner_name or '' }}"
-            data-oib="{{ inv.partner_oib or '' }}"
-            data-datum="{{ inv.invoice_date or '' }}"
-            data-dospijece="{{ inv.due_date or '' }}"
-            data-korisnik="{{ inv.created_by_username or '' }}"
             style="cursor:pointer;"
             ondblclick="if(!event.target.closest('button,a,input')) openEditModal(this)">
           <td><strong style="font-size:13px;">{{ inv.invoice_number or '—' }}</strong></td>
@@ -333,43 +327,10 @@
   </div>
 </div>
 
-<style>
-.inv-col-filter { width:100%; padding:3px 6px; font-size:11px; border:1px solid var(--gray-200);
-  border-radius:4px; background:white; color:var(--gray-700); box-sizing:border-box; }
-.inv-col-filter:focus { outline:none; border-color:var(--accent); }
-#inv-col-filters th { padding:4px 5px; font-weight:normal; background:var(--gray-50); }
-</style>
 <script>
 let _currentFile = null;
 let _payInvId = null;
 let _ocrData = {};
-
-function invColFilter() {
-  const filters = {};
-  document.querySelectorAll('.inv-col-filter').forEach(inp => {
-    const val = inp.value.trim().toLowerCase();
-    if (val) filters[inp.dataset.col] = val;
-  });
-  document.querySelectorAll('#inv-tbody tr[data-id]').forEach(row => {
-    let show = true;
-    for (const [col, val] of Object.entries(filters)) {
-      const cellVal = (row.dataset[col] || '').toLowerCase();
-      if (!cellVal.includes(val)) { show = false; break; }
-    }
-    // Postavi display samo ako ostali filteri prolaze
-    if (!show) { row.style.display = 'none'; return; }
-    // Provjeri i globalne filtere (search, paid, liq, payment)
-    const search = document.getElementById('inv-search')?.value.toLowerCase() || '';
-    const paid = document.getElementById('inv-paid')?.value || '';
-    const liq = document.getElementById('inv-liq')?.value || '';
-    const payment = document.getElementById('inv-payment')?.value || '';
-    const ms = !search || (row.dataset.search || '').toLowerCase().includes(search);
-    const mp = !paid || row.dataset.paid === paid;
-    const ml = !liq || row.dataset.liq === liq;
-    const mpm = !payment || row.dataset.payment === payment;
-    row.style.display = (ms && mp && ml && mpm) ? '' : 'none';
-  });
-}
 
 function filterInv() { const search = document.getElementById('inv-search').value.toLowerCase(); const paid = document.getElementById('inv-paid').value; const liq = document.getElementById('inv-liq').value; const payment = document.getElementById('inv-payment').value; document.querySelectorAll('#inv-tbody tr[data-id]').forEach(row => { const ms = !search || row.dataset.search.toLowerCase().includes(search); const mp = !paid || row.dataset.paid === paid; const ml = !liq || row.dataset.liq === liq; const mpm = !payment || row.dataset.payment === payment; row.style.display = (ms && mp && ml && mpm) ? '' : 'none'; }); }
 

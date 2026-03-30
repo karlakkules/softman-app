@@ -25,7 +25,7 @@
     🗑️ <span data-hr="Izbrisani" data-en="Trash">Izbrisani</span>
   </a>
   <button class="btn btn-secondary" onclick="openExpenseUpload()" title="Brzi unos troška s dokumentom">
-    🧾 <span data-hr="Brzi unos troška" data-en="Quick Expense">Brzi unos troška</span>
+    🧾 <span data-hr="Unos troška" data-en="Add Expense">Unos troška</span>
   </button>
   <button class="btn btn-secondary" onclick="openQuickCreate()" title="Brzi unos putnog naloga">
     ⚡ <span data-hr="Brzi unos" data-en="Quick Entry">Brzi unos</span>
@@ -86,7 +86,7 @@
           <th class="sortable" data-col="3" onclick="sortTable(3)">Zaposlenik <span class="sort-icon">↕</span></th>
           <th class="sortable" style="width:110px;" data-col="4" onclick="sortTable(4)">Destinacija <span class="sort-icon">↕</span></th>
           <th>Svrha</th>
-          <th class="sortable" style="width:90px;" data-col="6" onclick="sortTable(6)">Ukupno <span class="sort-icon">↕</span></th>
+          <th class="sortable" style="width:90px;" data-col="6" onclick="sortTable(6)">Za isplatu <span class="sort-icon">↕</span></th>
           <th class="sortable" style="width:100px;" data-col="7" onclick="sortTable(7)">Status <span class="sort-icon">↕</span></th>
           <th class="sortable" style="width:80px;" data-col="8" onclick="sortTable(8)">Isplata <span class="sort-icon">↕</span></th>
           <th style="width:140px;">Akcije</th>
@@ -121,7 +121,7 @@
           <td data-col="3" data-val="{{ o.employee_name or '' }}">{{ o.employee_name or '—' }}</td>
           <td data-col="4" data-val="{{ o.destination or '' }}">{{ o.destination or '—' }}</td>
           <td data-col="5" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ o.purpose or '—' }}</td>
-          <td data-col="6" data-val="{{ o.total_amount or 0 }}"><strong>{{ '%.2f'|format(o.total_amount or 0) }} €</strong></td>
+          <td data-col="6" data-val="{{ o.payout_amount or 0 }}"><strong>{{ '%.2f'|format(o.payout_amount or 0) }} €</strong></td>
           <td data-col="7" data-val="{{ o.status }}">
             {% if o.status == 'draft' %}<span class="badge badge-draft">Nacrt</span>
             {% elif o.status == 'submitted' %}<span class="badge badge-submitted">Predano</span>
@@ -226,10 +226,10 @@
       <!-- Preklopnik: tip dokumenta -->
       <div style="display:flex;gap:8px;margin-bottom:16px;">
         <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 16px;border:2px solid var(--accent);border-radius:8px;cursor:pointer;background:var(--accent-light);font-weight:600;font-size:13px;color:var(--navy);transition:all .15s;" id="exp-type-r1-label">
-          <input type="radio" name="exp-doc-type" value="r1" id="exp-type-r1" onchange="onExpTypeChange()"> R1 račun
+          <input type="radio" name="exp-doc-type" value="r1" id="exp-type-r1" checked onchange="onExpTypeChange()"> R1 račun
         </label>
         <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 16px;border:2px solid var(--gray-200);border-radius:8px;cursor:pointer;background:white;font-weight:600;font-size:13px;color:var(--gray-600);transition:all .15s;" id="exp-type-receipt-label">
-          <input type="radio" name="exp-doc-type" value="receipt" id="exp-type-receipt" checked onchange="onExpTypeChange()"> Običan račun/potvrda
+          <input type="radio" name="exp-doc-type" value="receipt" id="exp-type-receipt" onchange="onExpTypeChange()"> Običan račun/potvrda
         </label>
       </div>
 
@@ -326,7 +326,7 @@
         </div>
         <div class="form-group">
           <label class="form-label">Datum dokumenta</label>
-          <input type="date" class="form-control" id="exp-doc-date">
+          <input type="date" class="form-control" id="exp-doc-date" onchange="tryAutoMatchPnByDate(this.value)">
         </div>
         <div class="form-group">
           <label class="form-label">Opis</label>
@@ -342,7 +342,7 @@
             ⚡ Kreiraj novi PN
           </button>
         </div>
-        <select class="form-control" id="exp-pn-select" style="font-size:13px;">
+        <select class="form-control" id="exp-pn-select" style="font-size:13px;" onchange="this.dataset.autoMatched='0';document.getElementById('exp-pn-auto-match').style.display='none';">
           <option value="">— Bez veze (neupareno) —</option>
         </select>
         <div id="exp-pn-auto-match" style="display:none;margin-top:6px;font-size:12px;color:#27ae60;font-weight:600;">
@@ -799,7 +799,7 @@ function selectQClient(id, name) { document.getElementById('q-client-id').value 
 // PN EXPENSES — Brzi unos troška
 // ═══════════════════════════════════════════════════════════════════════════
 
-let _expDocType = 'receipt';
+let _expDocType = 'r1';
 let _expActivePnList = [];
 
 function onExpTypeChange() {
@@ -818,8 +818,8 @@ function onExpTypeChange() {
 }
 
 function openExpenseUpload() {
-  _expDocType = 'receipt';
-  document.getElementById('exp-type-receipt').checked = true;
+  _expDocType = 'r1';
+  document.getElementById('exp-type-r1').checked = true;
   onExpTypeChange();
   document.getElementById('exp-drop-zone').style.display = '';
   document.getElementById('exp-ocr-progress').style.display = 'none';
@@ -900,9 +900,11 @@ async function openExpenseDetail(ocrResult) {
   const autoMatch = document.getElementById('exp-pn-auto-match');
   if (ocrResult.matching_pn_id) {
     pnSelect.value = ocrResult.matching_pn_id;
+    pnSelect.dataset.autoMatched = '1';
     autoMatch.style.display = '';
   } else {
     pnSelect.value = '';
+    pnSelect.dataset.autoMatched = '0';
     autoMatch.style.display = 'none';
   }
 
@@ -924,6 +926,46 @@ async function loadActivePnList() {
     const label = `PN ${pn.auto_id} — ${pn.destination || ''} — ${pn.employee_name || ''} — ${pn.purpose || ''}`;
     sel.innerHTML += `<option value="${pn.id}">${label}</option>`;
   });
+}
+
+function tryAutoMatchPnByDate(dateVal) {
+  if (!dateVal || !_expActivePnList.length) return;
+  const pnSelect = document.getElementById('exp-pn-select');
+  const autoMatch = document.getElementById('exp-pn-auto-match');
+
+  // Ako je korisnik RUČNO odabrao PN (nije auto-match), ne diramo ga
+  if (pnSelect.value && pnSelect.dataset.autoMatched !== '1') return;
+
+  const docDate = new Date(dateVal);
+  docDate.setHours(12, 0, 0, 0); // postavi na podne radi usporedbe
+
+  let bestMatch = null;
+  for (const pn of _expActivePnList) {
+    const depDate = pn.departure_date || pn.trip_start_datetime?.substring(0, 10);
+    const endDate = pn.trip_end_datetime?.substring(0, 10) || depDate;
+    if (!depDate) continue;
+
+    const start = new Date(depDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    if (docDate >= start && docDate <= end) {
+      bestMatch = pn;
+      break; // uzmi prvi match (lista je sortirana po datumu)
+    }
+  }
+
+  if (bestMatch) {
+    pnSelect.value = bestMatch.id;
+    pnSelect.dataset.autoMatched = '1';
+    autoMatch.textContent = `✅ Pronađen odgovarajući PN: PN ${bestMatch.auto_id} — ${bestMatch.destination || ''}`;
+    autoMatch.style.display = '';
+  } else {
+    pnSelect.value = '';
+    pnSelect.dataset.autoMatched = '0';
+    autoMatch.style.display = 'none';
+  }
 }
 
 function onExpPaymentChange() {
@@ -1089,6 +1131,20 @@ async function openUnmatched() {
 
 function closeUnmatched() { document.getElementById('unmatched-modal').classList.remove('open'); }
 
+function updateUnmatchedBadge() {
+  // Ažuriraj badge broj na gumbu Neupareni troškovi
+  const remaining = document.querySelectorAll('.unmatched-row:not([style*="none"])').length;
+  const badges = document.querySelectorAll('[onclick="openUnmatched()"] span[style*="position:absolute"]');
+  badges.forEach(badge => {
+    if (remaining > 0) {
+      badge.textContent = remaining;
+      badge.style.display = 'flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  });
+}
+
 async function linkUnmatched(expId) {
   const pnId = document.getElementById(`unmatched-pn-${expId}`).value;
   if (!pnId) { toast('Odaberi putni nalog!', 'error'); return; }
@@ -1102,7 +1158,7 @@ async function linkUnmatched(expId) {
     toast('Trošak vezan na PN!', 'success');
     const row = document.getElementById(`unmatched-row-${expId}`);
     if (row) row.style.display = 'none';
-    // Provjeri ima li još neuparenih
+    updateUnmatchedBadge();
     const remaining = document.querySelectorAll('.unmatched-row:not([style*="none"])').length;
     if (!remaining) {
       document.getElementById('unmatched-list').innerHTML =
@@ -1118,6 +1174,7 @@ async function deleteUnmatched(expId) {
     toast('Trošak obrisan.', 'success');
     const row = document.getElementById(`unmatched-row-${expId}`);
     if (row) row.style.display = 'none';
+    updateUnmatchedBadge();
   } else { toast('Greška pri brisanju', 'error'); }
 }
 

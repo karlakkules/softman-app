@@ -2148,6 +2148,33 @@ def km_from_log(order_id):
     })
 
 
+@app.route('/api/pn-expenses/check-duplicate', methods=['GET'])
+@login_required
+def check_pn_expense_duplicate():
+    """Provjeri postoji li trošak s istim datumom i iznosom."""
+    date_val = request.args.get('date', '')
+    amount_val = request.args.get('amount', '0')
+    try:
+        amount = float(amount_val)
+    except:
+        return jsonify({'found': False})
+    if not date_val or amount <= 0:
+        return jsonify({'found': False})
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT pe.*, ec.name as category_name
+        FROM pn_expenses pe
+        LEFT JOIN expense_categories ec ON ec.id = pe.category_id
+        WHERE pe.doc_date = ? AND ABS(pe.amount - ?) < 0.005
+        ORDER BY pe.created_at DESC
+        LIMIT 5
+    """, (date_val, amount)).fetchall()
+    conn.close()
+    if not rows:
+        return jsonify({'found': False})
+    return jsonify({'found': True, 'expenses': rows_to_dicts(rows)})
+
+
 @app.route('/api/calculate_dnevnice', methods=['POST'])
 @require_perm('can_edit_orders')
 def api_calculate_dnevnice():
