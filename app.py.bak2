@@ -5932,9 +5932,13 @@ def invoice_list():
     audit('view', module='ulazni_racuni', entity='list')
     conn = get_db()
     invoices = conn.execute('''
-        SELECT i.*, u.username as created_by_username
+        SELECT i.*, u.username as created_by_username,
+               to2.auto_id as pn_auto_id,
+               to2.id as pn_order_id
         FROM invoices i
         LEFT JOIN users u ON u.id = i.created_by
+        LEFT JOIN pn_expenses pe ON pe.invoice_id = i.id AND pe.travel_order_id IS NOT NULL
+        LEFT JOIN travel_orders to2 ON to2.id = pe.travel_order_id
         WHERE i.is_deleted=0 OR i.is_deleted IS NULL
         ORDER BY i.invoice_date DESC, i.id DESC
     ''').fetchall()
@@ -6624,8 +6628,11 @@ def suppliers_list():
     return jsonify(rows_to_dicts(rows))
 
 @app.route('/api/suppliers', methods=['POST'])
-@admin_required
+@api_login_required
 def supplier_create():
+    user = get_current_user()
+    if not user or not user.get('is_admin'):
+        return jsonify({'success': False, 'error': 'Nemate ovlasti za ovu akciju.'}), 403
     data = request.json
     if not data.get('name'):
         return jsonify({'error': 'Naziv je obavezan'}), 400
@@ -6638,8 +6645,11 @@ def supplier_create():
     return jsonify({'success': True, 'id': new_id})
 
 @app.route('/api/suppliers/<int:sid>', methods=['PUT'])
-@admin_required
+@api_login_required
 def supplier_update(sid):
+    user = get_current_user()
+    if not user or not user.get('is_admin'):
+        return jsonify({'success': False, 'error': 'Nemate ovlasti za ovu akciju.'}), 403
     data = request.json
     conn = get_db()
     conn.execute("UPDATE suppliers SET name=?, oib=?, address=? WHERE id=?",
@@ -6649,8 +6659,11 @@ def supplier_update(sid):
     return jsonify({'success': True})
 
 @app.route('/api/suppliers/<int:sid>', methods=['DELETE'])
-@admin_required
+@api_login_required
 def supplier_delete(sid):
+    user = get_current_user()
+    if not user or not user.get('is_admin'):
+        return jsonify({'success': False, 'error': 'Nemate ovlasti za ovu akciju.'}), 403
     conn = get_db()
     conn.execute("DELETE FROM suppliers WHERE id=?", (sid,))
     conn.commit()
