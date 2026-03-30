@@ -652,11 +652,10 @@ function getExpenses() {
 }
 
 function updateTotals() {
-  // Zbroji SAMO troškove plaćene privatno (gotovina/privatna kartica)
-  // 'card' = poslovna kartica tvrtke — NE ulazi u isplatu zaposleniku
+  // Zbroji troškove s dokumentima gdje je payment_method = 'private' ili 'card'
   const pnExps = window._pnExpensesData || [];
   const expTotal = pnExps
-    .filter(e => e.payment_method === 'private')
+    .filter(e => e.payment_method === 'private' || e.payment_method === 'card')
     .reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
 
   const advance = parseFloat(document.getElementById('advance_payment').value || 0);
