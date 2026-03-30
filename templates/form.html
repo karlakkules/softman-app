@@ -305,40 +305,7 @@
   </div>
 </div>
 
-<!-- ── SECTION: TROŠKOVI ── -->
-<div class="section-divider">
-  <span class="section-divider-label" data-hr="💰 Troškovi" data-en="💰 Expenses">💰 Troškovi</span>
-  <div class="section-divider-line"></div>
-</div>
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header">
-    <span class="card-title" data-hr="Popis troškova" data-en="Expense list">Popis troškova</span>
-    {% if not locked %}
-    <button type="button" class="btn btn-sm btn-secondary" onclick="addExpenseRow()" title="Dodaj novi redak troška">
-      ➕ <span data-hr="Dodaj trošak" data-en="Add expense">Dodaj trošak</span>
-    </button>
-    {% endif %}
-  </div>
-  <div class="card-body">
-    <!-- Header labels -->
-    <div style="display:grid;grid-template-columns:160px 1fr 110px 130px 36px;gap:8px;padding-bottom:6px;border-bottom:2px solid var(--gray-200);margin-bottom:4px;">
-      <span style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;" data-hr="Kategorija" data-en="Category">Kategorija</span>
-      <span style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;" data-hr="Opis" data-en="Description">Opis</span>
-      <span style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;" data-hr="Privatno" data-en="Privately paid">Privatno</span>
-      <span style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;" data-hr="Iznos (€)" data-en="Amount (€)">Iznos (€)</span>
-      <span></span>
-    </div>
-    <div id="expenses-container">
-      <!-- Rows injected by JS -->
-    </div>
-    <div style="display:flex;justify-content:flex-end;margin-top:12px;padding-top:12px;border-top:2px solid var(--gray-200);">
-      <div style="text-align:right;">
-        <div style="font-size:11px;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.05em;" data-hr="Ukupno ostali troškovi" data-en="Total other expenses">Ukupno ostali troškovi</div>
-        <div style="font-size:20px;font-weight:700;color:var(--navy);font-family:'DM Mono',monospace;" id="expenses-total">0,00 €</div>
-      </div>
-    </div>
-  </div>
-</div>
+<!-- SECTION TROŠKOVI uklonjen — troškovi se unose kroz Troškovi s dokumentima -->
 
 <!-- ── SECTION: TROŠKOVI S DOKUMENTIMA (pn_expenses) ── -->
 {% if order %}
@@ -685,15 +652,17 @@ function getExpenses() {
 }
 
 function updateTotals() {
-  const exps = getExpenses();
-  const expTotal = exps.filter(e => e.paid_privately).reduce((s, e) => s + (e.amount || 0), 0);
+  // Zbroji troškove s dokumentima gdje je payment_method = 'private' ili 'card'
+  const pnExps = window._pnExpensesData || [];
+  const expTotal = pnExps
+    .filter(e => e.payment_method === 'private' || e.payment_method === 'card')
+    .reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+
   const advance = parseFloat(document.getElementById('advance_payment').value || 0);
   const dnevTotal = dnevniceData.total || 0;
-  const total = expTotal + dnevTotal;
-  const payout = total - advance;
+  const payout = dnevTotal + expTotal - advance;
 
   const fmt = v => v.toFixed(2).replace('.', ',') + ' €';
-  document.getElementById('expenses-total').textContent = fmt(expTotal);
   document.getElementById('summary-dnevnice').textContent = fmt(dnevTotal);
   document.getElementById('summary-expenses').textContent = fmt(expTotal);
   document.getElementById('summary-advance').textContent = fmt(advance);
@@ -756,7 +725,7 @@ async function saveOrder(status) {
     approved_by_id: document.getElementById('approved_by_id').value || null,
     validator_id: document.getElementById('validator_id').value || null,
     cost_center_id: (document.getElementById('cost_center_id') || {value: null}).value || null,
-    expenses: getExpenses()
+    // expenses se ne šalju — unose se kroz pn_expenses (Troškovi s dokumentima)
   };
 
   const res = await fetch('/api/orders', {
@@ -809,13 +778,19 @@ document.querySelectorAll('.nav-item, .sidebar-nav a').forEach(link => {
 
 // ── Init ──────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  // Load existing expenses if editing
-  if (EXISTING_EXPENSES.length > 0) {
-    EXISTING_EXPENSES.forEach(e => addExpenseRow(e));
-  } else if (!LOCKED) {
-    addExpenseRow(); // start with one blank row only when editable
+  // Učitaj pn_expenses za rekapitulaciju (privatno/kartica)
+  window._pnExpensesData = [];
+  const _orderId = document.getElementById('order-id')?.value;
+  if (_orderId) {
+    fetch(`/api/pn-expenses/by-order/${_orderId}`)
+      .then(r => r.json())
+      .then(data => {
+        window._pnExpensesData = Array.isArray(data) ? data : (data.expenses || []);
+        updateTotals();
+      })
+      .catch(() => {});
   }
-  // Lock form AFTER expenses are rendered so static inputs also get locked
+  // Lock form
   lockForm();
 
   // Fill position on load

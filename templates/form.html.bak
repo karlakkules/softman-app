@@ -211,7 +211,8 @@
     <div class="form-row form-row-2">
       <div class="form-group">
         <label class="form-label" data-hr="Centar troškova" data-en="Cost center">Centar troškova</label>
-        
+        <input type="hidden" id="cost_center_id" value="{{ order.cost_center_id if order and order.cost_center_id else '' }}">
+        <input type="text" class="form-control" value="—" disabled style="background:#f7f9fc;color:var(--gray-400);cursor:not-allowed;" placeholder="Nije konfigurirano">
       </div>
       <div class="form-group">
         <label class="form-label" data-hr="Akontacija (€)" data-en="Advance payment (€)">Akontacija (€)</label>
@@ -754,7 +755,7 @@ async function saveOrder(status) {
     place_of_report: document.getElementById('place_of_report').value,
     approved_by_id: document.getElementById('approved_by_id').value || null,
     validator_id: document.getElementById('validator_id').value || null,
-    cost_center_id: document.getElementById('cost_center_id').value || null,
+    cost_center_id: (document.getElementById('cost_center_id') || {value: null}).value || null,
     expenses: getExpenses()
   };
 
