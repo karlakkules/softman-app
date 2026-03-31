@@ -620,4 +620,82 @@ openEditModal = async function(el) {
 };
 
 </script>
+
+<style>
+.inv-sortable:hover { background: var(--gray-100); }
+.inv-sort-icon { font-size: 10px; color: var(--gray-400); margin-left: 3px; }
+.inv-sort-asc .inv-sort-icon  { color: var(--accent); }
+.inv-sort-desc .inv-sort-icon { color: var(--accent); }
+</style>
+<script>
+// ── Invoice sort ─────────────────────────────────────────────────────────────
+let _invSortCol = 'datum';
+let _invSortDir = -1; // -1 = desc (noviji gore), 1 = asc
+
+function invSort(col) {
+  if (_invSortCol === col) {
+    _invSortDir *= -1;
+  } else {
+    _invSortCol = col;
+    // Datumi i iznos — desc po defaultu, ostalo asc
+    _invSortDir = ['datum','dospijece','iznos'].includes(col) ? -1 : 1;
+  }
+
+  // Ažuriraj ikone
+  document.querySelectorAll('.inv-sortable').forEach(th => {
+    th.classList.remove('inv-sort-asc', 'inv-sort-desc');
+    const icon = th.querySelector('.inv-sort-icon');
+    if (icon) icon.textContent = '↕';
+  });
+  const activeTh = document.querySelector(`.inv-sortable[data-col="${col}"]`);
+  if (activeTh) {
+    activeTh.classList.add(_invSortDir === 1 ? 'inv-sort-asc' : 'inv-sort-desc');
+    const icon = activeTh.querySelector('.inv-sort-icon');
+    if (icon) icon.textContent = _invSortDir === 1 ? '▲' : '▼';
+  }
+
+  const tbody = document.getElementById('inv-tbody');
+  const rows = Array.from(tbody.querySelectorAll('tr[data-id]'));
+
+  rows.sort((a, b) => {
+    let aVal = (a.dataset[_invSortCol] || '').trim();
+    let bVal = (b.dataset[_invSortCol] || '').trim();
+
+    // Numeričke kolone
+    if (['iznos','placeno','likvidirano'].includes(_invSortCol)) {
+      return (parseFloat(aVal || 0) - parseFloat(bVal || 0)) * _invSortDir;
+    }
+
+    // Datum kolone — YYYY-MM-DD ili DD.MM.YYYY. format
+    if (['datum','dospijece'].includes(_invSortCol)) {
+      // Konvertiraj DD.MM.YYYY. u YYYY-MM-DD za usporedbu
+      const toIso = v => {
+        if (!v || v === '—') return '';
+        const m = v.match(/^(\d{2})\.(\d{2})\.(\d{4})/);
+        return m ? `${m[3]}-${m[2]}-${m[1]}` : v.substring(0, 10);
+      };
+      aVal = toIso(aVal);
+      bVal = toIso(bVal);
+      if (!aVal && !bVal) return 0;
+      if (!aVal) return 1;
+      if (!bVal) return -1;
+      return aVal.localeCompare(bVal) * _invSortDir;
+    }
+
+    // Tekstualne kolone
+    if (!aVal && !bVal) return 0;
+    if (!aVal) return 1 * _invSortDir;
+    if (!bVal) return -1 * _invSortDir;
+    return aVal.localeCompare(bVal, 'hr') * _invSortDir;
+  });
+
+  rows.forEach(row => tbody.appendChild(row));
+}
+
+// Inicijalni sort po datumu desc (najnoviji gore) — pozovi kad se stranica učita
+document.addEventListener('DOMContentLoaded', () => {
+  invSort('datum');
+});
+</script>
+
 {% endblock %}

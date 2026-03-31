@@ -39,15 +39,15 @@
     <table>
       <thead>
         <tr>
-          <th class="inv-sortable" data-col="broj" style="width:110px;cursor:pointer;user-select:none;" onclick="invSort('broj')">Broj računa <span class="inv-si" id="inv-si-broj">↕</span></th>
-          <th class="inv-sortable" data-col="partner" style="min-width:160px;cursor:pointer;user-select:none;" onclick="invSort('partner')">Partner <span class="inv-si" id="inv-si-partner">↕</span></th>
-          <th class="inv-sortable" data-col="oib" style="width:90px;cursor:pointer;user-select:none;" onclick="invSort('oib')">OIB <span class="inv-si" id="inv-si-oib">↕</span></th>
-          <th class="inv-sortable" data-col="iznos" style="text-align:right;width:80px;cursor:pointer;user-select:none;" onclick="invSort('iznos')">Iznos <span class="inv-si" id="inv-si-iznos">↕</span></th>
-          <th class="inv-sortable" data-col="datum" style="width:84px;cursor:pointer;user-select:none;" onclick="invSort('datum')">Datum <span class="inv-si" id="inv-si-datum">↕</span></th>
-          <th class="inv-sortable" data-col="dospijece" style="width:84px;cursor:pointer;user-select:none;" onclick="invSort('dospijece')">Dospijeće <span class="inv-si" id="inv-si-dospijece">↕</span></th>
+          <th style="width:110px;">Broj računa</th>
+          <th style="min-width:160px;">Partner</th>
+          <th style="width:90px;">OIB</th>
+          <th style="text-align:right;width:80px;">Iznos</th>
+          <th style="width:84px;">Datum</th>
+          <th style="width:84px;">Dospijeće</th>
           <th style="width:70px;text-align:center;">Veza PN</th>
-          <th class="inv-sortable" data-col="placeno" style="text-align:center;width:62px;cursor:pointer;user-select:none;" onclick="invSort('placeno')">Plaćeno <span class="inv-si" id="inv-si-placeno">↕</span></th>
-          <th class="inv-sortable" data-col="likvidirano" style="text-align:center;width:72px;cursor:pointer;user-select:none;" onclick="invSort('likvidirano')">Likvidirano <span class="inv-si" id="inv-si-likvidirano">↕</span></th>
+          <th style="text-align:center;width:62px;">Plaćeno</th>
+          <th style="text-align:center;width:72px;">Likvidirano</th>
           <th style="width:32px;text-align:center;" title="Napomena">💬</th>
           <th style="width:100px;">Akcije</th>
         </tr>
@@ -63,9 +63,6 @@
             data-partner="{{ inv.partner_name or '' }}"
             data-oib="{{ inv.partner_oib or '' }}"
             data-datum="{{ inv.invoice_date or '' }}"
-            data-iznos="{{ inv.amount_total or 0 }}"
-            data-placeno="{{ inv.is_paid or 0 }}"
-            data-likvidirano="{{ inv.is_liquidated or 0 }}"
             data-dospijece="{{ inv.due_date or '' }}"
             data-korisnik="{{ inv.created_by_username or '' }}"
             style="cursor:pointer;"
