@@ -9,6 +9,15 @@
 {% endblock %}
 {% block content %}
 
+
+<style>
+/* Kompaktna tablica računa */
+#inv-tbody td, #inv-tbody th {
+  padding-top: 7px !important;
+  padding-bottom: 7px !important;
+}
+</style>
+
 <!-- Filters -->
 <div class="card" style="margin-bottom:12px;">
   <div class="card-header" style="flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:10;background:var(--surface);border-radius:8px 8px 0 0;">
@@ -48,8 +57,8 @@
           <th style="width:70px;text-align:center;">Veza PN</th>
           <th class="inv-sortable" data-col="placeno" style="text-align:center;width:62px;cursor:pointer;user-select:none;" onclick="invSort('placeno')">Plaćeno <span class="inv-si" id="inv-si-placeno">↕</span></th>
           <th class="inv-sortable" data-col="likvidirano" style="text-align:center;width:72px;cursor:pointer;user-select:none;" onclick="invSort('likvidirano')">Likvidirano <span class="inv-si" id="inv-si-likvidirano">↕</span></th>
-          <th style="width:32px;text-align:center;" title="Napomena">💬</th>
-          <th style="width:100px;">Akcije</th>
+          <th style="width:24px;text-align:center;padding-left:2px;padding-right:2px;" title="Napomena">💬</th>
+          <th style="width:90px;">Akcije</th>
         </tr>
       </thead>
       <tbody id="inv-tbody">
@@ -59,6 +68,8 @@
             data-liq="{{ inv.is_liquidated }}"
             data-search="{{ inv.partner_name }} {{ inv.invoice_number }} {{ inv.partner_oib }}"
             data-payment="{{ inv.paid_card_last4 or '' }}"
+            data-date="{{ inv.invoice_date or '' }}"
+            data-date="{{ inv.invoice_date or '' }}"
             data-broj="{{ inv.invoice_number or '' }}"
             data-partner="{{ inv.partner_name or '' }}"
             data-oib="{{ inv.partner_oib or '' }}"
@@ -70,10 +81,10 @@
             data-korisnik="{{ inv.created_by_username or '' }}"
             style="cursor:pointer;"
             ondblclick="if(!event.target.closest('button,a,input')) openEditModal(this)">
-          <td><strong style="font-size:13px;">{{ inv.invoice_number or '—' }}</strong></td>
+          <td style="white-space:nowrap;"><strong style="font-size:13px;">{{ inv.invoice_number or '—' }}</strong></td>
           <td>{{ inv.partner_name or '—' }}</td>
-          <td style="font-size:11px;color:var(--gray-500);">{{ inv.partner_oib or '—' }}</td>
-          <td style="text-align:right;font-weight:600;white-space:nowrap;min-width:105px;">
+          <td style="font-size:11px;color:var(--gray-500);padding-right:4px;">{{ inv.partner_oib or '—' }}</td>
+          <td style="text-align:right;font-weight:600;white-space:nowrap;min-width:88px;padding-left:4px;padding-right:6px;">
             {% if inv.amount_total %}{{ "%.2f"|format(inv.amount_total) }} €{% else %}—{% endif %}
           </td>
           <td style="font-size:12px;white-space:nowrap;">{{ inv.invoice_date|fmt_date or '—' }}</td>
@@ -88,7 +99,7 @@
             </a>
             {% else %}<span style="color:var(--gray-300);">—</span>{% endif %}
           </td>
-          <td style="text-align:center;">
+          <td style="text-align:center;padding-left:4px;padding-right:4px;">
             {% if inv.is_paid %}
               {% if current_user.get('is_admin') or current_user.get('can_edit_invoices_liquidated') %}
               <button class="btn btn-sm" style="font-size:10px;padding:1px 5px;background:#f0faf4;color:#27ae60;border:1px solid #a8d5b5;cursor:pointer;"
@@ -102,7 +113,7 @@
                 onclick="openPayModal({{ inv.id }}, '{{ inv.partner_name }}')">Označi</button>
             {% endif %}
           </td>
-          <td style="text-align:center;">
+          <td style="text-align:center;padding-left:4px;padding-right:4px;">
             {% if inv.is_liquidated %}
               <span class="badge" style="background:#f0faf4;color:#27ae60;border:1px solid #a8d5b5;font-size:10px;padding:1px 5px;">✅ DA</span>
             {% else %}
@@ -114,7 +125,7 @@
               {% endif %}
             {% endif %}
           </td>
-          <td style="text-align:center;padding:0 4px;">
+          <td style="text-align:center;padding:0 2px;">
             {% if inv.notes %}
             <button onclick="openNotePopup({{ inv.id }}, {{ inv.notes | tojson }})"
               style="background:none;border:none;cursor:pointer;font-size:17px;line-height:1;padding:2px;"

@@ -9,9 +9,18 @@
 {% endblock %}
 {% block content %}
 
+
+<style>
+/* Kompaktna tablica računa */
+#inv-tbody td, #inv-tbody th {
+  padding-top: 7px !important;
+  padding-bottom: 7px !important;
+}
+</style>
+
 <!-- Filters -->
 <div class="card" style="margin-bottom:12px;">
-  <div class="card-header" style="flex-wrap:wrap;gap:8px;">
+  <div class="card-header" style="flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:10;background:var(--surface);border-radius:8px 8px 0 0;">
     <span class="card-title">Svi računi</span>
     <div style="display:flex;gap:6px;flex-wrap:nowrap;align-items:center;">
       <input type="text" id="inv-search" class="form-control" placeholder="Pretraži..." style="width:150px;flex-shrink:0;" oninput="filterInv()">
@@ -35,21 +44,21 @@
       </select>
     </div>
   </div>
-  <div class="table-wrap">
+  <div class="table-wrap" id="inv-table-wrap" style="overflow-y:auto;max-height:calc(100vh - 200px);">
     <table>
-      <thead>
+      <thead style="position:sticky;top:0;z-index:5;">
         <tr>
-          <th style="width:110px;">Broj računa</th>
-          <th style="min-width:160px;">Partner</th>
-          <th style="width:90px;">OIB</th>
-          <th style="text-align:right;width:80px;">Iznos</th>
-          <th style="width:84px;">Datum</th>
-          <th style="width:84px;">Dospijeće</th>
+          <th class="inv-sortable" data-col="broj" style="width:110px;cursor:pointer;user-select:none;" onclick="invSort('broj')">Broj računa <span class="inv-si" id="inv-si-broj">↕</span></th>
+          <th class="inv-sortable" data-col="partner" style="min-width:160px;cursor:pointer;user-select:none;" onclick="invSort('partner')">Partner <span class="inv-si" id="inv-si-partner">↕</span></th>
+          <th class="inv-sortable" data-col="oib" style="width:90px;cursor:pointer;user-select:none;" onclick="invSort('oib')">OIB <span class="inv-si" id="inv-si-oib">↕</span></th>
+          <th class="inv-sortable" data-col="iznos" style="text-align:right;width:80px;cursor:pointer;user-select:none;" onclick="invSort('iznos')">Iznos <span class="inv-si" id="inv-si-iznos">↕</span></th>
+          <th class="inv-sortable" data-col="datum" style="width:84px;cursor:pointer;user-select:none;" onclick="invSort('datum')">Datum <span class="inv-si" id="inv-si-datum">↕</span></th>
+          <th class="inv-sortable" data-col="dospijece" style="width:84px;cursor:pointer;user-select:none;" onclick="invSort('dospijece')">Dospijeće <span class="inv-si" id="inv-si-dospijece">↕</span></th>
           <th style="width:70px;text-align:center;">Veza PN</th>
-          <th style="text-align:center;width:62px;">Plaćeno</th>
-          <th style="text-align:center;width:72px;">Likvidirano</th>
-          <th style="width:32px;text-align:center;" title="Napomena">💬</th>
-          <th style="width:100px;">Akcije</th>
+          <th class="inv-sortable" data-col="placeno" style="text-align:center;width:62px;cursor:pointer;user-select:none;" onclick="invSort('placeno')">Plaćeno <span class="inv-si" id="inv-si-placeno">↕</span></th>
+          <th class="inv-sortable" data-col="likvidirano" style="text-align:center;width:72px;cursor:pointer;user-select:none;" onclick="invSort('likvidirano')">Likvidirano <span class="inv-si" id="inv-si-likvidirano">↕</span></th>
+          <th style="width:24px;text-align:center;padding-left:2px;padding-right:2px;" title="Napomena">💬</th>
+          <th style="width:90px;">Akcije</th>
         </tr>
       </thead>
       <tbody id="inv-tbody">
@@ -59,12 +68,22 @@
             data-liq="{{ inv.is_liquidated }}"
             data-search="{{ inv.partner_name }} {{ inv.invoice_number }} {{ inv.partner_oib }}"
             data-payment="{{ inv.paid_card_last4 or '' }}"
+            data-date="{{ inv.invoice_date or '' }}"
+            data-broj="{{ inv.invoice_number or '' }}"
+            data-partner="{{ inv.partner_name or '' }}"
+            data-oib="{{ inv.partner_oib or '' }}"
+            data-datum="{{ inv.invoice_date or '' }}"
+            data-iznos="{{ inv.amount_total or 0 }}"
+            data-placeno="{{ inv.is_paid or 0 }}"
+            data-likvidirano="{{ inv.is_liquidated or 0 }}"
+            data-dospijece="{{ inv.due_date or '' }}"
+            data-korisnik="{{ inv.created_by_username or '' }}"
             style="cursor:pointer;"
             ondblclick="if(!event.target.closest('button,a,input')) openEditModal(this)">
-          <td><strong style="font-size:13px;">{{ inv.invoice_number or '—' }}</strong></td>
+          <td style="white-space:nowrap;"><strong style="font-size:13px;">{{ inv.invoice_number or '—' }}</strong></td>
           <td>{{ inv.partner_name or '—' }}</td>
-          <td style="font-size:11px;color:var(--gray-500);">{{ inv.partner_oib or '—' }}</td>
-          <td style="text-align:right;font-weight:600;">
+          <td style="font-size:11px;color:var(--gray-500);padding-right:4px;">{{ inv.partner_oib or '—' }}</td>
+          <td style="text-align:right;font-weight:600;white-space:nowrap;min-width:88px;padding-left:4px;padding-right:6px;">
             {% if inv.amount_total %}{{ "%.2f"|format(inv.amount_total) }} €{% else %}—{% endif %}
           </td>
           <td style="font-size:12px;white-space:nowrap;">{{ inv.invoice_date|fmt_date or '—' }}</td>
@@ -79,7 +98,7 @@
             </a>
             {% else %}<span style="color:var(--gray-300);">—</span>{% endif %}
           </td>
-          <td style="text-align:center;">
+          <td style="text-align:center;padding-left:4px;padding-right:4px;">
             {% if inv.is_paid %}
               {% if current_user.get('is_admin') or current_user.get('can_edit_invoices_liquidated') %}
               <button class="btn btn-sm" style="font-size:10px;padding:1px 5px;background:#f0faf4;color:#27ae60;border:1px solid #a8d5b5;cursor:pointer;"
@@ -93,7 +112,7 @@
                 onclick="openPayModal({{ inv.id }}, '{{ inv.partner_name }}')">Označi</button>
             {% endif %}
           </td>
-          <td style="text-align:center;">
+          <td style="text-align:center;padding-left:4px;padding-right:4px;">
             {% if inv.is_liquidated %}
               <span class="badge" style="background:#f0faf4;color:#27ae60;border:1px solid #a8d5b5;font-size:10px;padding:1px 5px;">✅ DA</span>
             {% else %}
@@ -105,7 +124,7 @@
               {% endif %}
             {% endif %}
           </td>
-          <td style="text-align:center;padding:0 4px;">
+          <td style="text-align:center;padding:0 2px;">
             {% if inv.notes %}
             <button onclick="openNotePopup({{ inv.id }}, {{ inv.notes | tojson }})"
               style="background:none;border:none;cursor:pointer;font-size:17px;line-height:1;padding:2px;"
@@ -327,10 +346,43 @@
   </div>
 </div>
 
+<style>
+.inv-col-filter { width:100%; padding:3px 6px; font-size:11px; border:1px solid var(--gray-200);
+  border-radius:4px; background:white; color:var(--gray-700); box-sizing:border-box; }
+.inv-col-filter:focus { outline:none; border-color:var(--accent); }
+#inv-col-filters th { padding:4px 5px; font-weight:normal; background:var(--gray-50); }
+</style>
 <script>
 let _currentFile = null;
 let _payInvId = null;
 let _ocrData = {};
+
+function invColFilter() {
+  const filters = {};
+  document.querySelectorAll('.inv-col-filter').forEach(inp => {
+    const val = inp.value.trim().toLowerCase();
+    if (val) filters[inp.dataset.col] = val;
+  });
+  document.querySelectorAll('#inv-tbody tr[data-id]').forEach(row => {
+    let show = true;
+    for (const [col, val] of Object.entries(filters)) {
+      const cellVal = (row.dataset[col] || '').toLowerCase();
+      if (!cellVal.includes(val)) { show = false; break; }
+    }
+    // Postavi display samo ako ostali filteri prolaze
+    if (!show) { row.style.display = 'none'; return; }
+    // Provjeri i globalne filtere (search, paid, liq, payment)
+    const search = document.getElementById('inv-search')?.value.toLowerCase() || '';
+    const paid = document.getElementById('inv-paid')?.value || '';
+    const liq = document.getElementById('inv-liq')?.value || '';
+    const payment = document.getElementById('inv-payment')?.value || '';
+    const ms = !search || (row.dataset.search || '').toLowerCase().includes(search);
+    const mp = !paid || row.dataset.paid === paid;
+    const ml = !liq || row.dataset.liq === liq;
+    const mpm = !payment || row.dataset.payment === payment;
+    row.style.display = (ms && mp && ml && mpm) ? '' : 'none';
+  });
+}
 
 function filterInv() { const search = document.getElementById('inv-search').value.toLowerCase(); const paid = document.getElementById('inv-paid').value; const liq = document.getElementById('inv-liq').value; const payment = document.getElementById('inv-payment').value; document.querySelectorAll('#inv-tbody tr[data-id]').forEach(row => { const ms = !search || row.dataset.search.toLowerCase().includes(search); const mp = !paid || row.dataset.paid === paid; const ml = !liq || row.dataset.liq === liq; const mpm = !payment || row.dataset.payment === payment; row.style.display = (ms && mp && ml && mpm) ? '' : 'none'; }); }
 
@@ -581,4 +633,160 @@ openEditModal = async function(el) {
 };
 
 </script>
+
+<style>
+.inv-sortable:hover { background: var(--gray-100); }
+.inv-sort-icon { font-size: 10px; color: var(--gray-400); margin-left: 3px; }
+.inv-sort-asc .inv-sort-icon  { color: var(--accent); }
+.inv-sort-desc .inv-sort-icon { color: var(--accent); }
+</style>
+<script>
+// ── Invoice sort ─────────────────────────────────────────────────────────────
+let _invSortCol = 'datum';
+let _invSortDir = -1; // -1 = desc (noviji gore), 1 = asc
+
+function invSort(col) {
+  if (_invSortCol === col) {
+    _invSortDir *= -1;
+  } else {
+    _invSortCol = col;
+    // Datumi i iznos — desc po defaultu, ostalo asc
+    _invSortDir = ['datum','dospijece','iznos'].includes(col) ? -1 : 1;
+  }
+
+  // Ažuriraj ikone
+  document.querySelectorAll('.inv-sortable').forEach(th => {
+    th.classList.remove('inv-sort-asc', 'inv-sort-desc');
+    const icon = th.querySelector('.inv-sort-icon');
+    if (icon) icon.textContent = '↕';
+  });
+  const activeTh = document.querySelector(`.inv-sortable[data-col="${col}"]`);
+  if (activeTh) {
+    activeTh.classList.add(_invSortDir === 1 ? 'inv-sort-asc' : 'inv-sort-desc');
+    const icon = activeTh.querySelector('.inv-sort-icon');
+    if (icon) icon.textContent = _invSortDir === 1 ? '▲' : '▼';
+  }
+
+  const tbody = document.getElementById('inv-tbody');
+  const rows = Array.from(tbody.querySelectorAll('tr[data-id]'));
+
+  rows.sort((a, b) => {
+    let aVal = (a.dataset[_invSortCol] || '').trim();
+    let bVal = (b.dataset[_invSortCol] || '').trim();
+
+    // Numeričke kolone
+    if (['iznos','placeno','likvidirano'].includes(_invSortCol)) {
+      return (parseFloat(aVal || 0) - parseFloat(bVal || 0)) * _invSortDir;
+    }
+
+    // Datum kolone — YYYY-MM-DD ili DD.MM.YYYY. format
+    if (['datum','dospijece'].includes(_invSortCol)) {
+      // Konvertiraj DD.MM.YYYY. u YYYY-MM-DD za usporedbu
+      const toIso = v => {
+        if (!v || v === '—') return '';
+        const m = v.match(/^(\d{2})\.(\d{2})\.(\d{4})/);
+        return m ? `${m[3]}-${m[2]}-${m[1]}` : v.substring(0, 10);
+      };
+      aVal = toIso(aVal);
+      bVal = toIso(bVal);
+      if (!aVal && !bVal) return 0;
+      if (!aVal) return 1;
+      if (!bVal) return -1;
+      return aVal.localeCompare(bVal) * _invSortDir;
+    }
+
+    // Tekstualne kolone
+    if (!aVal && !bVal) return 0;
+    if (!aVal) return 1 * _invSortDir;
+    if (!bVal) return -1 * _invSortDir;
+    return aVal.localeCompare(bVal, 'hr') * _invSortDir;
+  });
+
+  rows.forEach(row => tbody.appendChild(row));
+}
+
+// Inicijalni sort po datumu desc (najnoviji gore) — pozovi kad se stranica učita
+document.addEventListener('DOMContentLoaded', () => {
+  invSort('datum');
+});
+</script>
+
+
+<style>
+.inv-sortable:hover { background: var(--gray-100); }
+.inv-sort-icon { font-size: 10px; color: var(--gray-400); margin-left: 3px; }
+.inv-sort-asc .inv-sort-icon  { color: var(--accent); }
+.inv-sort-desc .inv-sort-icon { color: var(--accent); }
+</style>
+<script>
+// ── Invoice sort ─────────────────────────────────────────────────────────────
+let _invSortCol = 'datum';
+let _invSortDir = -1; // -1 = desc (noviji gore), 1 = asc
+
+function invSort(col) {
+  if (_invSortCol === col) {
+    _invSortDir *= -1;
+  } else {
+    _invSortCol = col;
+    // Datumi i iznos — desc po defaultu, ostalo asc
+    _invSortDir = ['datum','dospijece','iznos'].includes(col) ? -1 : 1;
+  }
+
+  // Ažuriraj ikone
+  document.querySelectorAll('.inv-sortable').forEach(th => {
+    th.classList.remove('inv-sort-asc', 'inv-sort-desc');
+    const icon = th.querySelector('.inv-sort-icon');
+    if (icon) icon.textContent = '↕';
+  });
+  const activeTh = document.querySelector(`.inv-sortable[data-col="${col}"]`);
+  if (activeTh) {
+    activeTh.classList.add(_invSortDir === 1 ? 'inv-sort-asc' : 'inv-sort-desc');
+    const icon = activeTh.querySelector('.inv-sort-icon');
+    if (icon) icon.textContent = _invSortDir === 1 ? '▲' : '▼';
+  }
+
+  const tbody = document.getElementById('inv-tbody');
+  const rows = Array.from(tbody.querySelectorAll('tr[data-id]'));
+
+  rows.sort((a, b) => {
+    let aVal = (a.dataset[_invSortCol] || '').trim();
+    let bVal = (b.dataset[_invSortCol] || '').trim();
+
+    // Numeričke kolone
+    if (['iznos','placeno','likvidirano'].includes(_invSortCol)) {
+      return (parseFloat(aVal || 0) - parseFloat(bVal || 0)) * _invSortDir;
+    }
+
+    // Datum kolone — YYYY-MM-DD ili DD.MM.YYYY. format
+    if (['datum','dospijece'].includes(_invSortCol)) {
+      // Konvertiraj DD.MM.YYYY. u YYYY-MM-DD za usporedbu
+      const toIso = v => {
+        if (!v || v === '—') return '';
+        const m = v.match(/^(\d{2})\.(\d{2})\.(\d{4})/);
+        return m ? `${m[3]}-${m[2]}-${m[1]}` : v.substring(0, 10);
+      };
+      aVal = toIso(aVal);
+      bVal = toIso(bVal);
+      if (!aVal && !bVal) return 0;
+      if (!aVal) return 1;
+      if (!bVal) return -1;
+      return aVal.localeCompare(bVal) * _invSortDir;
+    }
+
+    // Tekstualne kolone
+    if (!aVal && !bVal) return 0;
+    if (!aVal) return 1 * _invSortDir;
+    if (!bVal) return -1 * _invSortDir;
+    return aVal.localeCompare(bVal, 'hr') * _invSortDir;
+  });
+
+  rows.forEach(row => tbody.appendChild(row));
+}
+
+// Inicijalni sort po datumu desc (najnoviji gore) — pozovi kad se stranica učita
+document.addEventListener('DOMContentLoaded', () => {
+  invSort('datum');
+});
+</script>
+
 {% endblock %}
