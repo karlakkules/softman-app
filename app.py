@@ -30,7 +30,7 @@ JWT_EXPIRY_HOURS = 8
 MINIMAL_PERMS = {
     'can_view_orders': 0, 'can_edit_orders': 0, 'can_delete_orders': 0, 'can_approve_orders': 0,
     'can_view_quotes': 0, 'can_edit_quotes': 0, 'can_delete_quotes': 0,
-    'can_view_reports': 0, 'can_view_vehicle_log': 0,
+    'can_view_reports': 0, 'can_view_vehicle_log': 0, 'can_approve_vehicle_log': 0,
     'can_view_pool_vehicles': 0,
     'can_view_worktime': 0, 'can_edit_worktime': 0, 'can_confirm_worktime': 0, 'can_reopen_worktime': 0, 'can_copy_worktime': 0,
     'can_view_invoices': 0, 'can_edit_invoices': 0, 'can_liquidate_invoices': 0, 'can_edit_invoices_liquidated': 0,
@@ -833,6 +833,9 @@ def init_db():
     except: pass
     try:
         c.execute("ALTER TABLE vehicles ADD COLUMN home_city TEXT DEFAULT NULL")
+    except: pass
+    try:
+        c.execute("ALTER TABLE profiles ADD COLUMN can_approve_vehicle_log INTEGER DEFAULT 0")
     except: pass
     try:
         c.execute("ALTER TABLE profiles ADD COLUMN can_view_pool_vehicles INTEGER DEFAULT 0")
@@ -3504,10 +3507,27 @@ def vehicle_log_new():
     now = datetime.now()
     prev_month = now.month - 1 if now.month > 1 else 12
     prev_year = now.year if now.month > 1 else now.year - 1
+    # Traži završnu km iz najnovije ODOBRENE evidencije za odabrano vozilo
+    # Prvo pokušaj odobrenu evidenciju prethodnog mjeseca, pa bilo koji prethodni odobreni
+    default_vehicle = get_default_vehicle_for_user(conn, user)
+    vehicle_filter = "AND vl.vehicle_id=?" if default_vehicle else ""
+    vehicle_params_prev = [prev_year, prev_month] + ([default_vehicle['id']] if default_vehicle else [])
+    vehicle_params_any  = ([default_vehicle['id']] if default_vehicle else [])
     prev_log = conn.execute(
-        "SELECT end_km FROM vehicle_log WHERE year=? AND month=? ORDER BY id DESC LIMIT 1",
-        (prev_year, prev_month)
+        f"SELECT end_km FROM vehicle_log vl WHERE year=? AND month=? AND is_approved=1 {vehicle_filter} ORDER BY id DESC LIMIT 1",
+        vehicle_params_prev
     ).fetchone()
+    if not prev_log:
+        # Fallback: najnovija odobrena evidencija bez obzira na mjesec
+        if default_vehicle:
+            prev_log = conn.execute(
+                "SELECT end_km FROM vehicle_log WHERE is_approved=1 AND vehicle_id=? ORDER BY year DESC, month DESC, id DESC LIMIT 1",
+                (default_vehicle['id'],)
+            ).fetchone()
+        else:
+            prev_log = conn.execute(
+                "SELECT end_km FROM vehicle_log WHERE is_approved=1 ORDER BY year DESC, month DESC, id DESC LIMIT 1"
+            ).fetchone()
     prev_end_km = prev_log['end_km'] if prev_log and prev_log['end_km'] else None
     conn.close()
     return render_template('vehicle_log_form.html',
@@ -3544,13 +3564,15 @@ def vehicle_log_edit(log_id):
     conn.close()
     log_dict = dict(log)
     log_dict['vehicle_name'] = vehicle_name
+    can_approve = bool(user and (user.get('is_admin') or user.get('can_approve_vehicle_log')))
     return render_template('vehicle_log_form.html',
                           vehicles=vehicles,
                           log=log_dict, preview=None, pn_list=pn_list,
                           month_names=MONTH_NAMES, active='vehicle-log',
                           now_month=datetime.now().month,
                           director_sig=dir_sig,
-                          can_edit=can_edit)
+                          can_edit=can_edit,
+                          can_approve=can_approve)
 
 def _get_pn_for_month(conn, year, month):
     """Find PN nalozi whose departure_date falls in given year/month.
@@ -3866,7 +3888,7 @@ def approve_vehicle_log(log_id):
     """Dodaj potpis direktora kao odobrenje."""
     conn = get_db()
     user = get_current_user()
-    if not user_can_edit_vehicle_log(user, conn, log_id):
+    if not (user and (user.get('is_admin') or user.get('can_approve_vehicle_log'))):
         conn.close()
         return jsonify({'error': 'Nemate pravo odobravanja evidencije'}), 403
     director = conn.execute("SELECT * FROM employees WHERE is_direktor=1 LIMIT 1").fetchone()
@@ -4993,6 +5015,7 @@ PERM_LABELS = {
     'can_delete_quotes': 'Ponude — brisanje',
     'can_view_reports': 'Izvještaji — pregled',
     'can_view_vehicle_log': 'Službeni automobil — pregled',
+    'can_approve_vehicle_log': 'Službeni automobil — odobravanje',
     'can_view_pool_vehicles': 'Evidencija pool automobila',
     'can_view_worktime': 'Radno vrijeme — pregled',
     'can_edit_worktime': 'Radno vrijeme — kreiranje/uređivanje',

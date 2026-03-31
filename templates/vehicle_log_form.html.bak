@@ -104,7 +104,7 @@
       <div class="form-row form-row-3" style="margin-top:12px;">
         <div class="form-group">
           <label class="form-label">Ukupno km</label>
-          <input type="number" class="form-control" id="total_km" step="0.01" value="{{ log.total_km if log else '' }}" readonly style="background:var(--gray-50);">
+          <input type="number" class="form-control" id="total_km" step="0.01" value="{{ log.total_km if log else '' }}" readonly style="background:var(--gray-50);" oninput="calcTotal('total')">
         </div>
         <div class="form-group">
           <label class="form-label" style="color:#27ae60;">Službeno km</label>
@@ -230,11 +230,18 @@
 <script>
 let _csvData = null;
 
-function calcTotal() {
+function calcTotal(changed) {
   const start = parseFloat(document.getElementById('start_km').value||0);
   const end = parseFloat(document.getElementById('end_km').value||0);
-  const total = end - start;
-  document.getElementById('total_km').value = total > 0 ? total.toFixed(2) : '';
+  const total = parseFloat(document.getElementById('total_km').value||0);
+  if (changed === 'total' && start > 0 && total > 0) {
+    // Korisnik je promijenio total → izračunaj end
+    document.getElementById('end_km').value = Math.round((start + total) * 100) / 100;
+  } else {
+    // Default: end - start = total
+    const t = end - start;
+    document.getElementById('total_km').value = t > 0 ? t.toFixed(2) : '';
+  }
 }
 
 async function parseCSV() {
@@ -299,6 +306,14 @@ async function parseCSV() {
   document.getElementById('total_km').value = data.total_km;
   document.getElementById('official_km').value = data.official_km;
   document.getElementById('private_km').value = data.private_km;
+  // Automatski izračunaj end_km = start_km + total_km
+  const _startKm = parseFloat(document.getElementById('start_km').value || 0);
+  if (_startKm > 0 && data.total_km > 0) {
+    const _endKm = Math.round((_startKm + data.total_km) * 100) / 100;
+    document.getElementById('end_km').value = _endKm;
+    document.getElementById('end_km').style.background = '#f0faf4';
+    setTimeout(() => document.getElementById('end_km').style.background = '', 2000);
+  }
   // Highlight polja koja su popunjena
   ['official_km','private_km','total_km'].forEach(id => {
     const el = document.getElementById(id);

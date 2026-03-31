@@ -4305,6 +4305,7 @@ def vehicle_log_excel(log_id):
                 comment = raw_comment if raw_comment else ('privatno' if private > 0 else '')
             cur_km     = end_km_day
         else:
+            start_km_d = cur_km
             official   = pn_official.get(date_str, 0) if is_pn else 0
             private    = 0 if is_pn else private_per_day
             total_day  = round(official + private, 2)
@@ -4316,7 +4317,7 @@ def vehicle_log_excel(log_id):
         fill2 = stripe_fill if day % 2 == 0 else None
 
         sc2(r, 2, date_str, font=th(9), align=al('center'), border=full_brd, fill=fill2)
-        sc2(r, 3, round(cur_km, 0), font=th(9), align=al('center'), border=full_brd, fill=fill2, nfmt='#,##0')
+        sc2(r, 3, round(start_km_d, 0), font=th(9), align=al('center'), border=full_brd, fill=fill2, nfmt='#,##0')
         sc2(r, 4, end_km_day, font=th(9), align=al('center'), border=full_brd, fill=fill2, nfmt='#,##0')
         sc2(r, 5, official if official else 0, font=th(9), align=al('center'), border=full_brd, fill=fill2, nfmt='#,##0')
         sc2(r, 6, private if private else 0, font=th(9), align=al('center'), border=full_brd, fill=fill2, nfmt='#,##0')
