@@ -11,7 +11,7 @@
 
 <!-- Filters -->
 <div class="card" style="margin-bottom:12px;">
-  <div class="card-header" style="flex-wrap:wrap;gap:8px;">
+  <div class="card-header" style="flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:10;background:var(--surface);border-radius:8px 8px 0 0;">
     <span class="card-title">Svi računi</span>
     <div style="display:flex;gap:6px;flex-wrap:nowrap;align-items:center;">
       <input type="text" id="inv-search" class="form-control" placeholder="Pretraži..." style="width:150px;flex-shrink:0;" oninput="filterInv()">
@@ -35,9 +35,9 @@
       </select>
     </div>
   </div>
-  <div class="table-wrap">
+  <div class="table-wrap" id="inv-table-wrap" style="overflow-y:auto;max-height:calc(100vh - 200px);">
     <table>
-      <thead>
+      <thead style="position:sticky;top:0;z-index:5;">
         <tr>
           <th class="inv-sortable" data-col="broj" style="width:110px;cursor:pointer;user-select:none;" onclick="invSort('broj')">Broj računa <span class="inv-si" id="inv-si-broj">↕</span></th>
           <th class="inv-sortable" data-col="partner" style="min-width:160px;cursor:pointer;user-select:none;" onclick="invSort('partner')">Partner <span class="inv-si" id="inv-si-partner">↕</span></th>
@@ -73,7 +73,7 @@
           <td><strong style="font-size:13px;">{{ inv.invoice_number or '—' }}</strong></td>
           <td>{{ inv.partner_name or '—' }}</td>
           <td style="font-size:11px;color:var(--gray-500);">{{ inv.partner_oib or '—' }}</td>
-          <td style="text-align:right;font-weight:600;">
+          <td style="text-align:right;font-weight:600;white-space:nowrap;min-width:105px;">
             {% if inv.amount_total %}{{ "%.2f"|format(inv.amount_total) }} €{% else %}—{% endif %}
           </td>
           <td style="font-size:12px;white-space:nowrap;">{{ inv.invoice_date|fmt_date or '—' }}</td>
