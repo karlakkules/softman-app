@@ -3743,6 +3743,37 @@ def parse_vehicle_csv():
         'filename': f.filename if hasattr(f, 'filename') else ''
     })
 
+
+def sync_pn_km_from_log_days(conn, vehicle_id, year, month):
+    """
+    Nakon spremanja vehicle_log_days, ažuriraj start_km/end_km na putnim nalozima
+    koji su u statusu 'draft' i podudaraju se s vozilom i departure_date.
+    Ne dira naloge u statusu submitted/approved/knjizeno.
+    """
+    if not vehicle_id:
+        return 0
+    days = conn.execute("""
+        SELECT vld.date, vld.start_km, vld.end_km
+        FROM vehicle_log_days vld
+        JOIN vehicle_log vl ON vl.id = vld.log_id
+        WHERE vl.vehicle_id = ? AND vl.year = ? AND vl.month = ?
+        ORDER BY vld.date
+    """, (vehicle_id, year, month)).fetchall()
+    updated = 0
+    for day in days:
+        result = conn.execute("""
+            UPDATE travel_orders
+            SET start_km = ?,
+                end_km = ?,
+                updated_at = datetime('now')
+            WHERE vehicle_id = ?
+              AND departure_date = ?
+              AND status = 'draft'
+              AND (is_deleted = 0 OR is_deleted IS NULL)
+        """, (round(day['start_km']), round(day['end_km']), vehicle_id, day['date']))
+        updated += result.rowcount
+    return updated
+
 @app.route('/api/vehicle-log', methods=['POST'])
 @login_required
 def save_vehicle_log():
@@ -3799,10 +3830,13 @@ def save_vehicle_log():
                  float(d.get('total_km', 0)),
                  d.get('comment', ''), 1 if d.get('is_pn') else 0, trips_json))
 
+    # Sinkroniziraj km na putnim nalozima u statusu 'draft'
+    _pn_updated = sync_pn_km_from_log_days(conn, fields.get('vehicle_id'), fields.get('year'), fields.get('month'))
     conn.commit()
     conn.close()
-    audit('create' if not data.get('id') else 'edit', module='sluzbeni_automobil', entity='vehicle_log', entity_id=log_id)
-    return jsonify({'success': True, 'id': log_id})
+    audit('create' if not data.get('id') else 'edit', module='sluzbeni_automobil', entity='vehicle_log', entity_id=log_id,
+          detail=f'Sinkronizirano {_pn_updated} PN naloga')
+    return jsonify({'success': True, 'id': log_id, 'pn_updated': _pn_updated})
 
 @app.route('/api/vehicle-log/<int:log_id>/days', methods=['GET'])
 @require_perm('can_view_vehicle_log')

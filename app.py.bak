@@ -1547,7 +1547,7 @@ def edit_order(order_id):
         bank_cards=rows_to_dicts(bank_cards))
 
 @app.route('/api/orders', methods=['POST'])
-@login_required
+@api_login_required
 def save_order():
     data = request.json
     conn = get_db()
@@ -1556,6 +1556,9 @@ def save_order():
     auto_id = data.get('auto_id')
     order_id = data.get('id')
     new_status = data.get('status', 'draft')
+
+    # Pročitaj expenses ODMAH — mora biti definirano prije bilo kojeg returna
+    expenses = data.get('expenses', [])
 
     # Check if existing order is locked (submitted or approved)
     if order_id:
@@ -2035,8 +2038,145 @@ def mark_payment(order_id):
     conn.close()
     return jsonify({'success': True})
 
+@app.route('/api/orders/<int:order_id>/km-from-log', methods=['GET'])
+@api_login_required
+def km_from_log(order_id):
+    """
+    Dohvaća Početna/Završna KM iz vehicle_log_days za dati putni nalog.
+    Traži dane koji odgovaraju rasponu putovanja (departure_date → trip_end_datetime).
+    Vraća start_km prvog i end_km zadnjeg dana.
+    """
+    conn = get_db()
+    order = conn.execute(
+        "SELECT vehicle_id, departure_date, trip_start_datetime, trip_end_datetime FROM travel_orders WHERE id=?",
+        (order_id,)
+    ).fetchone()
+
+    if not order or not order['vehicle_id']:
+        conn.close()
+        return jsonify({'found': False, 'reason': 'no_vehicle'})
+
+    vehicle_id = order['vehicle_id']
+
+    # Odredi raspon datuma putovanja
+    date_start = None
+    date_end   = None
+
+    if order['departure_date']:
+        date_start = str(order['departure_date'])[:10]
+    elif order['trip_start_datetime']:
+        date_start = str(order['trip_start_datetime'])[:10]
+
+    if order['trip_end_datetime']:
+        date_end = str(order['trip_end_datetime'])[:10]
+    elif date_start:
+        date_end = date_start  # jednodnevno putovanje
+
+    if not date_start:
+        conn.close()
+        return jsonify({'found': False, 'reason': 'no_dates'})
+
+    # Pronađi log_id za to vozilo u odgovarajućem mjesecu
+    # vehicle_log je organiziran po (vehicle_id, year, month)
+    # Trebamo pokriti sve mjesece u rasponu putovanja
+    import datetime as _dt
+
+    try:
+        d_start = _dt.date.fromisoformat(date_start)
+        d_end   = _dt.date.fromisoformat(date_end)
+    except:
+        conn.close()
+        return jsonify({'found': False, 'reason': 'bad_dates'})
+
+    # Skupi sve log_id-ove za vozilo koji pokrivaju raspon
+    months_needed = set()
+    cur = d_start.replace(day=1)
+    while cur <= d_end:
+        months_needed.add((cur.year, cur.month))
+        # Sljedeći mjesec
+        if cur.month == 12:
+            cur = cur.replace(year=cur.year+1, month=1)
+        else:
+            cur = cur.replace(month=cur.month+1)
+
+    log_ids = []
+    for (yr, mo) in months_needed:
+        row = conn.execute(
+            "SELECT id FROM vehicle_log WHERE vehicle_id=? AND year=? AND month=?",
+            (vehicle_id, yr, mo)
+        ).fetchone()
+        if row:
+            log_ids.append(row['id'])
+
+    if not log_ids:
+        conn.close()
+        return jsonify({'found': False, 'reason': 'no_log'})
+
+    # Dohvati sve dane u rasponu
+    placeholders = ','.join('?' for _ in log_ids)
+    days = conn.execute(
+        f"""SELECT date, start_km, end_km
+            FROM vehicle_log_days
+            WHERE log_id IN ({placeholders})
+              AND date >= ? AND date <= ?
+              AND (official_km > 0 OR total_km > 0 OR start_km > 0 OR end_km > 0)
+            ORDER BY date ASC""",
+        log_ids + [date_start, date_end]
+    ).fetchall()
+
+    conn.close()
+
+    if not days:
+        return jsonify({'found': False, 'reason': 'no_days'})
+
+    first_day = days[0]
+    last_day  = days[-1]
+
+    start_km = first_day['start_km'] if first_day['start_km'] else None
+    end_km   = last_day['end_km']    if last_day['end_km']    else None
+
+    if not start_km and not end_km:
+        return jsonify({'found': False, 'reason': 'no_km_values'})
+
+    return jsonify({
+        'found': True,
+        'start_km': start_km,
+        'end_km': end_km,
+        'date_start': date_start,
+        'date_end': date_end,
+        'days_count': len(days)
+    })
+
+
+@app.route('/api/pn-expenses/check-duplicate', methods=['GET'])
+@api_login_required
+def check_pn_expense_duplicate():
+    """Provjeri postoji li trošak s istim datumom i iznosom."""
+    date_val = request.args.get('date', '')
+    amount_val = request.args.get('amount', '0')
+    try:
+        amount = float(amount_val)
+    except:
+        return jsonify({'found': False})
+    if not date_val or amount <= 0:
+        return jsonify({'found': False})
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT pe.*, ec.name as category_name
+        FROM pn_expenses pe
+        LEFT JOIN expense_categories ec ON ec.id = pe.category_id
+        WHERE pe.doc_date = ? AND ABS(pe.amount - ?) < 0.005
+        ORDER BY pe.created_at DESC
+        LIMIT 5
+    """, (date_val, amount)).fetchall()
+    conn.close()
+    if not rows:
+        return jsonify({'found': False})
+    return jsonify({'found': True, 'expenses': rows_to_dicts(rows)})
+
+
 @app.route('/api/calculate_dnevnice', methods=['POST'])
-@require_perm('can_edit_orders')
+@api_login_required
 def api_calculate_dnevnice():
     data = request.json
     conn = get_db()
@@ -5970,12 +6110,27 @@ def make_stored_filename(partner_name, invoice_date):
     return f"{safe_partner} {date_clean}.pdf" if date_clean else f"{safe_partner}.pdf"
 
 
+def _parse_inv_date(s):
+    """Parsira datum računa u (god, mj, dan) tuple za sort.
+    Podržava: YYYY-MM-DD, DD.MM.YYYY, D.M.YYYY i sve varijante."""
+    import re as _re
+    if not s:
+        return (0, 0, 0)
+    s = str(s).strip().rstrip('.')
+    m = _re.match(r'^(\d{4})-(\d{1,2})-(\d{1,2})$', s)
+    if m:
+        return (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    m = _re.match(r'^(\d{1,2})\.(\d{1,2})\.(\d{4})$', s)
+    if m:
+        return (int(m.group(3)), int(m.group(2)), int(m.group(1)))
+    return (0, 0, 0)
+
 @app.route('/invoices')
 @require_perm('can_view_invoices')
 def invoice_list():
     audit('view', module='ulazni_racuni', entity='list')
     conn = get_db()
-    invoices = conn.execute('''
+    invoices_raw = conn.execute('''
         SELECT i.*, u.username as created_by_username,
                to2.auto_id as pn_auto_id,
                to2.id as pn_order_id
@@ -5984,8 +6139,12 @@ def invoice_list():
         LEFT JOIN pn_expenses pe ON pe.invoice_id = i.id AND pe.travel_order_id IS NOT NULL
         LEFT JOIN travel_orders to2 ON to2.id = pe.travel_order_id
         WHERE i.is_deleted=0 OR i.is_deleted IS NULL
-        ORDER BY i.invoice_date DESC, i.id DESC
     ''').fetchall()
+    invoices = sorted(
+        invoices_raw,
+        key=lambda r: (_parse_inv_date(r['invoice_date']), r['id']),
+        reverse=True
+    )
     cards = conn.execute("SELECT * FROM bank_cards WHERE is_active=1").fetchall()
     settings = {r['key']: r['value'] for r in conn.execute("SELECT * FROM settings").fetchall()}
     suppliers = conn.execute("SELECT * FROM suppliers ORDER BY name").fetchall()
