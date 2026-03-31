@@ -1157,13 +1157,7 @@ async function openUnmatched() {
 
       let pnOptions = '<option value="">— odaberi PN —</option>';
       pnList.forEach(pn => {
-        // Formatiraj datum putovanja: YYYY-MM-DD → DD.MM.YYYY.
-        let dateLabel = '';
-        const depDate = pn.departure_date || (pn.trip_start_datetime ? pn.trip_start_datetime.substring(0, 10) : '');
-        if (depDate && depDate.length >= 10) {
-          dateLabel = ` [${depDate.slice(8,10)}.${depDate.slice(5,7)}.${depDate.slice(0,4)}.]`;
-        }
-        pnOptions += `<option value="${pn.id}">PN ${pn.auto_id}${dateLabel} — ${pn.destination || ''} — ${pn.employee_name || ''}</option>`;
+        pnOptions += `<option value="${pn.id}">PN ${pn.auto_id} — ${pn.destination || ''} — ${pn.employee_name || ''}</option>`;
       });
 
       html += `

@@ -1547,7 +1547,7 @@ def edit_order(order_id):
         bank_cards=rows_to_dicts(bank_cards))
 
 @app.route('/api/orders', methods=['POST'])
-@login_required
+@api_login_required
 def save_order():
     data = request.json
     conn = get_db()
@@ -2039,7 +2039,7 @@ def mark_payment(order_id):
     return jsonify({'success': True})
 
 @app.route('/api/orders/<int:order_id>/km-from-log', methods=['GET'])
-@login_required
+@api_login_required
 def km_from_log(order_id):
     """
     Dohvaća Početna/Završna KM iz vehicle_log_days za dati putni nalog.
@@ -2149,7 +2149,7 @@ def km_from_log(order_id):
 
 
 @app.route('/api/pn-expenses/check-duplicate', methods=['GET'])
-@login_required
+@api_login_required
 def check_pn_expense_duplicate():
     """Provjeri postoji li trošak s istim datumom i iznosom."""
     date_val = request.args.get('date', '')
@@ -2176,7 +2176,7 @@ def check_pn_expense_duplicate():
 
 
 @app.route('/api/calculate_dnevnice', methods=['POST'])
-@require_perm('can_edit_orders')
+@api_login_required
 def api_calculate_dnevnice():
     data = request.json
     conn = get_db()
