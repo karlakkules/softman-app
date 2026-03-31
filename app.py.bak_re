@@ -6110,17 +6110,19 @@ def make_stored_filename(partner_name, invoice_date):
     return f"{safe_partner} {date_clean}.pdf" if date_clean else f"{safe_partner}.pdf"
 
 
-def _parse_inv_date(s):
-    """Parsira datum računa u (god, mj, dan) tuple za sort.
-    Podržava: YYYY-MM-DD, DD.MM.YYYY, D.M.YYYY i sve varijante."""
-    import re as _re
+
+def _parse_date_sort(s):
+    """Parsira datum u usporedivi tuple (god, mj, dan) za sortiranje.
+    Podržava: YYYY-MM-DD, DD.MM.YYYY, D.M.YYYY i varijante s točkama."""
     if not s:
         return (0, 0, 0)
     s = str(s).strip().rstrip('.')
-    m = _re.match(r'^(\d{4})-(\d{1,2})-(\d{1,2})$', s)
+    # ISO: YYYY-MM-DD
+    m = re.match(r'^(\d{4})-(\d{1,2})-(\d{1,2})$', s)
     if m:
         return (int(m.group(1)), int(m.group(2)), int(m.group(3)))
-    m = _re.match(r'^(\d{1,2})\.(\d{1,2})\.(\d{4})$', s)
+    # HR: D.M.YYYY ili DD.MM.YYYY
+    m = re.match(r'^(\d{1,2})\.(\d{1,2})\.(\d{4})$', s)
     if m:
         return (int(m.group(3)), int(m.group(2)), int(m.group(1)))
     return (0, 0, 0)
@@ -6140,9 +6142,10 @@ def invoice_list():
         LEFT JOIN travel_orders to2 ON to2.id = pe.travel_order_id
         WHERE i.is_deleted=0 OR i.is_deleted IS NULL
     ''').fetchall()
+    # Python sort jer datumi u bazi nisu konzistentno ISO format
     invoices = sorted(
         invoices_raw,
-        key=lambda r: (_parse_inv_date(r['invoice_date']), r['id']),
+        key=lambda r: (_parse_date_sort(r['invoice_date']), r['id']),
         reverse=True
     )
     cards = conn.execute("SELECT * FROM bank_cards WHERE is_active=1").fetchall()
