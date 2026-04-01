@@ -781,27 +781,17 @@ function filterQClientDropdown() {
   const list = document.getElementById('q-client-dropdown');
   if (!list) return;
   const filtered = _qClients.filter(c => !q || c.name.toLowerCase().includes(q) || (c.oib && c.oib.includes(q)) || (c.address && c.address.toLowerCase().includes(q)));
-  const internoMatch = !q || 'interno'.includes(q);
-  let html = '';
-  if (internoMatch) {
-    html += `<div style="padding:8px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--gray-100);background:#f5f9ff;"
-      onmousedown="selectQClient(0, 'interno')"
-      onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background='#f5f9ff'">
-      <div style="font-weight:700;color:var(--navy);">Interno</div>
-    </div>`;
-  }
-  if (!filtered.length && !internoMatch) {
+  if (!filtered.length) {
     list.innerHTML = '<div style="padding:10px 14px;color:var(--gray-400);font-size:13px;">Nema rezultata</div>';
-    list.style.display = 'block'; return;
+  } else {
+    list.innerHTML = filtered.map(c => `
+      <div style="padding:8px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--gray-100);"
+        onmousedown="selectQClient(${c.id}, ${JSON.stringify(c.name)})"
+        onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background=''">
+        <div style="font-weight:600;color:var(--navy);">${c.name}</div>
+        ${c.oib ? `<div style="font-size:11px;color:var(--gray-400);">OIB: ${c.oib}${c.address ? ' · '+c.address : ''}</div>` : ''}
+      </div>`).join('');
   }
-  html += filtered.map(c => `
-    <div style="padding:8px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--gray-100);"
-      onmousedown="selectQClient(${c.id}, ${JSON.stringify(c.name)})"
-      onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background=''">
-      <div style="font-weight:600;color:var(--navy);">${c.name}</div>
-      ${c.oib ? `<div style="font-size:11px;color:var(--gray-400);">OIB: ${c.oib}${c.address ? ' · '+c.address : ''}</div>` : ''}
-    </div>`).join('');
-  list.innerHTML = html;
   list.style.display = 'block';
 }
 function selectQClient(id, name) { document.getElementById('q-client-id').value = id; document.getElementById('q-client').value = name; hideQClientDropdown(); }
