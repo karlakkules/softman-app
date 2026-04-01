@@ -535,6 +535,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         is_pn: d.is_pn === 1 && (d.private_km || 0) === 0,
         is_mixed: d.is_pn === 1 && (d.private_km || 0) > 0,
         trips: d.trips || [],
+        start_km: (d.start_km || 0),
+        end_km: (d.end_km || 0),
       };
     });
 
@@ -563,9 +565,10 @@ async function saveLog() {
   if (_csvData && _csvData.daily_breakdown) {
     let cur_km = start_km;
     daily_days = _csvData.daily_breakdown.map(d => {
-      const start_km_d = cur_km;
       const total_d = parseFloat(d.km) || 0;
-      const end_km_d = Math.round((cur_km + total_d) * 100) / 100;
+      // Koristi stvarne GPS km iz baze ako postoje, inače izračunaj iz forme
+      const start_km_d = (d.start_km && d.start_km > 0) ? d.start_km : cur_km;
+      const end_km_d = (d.end_km && d.end_km > 0) ? d.end_km : Math.round((cur_km + total_d) * 100) / 100;
       cur_km = end_km_d;
       const pn_km = parseFloat(d.pn_km) || 0;
       const priv_km = parseFloat(d.private_km) || 0;

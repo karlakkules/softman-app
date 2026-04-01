@@ -8,7 +8,8 @@
 <a href="/vehicle-log/{{ log.id }}/pdf" target="_blank" class="btn btn-secondary" title="Preuzmi PDF izvještaj">📄 PDF</a>
 {% if can_approve %}
 {% if log.is_approved %}
-<span class="btn btn-secondary" style="opacity:0.6;cursor:default;">✅ Odobreno</span>
+<span class="btn btn-secondary" style="opacity:0.6;cursor:default;background:#e8f8f5;color:#27ae60;border-color:#a8d5b5;">✅ Odobreno</span>
+<button class="btn btn-secondary" onclick="unapproveLog()" id="unapprove-btn" title="Poništi odobrenje — vraća evidenciju u status Nacrt" style="background:#fef9e7;color:#e67e22;border-color:#f5c6a0;">↩️ Poništi odobrenje</button>
 {% else %}
 <button class="btn btn-secondary" onclick="approveLog()" id="approve-btn" title="Odobri evidenciju — dodaje potpis direktora">✍️ Odobri</button>
 {% endif %}
@@ -371,13 +372,23 @@ async function approveLog() {
   const d = await res.json();
   if (d.success) {
     toast('Evidencija odobrena!', 'success');
-    // Zamijeni gumb s "Odobreno"
-    const btn = document.getElementById('approve-btn');
-    if (btn) {
-      btn.outerHTML = '<span class="btn btn-secondary" style="opacity:0.6;cursor:default;">✅ Odobreno</span>';
-    }
+    setTimeout(() => location.reload(), 700);
   } else {
     toast(d.error || 'Greška pri odobravanju', 'error');
+  }
+}
+
+async function unapproveLog() {
+  const logId = document.getElementById('log-id').value;
+  if (!logId) return;
+  if (!confirm('Poništiti odobrenje? Evidencija će se vratiti u status Nacrt.')) return;
+  const res = await fetch(`/api/vehicle-log/${logId}/unapprove`, { method: 'POST' });
+  const d = await res.json();
+  if (d.success) {
+    toast('Odobrenje poništeno — evidencija je u statusu Nacrt.', 'success');
+    setTimeout(() => location.reload(), 700);
+  } else {
+    toast(d.error || 'Greška pri poništavanju', 'error');
   }
 }
 

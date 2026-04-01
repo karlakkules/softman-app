@@ -4639,7 +4639,12 @@ def vehicle_log_pdf(log_id):
                 else:
                     comment = raw_comment
             elif official > 0 and raw_comment in ('PN', 'PN+privatno'):
-                comment = raw_comment
+                _pn_match = next((p for p in pn_list if p.get('departure_date', '') == date_str), None)
+                if _pn_match:
+                    _pn_lbl = f"PN {_pn_match['auto_id']}"
+                    comment = _pn_lbl if raw_comment == 'PN' else f"{_pn_lbl}+privatno"
+                else:
+                    comment = raw_comment
             else:
                 comment = raw_comment if raw_comment else ('privatno' if private > 0 else '')
             cur_km     = end_km_d
@@ -4657,7 +4662,7 @@ def vehicle_log_pdf(log_id):
         comment_color = GREEN if (comment.startswith('PN ') or (has_official and comment in ('PN', 'PN+privatno'))) else colors.black
         daily_data.append([
             P(date_str, align=TA_CENTER, size=8),
-            P(f"{cur_km:,.0f}", align=TA_CENTER, size=8),
+            P(f"{start_km_d:,.0f}", align=TA_CENTER, size=8),
             P(f"{end_km_d:,.0f}", align=TA_CENTER, size=8),
             P(f"{official:,.0f}", align=TA_CENTER, size=8, color=GREEN if has_official else colors.black),
             P(f"{private:,.0f}", align=TA_CENTER, size=8),
