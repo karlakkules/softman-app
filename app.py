@@ -2194,9 +2194,13 @@ def _generate_and_save_pdf(order_id):
     order = conn.execute("SELECT * FROM travel_orders WHERE id=?", (order_id,)).fetchone()
     if not order:
         return jsonify({'error': 'Not found'}), 404
-    expenses = conn.execute('''SELECT e.*, ec.name as cat_name FROM expenses e
-                               LEFT JOIN expense_categories ec ON e.category_id = ec.id
-                               WHERE e.travel_order_id=? ORDER BY e.sort_order''', (order_id,)).fetchall()
+    expenses = conn.execute('''SELECT pe.*, ec.name as cat_name,
+                               pe.payment_method as paid_privately_method,
+                               CASE WHEN pe.payment_method='private' THEN 1 ELSE 0 END as paid_privately,
+                               pe.amount as amount, pe.description as description
+                               FROM pn_expenses pe
+                               LEFT JOIN expense_categories ec ON pe.category_id = ec.id
+                               WHERE pe.travel_order_id=? ORDER BY pe.doc_date, pe.created_at''', (order_id,)).fetchall()
     employee = conn.execute("SELECT * FROM employees WHERE id=?", (order['employee_id'],)).fetchone() if order['employee_id'] else None
     vehicle = conn.execute("SELECT * FROM vehicles WHERE id=?", (order['vehicle_id'],)).fetchone() if order['vehicle_id'] else None
     approved_by = conn.execute("SELECT * FROM employees WHERE id=?", (order['approved_by_id'],)).fetchone() if order['approved_by_id'] else None
@@ -2221,6 +2225,82 @@ def _generate_and_save_pdf(order_id):
                    'status': 'approved', 'pdf': pdf_filename})
 
 
+
+@app.route('/orders/<int:order_id>/export-zip')
+@require_perm('can_view_orders')
+def export_order_zip(order_id):
+    """ZIP arhiva: PDF putnog naloga + svi PDF troškovi iz pn_expenses."""
+    import zipfile, io as _io
+    audit('export_zip', module='putni_nalozi', entity='travel_order', entity_id=order_id)
+    conn = get_db()
+    order = conn.execute("SELECT * FROM travel_orders WHERE id=?", (order_id,)).fetchone()
+    if not order:
+        conn.close()
+        return "Not found", 404
+    if order['status'] not in ['approved', 'knjizeno']:
+        conn.close()
+        return "ZIP nije dostupan. Nalog mora biti odobren.", 404
+
+    # Generiraj PDF putnog naloga
+    expenses = conn.execute("""SELECT pe.*, ec.name as cat_name,
+        CASE WHEN pe.payment_method='private' THEN 1 ELSE 0 END as paid_privately,
+        pe.amount as amount, pe.description as description
+        FROM pn_expenses pe
+        LEFT JOIN expense_categories ec ON pe.category_id = ec.id
+        WHERE pe.travel_order_id=? ORDER BY pe.doc_date, pe.created_at""", (order_id,)).fetchall()
+    pn_exp_docs = conn.execute("""SELECT pe.stored_path, pe.original_filename, pe.description,
+        ec.name as cat_name, pe.doc_date
+        FROM pn_expenses pe
+        LEFT JOIN expense_categories ec ON pe.category_id = ec.id
+        WHERE pe.travel_order_id=? AND pe.stored_path IS NOT NULL AND pe.stored_path != ''
+        ORDER BY pe.doc_date, pe.created_at""", (order_id,)).fetchall()
+    employee    = conn.execute("SELECT * FROM employees WHERE id=?", (order['employee_id'],)).fetchone() if order['employee_id'] else None
+    vehicle     = conn.execute("SELECT * FROM vehicles WHERE id=?", (order['vehicle_id'],)).fetchone() if order['vehicle_id'] else None
+    approved_by = conn.execute("SELECT * FROM employees WHERE id=?", (order['approved_by_id'],)).fetchone() if order['approved_by_id'] else None
+    validator   = conn.execute("SELECT * FROM employees WHERE id=?", (order['validator_id'],)).fetchone() if order['validator_id'] else None
+    blagajnik   = conn.execute("SELECT * FROM employees WHERE is_blagajnik=1 LIMIT 1").fetchone()
+    knjizio     = conn.execute("SELECT * FROM employees WHERE is_knjizio=1 LIMIT 1").fetchone()
+    settings    = {row['key']: row['value'] for row in conn.execute("SELECT * FROM settings").fetchall()}
+    conn.close()
+
+    pdf_buf = create_pdf(dict(order), list(expenses),
+                         row_to_dict(employee), row_to_dict(vehicle),
+                         row_to_dict(approved_by), row_to_dict(validator),
+                         row_to_dict(blagajnik), row_to_dict(knjizio), settings)
+
+    # Napravi ZIP
+    zip_buf = _io.BytesIO()
+    with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # 1. PDF putnog naloga
+        zf.writestr(f"PN_{order['auto_id']}.pdf", pdf_buf.read())
+
+        # 2. PDF troškovi iz pn_expenses
+        upload_dir = os.path.join(os.path.dirname(__file__), 'uploads')
+        seen = set()
+        for i, doc in enumerate(pn_exp_docs, 1):
+            sp = doc['stored_path']
+            if not sp:
+                continue
+            # stored_path može biti apsolutni ili relativan
+            full = sp if os.path.isabs(sp) else os.path.join(upload_dir, sp)
+            if not os.path.exists(full):
+                continue
+            ext = os.path.splitext(full)[1].lower() or '.pdf'
+            # Ime datoteke u ZIPu: redni_broj_kategorija_datum.ext
+            cat  = (doc['cat_name'] or 'trosak').replace(' ', '_')
+            date = (doc['doc_date'] or '').replace('-', '')
+            base = f"{i:02d}_{cat}_{date}{ext}"
+            # izbjegni duplikate
+            if base in seen:
+                base = f"{i:02d}_{cat}_{date}_{i}{ext}"
+            seen.add(base)
+            with open(full, 'rb') as fh:
+                zf.writestr(f"troskovi/{base}", fh.read())
+
+    zip_buf.seek(0)
+    zip_name = f"PN_{order['auto_id']}_export.zip"
+    return send_file(zip_buf, mimetype='application/zip', download_name=zip_name, as_attachment=True)
+
 @app.route('/orders/<int:order_id>/pdf')
 @require_perm('can_view_orders')
 def generate_pdf(order_id):
@@ -2240,9 +2320,12 @@ def generate_pdf(order_id):
             return send_file(pdf_path_full, mimetype='application/pdf',
                            download_name=order['pdf_path'], as_attachment=False)
     # Fallback: generate on the fly
-    expenses = conn.execute('''SELECT e.*, ec.name as cat_name FROM expenses e
-                               LEFT JOIN expense_categories ec ON e.category_id = ec.id
-                               WHERE e.travel_order_id=? ORDER BY e.sort_order''', (order_id,)).fetchall()
+    expenses = conn.execute('''SELECT pe.*, ec.name as cat_name,
+                               CASE WHEN pe.payment_method='private' THEN 1 ELSE 0 END as paid_privately,
+                               pe.amount as amount, pe.description as description
+                               FROM pn_expenses pe
+                               LEFT JOIN expense_categories ec ON pe.category_id = ec.id
+                               WHERE pe.travel_order_id=? ORDER BY pe.doc_date, pe.created_at''', (order_id,)).fetchall()
     employee = conn.execute("SELECT * FROM employees WHERE id=?", (order['employee_id'],)).fetchone() if order['employee_id'] else None
     vehicle = conn.execute("SELECT * FROM vehicles WHERE id=?", (order['vehicle_id'],)).fetchone() if order['vehicle_id'] else None
     approved_by = conn.execute("SELECT * FROM employees WHERE id=?", (order['approved_by_id'],)).fetchone() if order['approved_by_id'] else None

@@ -6917,7 +6917,7 @@ def suppliers_list():
 @api_login_required
 def supplier_create():
     user = get_current_user()
-    if not user or not user.get('is_admin'):
+    if not user or not (user.get('is_admin') or user.get('can_edit_invoices')):
         return jsonify({'success': False, 'error': 'Nemate ovlasti za ovu akciju.'}), 403
     data = request.json
     if not data.get('name'):
@@ -6934,7 +6934,7 @@ def supplier_create():
 @api_login_required
 def supplier_update(sid):
     user = get_current_user()
-    if not user or not user.get('is_admin'):
+    if not user or not (user.get('is_admin') or user.get('can_edit_invoices')):
         return jsonify({'success': False, 'error': 'Nemate ovlasti za ovu akciju.'}), 403
     data = request.json
     conn = get_db()
@@ -6948,7 +6948,7 @@ def supplier_update(sid):
 @api_login_required
 def supplier_delete(sid):
     user = get_current_user()
-    if not user or not user.get('is_admin'):
+    if not user or not (user.get('is_admin') or user.get('can_edit_invoices')):
         return jsonify({'success': False, 'error': 'Nemate ovlasti za ovu akciju.'}), 403
     conn = get_db()
     conn.execute("DELETE FROM suppliers WHERE id=?", (sid,))

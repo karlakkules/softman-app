@@ -149,6 +149,7 @@
   <path d="M10 1l3 3h-3V1z" fill="#c0392b"/>
   <text x="3.5" y="11.5" font-family="Arial" font-size="4.5" font-weight="bold" fill="white">PDF</text>
 </svg></a>
+                  <a href="/orders/{{ o.id }}/export-zip" class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;" title="Preuzmi ZIP (PDF naloga + dokumenti troškova)">📦</a>
                   <button style="width:30px;height:30px;padding:0;background:#f5f5f5;color:#444;border:1px solid #ccc;border-radius:6px;cursor:pointer;font-size:14px;" onclick="printOrder({{ o.id }})" title="Ispiši nalog">🖨️</button>
                 {% else %}
                   <span style="width:30px;display:inline-block;flex-shrink:0;"></span>

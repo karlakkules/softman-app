@@ -86,7 +86,7 @@
           <th class="sortable" data-col="3" onclick="sortTable(3)">Zaposlenik <span class="sort-icon">↕</span></th>
           <th class="sortable" style="width:110px;" data-col="4" onclick="sortTable(4)">Destinacija <span class="sort-icon">↕</span></th>
           <th>Svrha</th>
-          <th class="sortable" style="width:90px;" data-col="6" onclick="sortTable(6)">Ukupno <span class="sort-icon">↕</span></th>
+          <th class="sortable" style="width:90px;" data-col="6" onclick="sortTable(6)">Za isplatu <span class="sort-icon">↕</span></th>
           <th class="sortable" style="width:100px;" data-col="7" onclick="sortTable(7)">Status <span class="sort-icon">↕</span></th>
           <th class="sortable" style="width:80px;" data-col="8" onclick="sortTable(8)">Isplata <span class="sort-icon">↕</span></th>
           <th style="width:140px;">Akcije</th>
@@ -121,7 +121,7 @@
           <td data-col="3" data-val="{{ o.employee_name or '' }}">{{ o.employee_name or '—' }}</td>
           <td data-col="4" data-val="{{ o.destination or '' }}">{{ o.destination or '—' }}</td>
           <td data-col="5" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ o.purpose or '—' }}</td>
-          <td data-col="6" data-val="{{ o.total_amount or 0 }}"><strong>{{ '%.2f'|format(o.total_amount or 0) }} €</strong></td>
+          <td data-col="6" data-val="{{ o.payout_amount or 0 }}"><strong>{{ '%.2f'|format(o.payout_amount or 0) }} €</strong></td>
           <td data-col="7" data-val="{{ o.status }}">
             {% if o.status == 'draft' %}<span class="badge badge-draft">Nacrt</span>
             {% elif o.status == 'submitted' %}<span class="badge badge-submitted">Predano</span>
@@ -845,15 +845,43 @@ async function handleExpFileSelect(file) {
 
   try {
     const res = await fetch('/api/pn-expenses/upload', { method: 'POST', body: fd });
+
+    // Provjeri HTTP status prije parsiranja JSON-a
+    if (res.status === 401) {
+      closeExpenseUpload();
+      toast('Sessija je istekla. Osvježi stranicu i prijavi se ponovo.', 'error');
+      setTimeout(() => window.location.href = '/login', 2000);
+      return;
+    }
+
+    // Provjeri Content-Type — ako nije JSON, server je vratio HTML error
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      closeExpenseUpload();
+      const statusText = res.status >= 500 ? 'Greška na serveru (500). Provjeri Flask log.' : `HTTP ${res.status}`;
+      toast(`Greška pri uploadu: ${statusText}`, 'error');
+      console.error('Server odgovorio s ne-JSON sadržajem:', res.status, contentType);
+      return;
+    }
+
     const d = await res.json();
-    if (!d.success) { toast(d.error || 'Greška pri OCR obradi', 'error'); closeExpenseUpload(); return; }
+    if (!d.success) {
+      toast(d.error || 'Greška pri OCR obradi', 'error');
+      closeExpenseUpload();
+      return;
+    }
 
     // Zatvori upload modal, otvori detail modal
     closeExpenseUpload();
     openExpenseDetail(d);
   } catch(e) {
-    toast('Greška: ' + e.message, 'error');
     closeExpenseUpload();
+    if (e.message && e.message.includes('JSON')) {
+      toast('Greška: Server nije vratio ispravan odgovor. Provjeri je li sessija istekla.', 'error');
+    } else {
+      toast('Greška: ' + e.message, 'error');
+    }
+    console.error('handleExpFileSelect error:', e);
   }
 }
 
@@ -923,7 +951,15 @@ async function loadActivePnList() {
   const sel = document.getElementById('exp-pn-select');
   sel.innerHTML = '<option value="">— Bez veze (neupareno) —</option>';
   _expActivePnList.forEach(pn => {
-    const label = `PN ${pn.auto_id} — ${pn.destination || ''} — ${pn.employee_name || ''} — ${pn.purpose || ''}`;
+    // Formatiraj datum putovanja uz broj PN
+    let dateStr = '';
+    if (pn.departure_date) {
+      const d = pn.departure_date;
+      // YYYY-MM-DD → DD.MM.YYYY.
+      dateStr = d.length >= 10 ? `${d.slice(8,10)}.${d.slice(5,7)}.${d.slice(0,4)}.` : d;
+    }
+    const dateLabel = dateStr ? ` [${dateStr}]` : '';
+    const label = `PN ${pn.auto_id}${dateLabel} — ${pn.destination || ''} — ${pn.employee_name || ''} — ${pn.purpose || ''}`;
     sel.innerHTML += `<option value="${pn.id}">${label}</option>`;
   });
 }
@@ -975,6 +1011,36 @@ function onExpPaymentChange() {
 async function saveExpense() {
   const amount = parseFloat(document.getElementById('exp-amount').value);
   if (!amount || amount <= 0) { toast('Unesite iznos!', 'error'); return; }
+
+  // FIX 4: Kategorija je obavezno polje
+  const categoryEl = document.getElementById('exp-category');
+  if (!categoryEl.value) {
+    categoryEl.style.border = '2px solid #c0392b';
+    categoryEl.focus();
+    toast('Kategorija troška je obavezno polje!', 'error');
+    setTimeout(() => { categoryEl.style.border = ''; }, 2500);
+    return;
+  }
+
+  // FIX 2: Provjeri duplikat (isti datum + isti iznos)
+  const docDate = document.getElementById('exp-doc-date').value;
+  if (docDate && amount > 0) {
+    try {
+      const chkRes = await fetch(`/api/pn-expenses/check-duplicate?date=${docDate}&amount=${amount}`);
+      if (chkRes.ok) {
+        const chkData = await chkRes.json();
+        if (chkData.found) {
+          const existing = chkData.expenses.map(e =>
+            `• ${e.doc_date} · ${parseFloat(e.amount).toFixed(2)} € · ${e.description || 'bez opisa'} · ${e.category_name || ''}`
+          ).join('\n');
+          const confirmed = confirm(
+            `⚠️ Upozorenje: Već postoji trošak s istim datumom (${docDate}) i iznosom (${amount.toFixed(2)} €):\n\n${existing}\n\nJesi li siguran/na da želiš evidentirati ovaj trošak?`
+          );
+          if (!confirmed) return;
+        }
+      }
+    } catch(e) { /* tiho — nastavi sa spremanjem */ }
+  }
 
   const paymentVal = document.getElementById('exp-payment-method').value;
   let paymentMethod = paymentVal;
@@ -1091,7 +1157,13 @@ async function openUnmatched() {
 
       let pnOptions = '<option value="">— odaberi PN —</option>';
       pnList.forEach(pn => {
-        pnOptions += `<option value="${pn.id}">PN ${pn.auto_id} — ${pn.destination || ''} — ${pn.employee_name || ''}</option>`;
+        // Formatiraj datum putovanja: YYYY-MM-DD → DD.MM.YYYY.
+        let dateLabel = '';
+        const depDate = pn.departure_date || (pn.trip_start_datetime ? pn.trip_start_datetime.substring(0, 10) : '');
+        if (depDate && depDate.length >= 10) {
+          dateLabel = ` [${depDate.slice(8,10)}.${depDate.slice(5,7)}.${depDate.slice(0,4)}.]`;
+        }
+        pnOptions += `<option value="${pn.id}">PN ${pn.auto_id}${dateLabel} — ${pn.destination || ''} — ${pn.employee_name || ''}</option>`;
       });
 
       html += `
