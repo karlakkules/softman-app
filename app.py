@@ -4392,7 +4392,7 @@ def vehicle_log_excel(log_id):
         dir_sig_path = os.path.join(upload_dir, director['signature_path'])
         if os.path.exists(dir_sig_path):
             img_d = XLImage(dir_sig_path)
-            img_d.width, img_d.height = 100, 30
+            img_d.width, img_d.height = 200, 60
             ws2.add_image(img_d, f'G{sigr2+1}')
 
     buf = _io.BytesIO()
