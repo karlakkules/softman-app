@@ -6,7 +6,7 @@
 {% if log %}
 <a href="/vehicle-log/{{ log.id }}/excel" id="excel-btn" class="btn btn-secondary" title="Preuzmi Excel izvještaj">📊 Excel</a>
 <a href="/vehicle-log/{{ log.id }}/pdf" target="_blank" class="btn btn-secondary" title="Preuzmi PDF izvještaj">📄 PDF</a>
-{% if can_edit and current_user.get('is_admin') %}
+{% if can_approve %}
 {% if log.is_approved %}
 <span class="btn btn-secondary" style="opacity:0.6;cursor:default;">✅ Odobreno</span>
 {% else %}
