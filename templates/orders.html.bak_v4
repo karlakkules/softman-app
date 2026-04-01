@@ -773,6 +773,7 @@ async function savePayment() {
 
 // ── Quick modal — client dropdown ─────────────────────────────────────────
 const _qClients = {{ clients_all | tojson }};
+let _qClientSelecting = false;
 
 function showQClientDropdown() {
   filterQClientDropdown();
@@ -782,7 +783,9 @@ function hideQClientDropdown() {
   document.getElementById('q-client-dropdown').style.display = 'none';
 }
 function hideQClientDropdownDelayed() {
-  setTimeout(hideQClientDropdown, 200);
+  setTimeout(function() {
+    if (!_qClientSelecting) hideQClientDropdown();
+  }, 150);
 }
 function filterQClientDropdown() {
   const q = (document.getElementById('q-client').value || '').toLowerCase();
@@ -796,49 +799,35 @@ function filterQClientDropdown() {
   const internoMatch = !q || 'interno'.includes(q);
   let html = '';
   if (internoMatch) {
-    html += `<div class="qc-opt" data-name="interno" data-id="0"
-      style="padding:8px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--gray-100);background:#f5f9ff;">
+    html += `<div class="q-client-option" style="padding:8px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--gray-100);background:#f5f9ff;"
+      onmouseenter="_qClientSelecting=true" onmouseleave="_qClientSelecting=false"
+      onmousedown="event.preventDefault();selectQClient(0,'interno');"
+      onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background='#f5f9ff'">
       <div style="font-weight:700;color:var(--navy);">Interno</div>
     </div>`;
   }
-  html += filtered.map(c => `
-    <div class="qc-opt" data-name=${JSON.stringify(c.name)} data-id="${c.id}"
-      style="padding:8px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--gray-100);">
-      <div style="font-weight:600;color:var(--navy);">${c.name}</div>
-      ${c.oib ? `<div style="font-size:11px;color:var(--gray-400);">OIB: ${c.oib}${c.address ? ' · '+c.address : ''}</div>` : ''}
-    </div>`).join('');
+  if (filtered.length) {
+    html += filtered.map(c => `
+      <div class="q-client-option" style="padding:8px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--gray-100);"
+        onmouseenter="_qClientSelecting=true" onmouseleave="_qClientSelecting=false"
+        onmousedown="event.preventDefault();selectQClient(${c.id},${JSON.stringify(c.name)});"
+        onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background=''">
+        <div style="font-weight:600;color:var(--navy);">${c.name}</div>
+        ${c.oib ? `<div style="font-size:11px;color:var(--gray-400);">OIB: ${c.oib}${c.address ? ' · '+c.address : ''}</div>` : ''}
+      </div>`).join('');
+  }
   if (!html) {
     html = '<div style="padding:10px 14px;color:var(--gray-400);font-size:13px;">Nema rezultata</div>';
   }
   list.innerHTML = html;
   list.style.display = 'block';
 }
-// Event delegation — jedan listener, bez inline handlera
-document.addEventListener('DOMContentLoaded', function() {
-  const qDrop = document.getElementById('q-client-dropdown');
-  if (!qDrop) return;
-  // Hover
-  qDrop.addEventListener('mouseover', function(e) {
-    const opt = e.target.closest('.qc-opt');
-    if (opt) { qDrop.querySelectorAll('.qc-opt').forEach(o => o.style.background = ''); opt.style.background = 'var(--accent-light)'; }
-  });
-  qDrop.addEventListener('mouseout', function(e) {
-    const opt = e.target.closest('.qc-opt');
-    if (opt) opt.style.background = opt.dataset.id === '0' ? '#f5f9ff' : '';
-  });
-  // Klik — mousedown s preventDefault sprječava blur na inputu
-  qDrop.addEventListener('mousedown', function(e) {
-    const opt = e.target.closest('.qc-opt');
-    if (!opt) return;
-    e.preventDefault();
-    const name = opt.dataset.name;
-    const id   = opt.dataset.id;
-    document.getElementById('q-client-id').value = id;
-    document.getElementById('q-client').value = name;
-    hideQClientDropdown();
-  });
-});
-
+function selectQClient(id, name) {
+  _qClientSelecting = false;
+  document.getElementById('q-client-id').value = id;
+  document.getElementById('q-client').value = name;
+  hideQClientDropdown();
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PN EXPENSES — Brzi unos troška
