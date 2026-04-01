@@ -9,7 +9,7 @@ from datetime import datetime, date
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import mm
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable, Image, PageBreak, CondPageBreak
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable, Image, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 
@@ -2702,7 +2702,7 @@ def create_pdf(order, expenses, employee, vehicle, approved_by, validator, blaga
 
     # Report - always on new page
     if order['report_text']:
-        story.append(CondPageBreak(50*mm))
+        story.append(PageBreak())
         story.append(section_title("IZVJEŠĆE S PUTA"))
         story.append(Spacer(1, 1*mm))
         story.append(Paragraph(safe(order['report_text']).replace('\n', '<br/>'), style('rt', 8)))
