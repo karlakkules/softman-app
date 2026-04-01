@@ -1141,7 +1141,7 @@ function filterFormClientDropdown() {
   const list = document.getElementById('form-client-dropdown');
   if (!list) return;
   const filtered = _formClients.filter(c =>
-    !q || c.name.toLowerCase().includes(q) ||
+    !q || c.name.toLowerCase().includes(c) ||
     (c.oib && c.oib.includes(q)) ||
     (c.address && c.address.toLowerCase().includes(q))
   );
