@@ -2642,9 +2642,11 @@ def create_pdf(order, expenses, employee, vehicle, approved_by, validator, blaga
     exp_rows = [exp_header]
     for exp in expenses:
         amt = f"{exp['amount']:.2f}" if exp['paid_privately'] and exp['amount'] else ''
+        is_card = not exp['paid_privately']
+        desc = 'Plaćeno službenom karticom' if is_card else safe(exp['description'] or '')
         exp_rows.append([
             Paragraph(safe(exp['cat_name'] or ''), style('er1', 8)),
-            Paragraph(safe(exp['description'] or ''), style('er2', 8)),
+            Paragraph(desc, style('er2', 8)),
             Paragraph('✓' if exp['paid_privately'] else '', style('er3', 8, False, TA_CENTER)),
             Paragraph(amt, style('er4', 8, False, TA_RIGHT)),
         ])
