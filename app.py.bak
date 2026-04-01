@@ -3882,6 +3882,26 @@ def get_vehicle_log_days(log_id):
         result.append(row)
     return jsonify(result)
 
+
+@app.route('/api/vehicle-log/<int:log_id>/unapprove', methods=['POST'])
+@login_required
+def unapprove_vehicle_log(log_id):
+    """Poništi odobrenje evidencije — vraća u status Nacrt."""
+    conn = get_db()
+    user = get_current_user()
+    if not (user and (user.get('is_admin') or user.get('can_approve_vehicle_log'))):
+        conn.close()
+        return jsonify({'error': 'Nemate pravo poništavanja odobrenja'}), 403
+    conn.execute(
+        "UPDATE vehicle_log SET is_approved=0, approved_at=NULL, approved_by_id=NULL WHERE id=?",
+        (log_id,)
+    )
+    conn.commit()
+    conn.close()
+    audit('unapprove', module='sluzbeni_automobil', entity='vehicle_log', entity_id=log_id,
+          detail='Odobrenje poništeno — vraćeno u Nacrt')
+    return jsonify({'success': True})
+
 @app.route('/api/vehicle-log/<int:log_id>/approve', methods=['POST'])
 @login_required
 def approve_vehicle_log(log_id):
