@@ -32,7 +32,20 @@
 </button>
 {% endif %}
 {% if order and order.status == 'approved' %}
-<a href="/orders/{{ order.id }}/export-zip" class="btn btn-secondary" style="width:30px;height:30px;padding:0;display:inline-flex;align-items:center;justify-content:center;" title="Preuzmi ZIP (PDF naloga + dokumenti troškova)">📦</a>
+<a href="/orders/{{ order.id }}/zip" class="btn btn-secondary" title="Preuzmi ZIP (PDF + računi)" style="width:30px;height:30px;padding:0;display:inline-flex;align-items:center;justify-content:center;">
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="1" width="12" height="14" rx="1.5" fill="#f5f5f5" stroke="#bbb" stroke-width="0.8"/>
+    <rect x="5" y="1" width="2" height="4" fill="#ddd" stroke="#bbb" stroke-width="0.5"/>
+    <rect x="9" y="1" width="2" height="4" fill="#ddd" stroke="#bbb" stroke-width="0.5"/>
+    <rect x="5" y="5" width="2" height="2" fill="#bbb"/>
+    <rect x="9" y="5" width="2" height="2" fill="#bbb"/>
+    <rect x="5" y="7" width="2" height="2" fill="#ddd"/>
+    <rect x="9" y="7" width="2" height="2" fill="#ddd"/>
+    <rect x="5" y="9" width="2" height="2" fill="#bbb"/>
+    <rect x="9" y="9" width="2" height="2" fill="#bbb"/>
+    <text x="3.5" y="14.5" font-family="Arial" font-size="4" font-weight="bold" fill="#555">ZIP</text>
+  </svg>
+</a>
 <a href="/orders/{{ order.id }}/pdf" target="_blank" class="btn btn-secondary" title="Preuzmi PDF putnog naloga">
   🖨️ PDF
 </a>
