@@ -196,19 +196,16 @@
                value="{{ order.purpose if order else '' }}"
                placeholder="npr. Sastanak s klijentom">
       </div>
-            <div class="form-group">
+      <div class="form-group">
         <label class="form-label" data-hr="Klijent / Partner" data-en="Client / Partner">Klijent / Partner</label>
-        <div style="position:relative;">
-          <input type="text" class="form-control" id="client_info_search"
-            placeholder="Pretraži klijenta..."
-            autocomplete="off"
-            oninput="filterFormClientDropdown()"
-            onfocus="showFormClientDropdown()"
-            onblur="hideFormClientDropdownDelayed()"
-            value="{{ order.client_info if order else '' }}">
-          <input type="hidden" id="client_info" value="{{ order.client_info if order else '' }}">
-          <div id="form-client-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--gray-300);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:9999;max-height:220px;overflow-y:auto;margin-top:2px;"></div>
-        </div>
+        <select class="form-control" id="client_info">
+          <option value="">— odaberi —</option>
+          <option value="interno" {% if order and order.client_info == 'interno' %}selected{% endif %}>Interno</option>
+          {% for cl in clients %}
+          <option value="{{ cl.name }}"
+            {% if order and order.client_info == cl.name %}selected{% endif %}>{{ cl.name }}</option>
+          {% endfor %}
+        </select>
       </div>
     </div>
     <div class="form-row form-row-2">
@@ -1122,53 +1119,5 @@ async function autoFillKmFromVehicleLog() {
     // Tiho — ne prikazuj grešku korisniku
   }
 }
-
-// ── Klijent/Partner searchable dropdown (form.html) ───────────────────────
-const _formClients = {{ clients | tojson }};
-function showFormClientDropdown() { filterFormClientDropdown(); document.getElementById('form-client-dropdown').style.display = 'block'; }
-function hideFormClientDropdown() { document.getElementById('form-client-dropdown').style.display = 'none'; }
-function hideFormClientDropdownDelayed() { setTimeout(hideFormClientDropdown, 200); }
-function filterFormClientDropdown() {
-  const q = (document.getElementById('client_info_search').value || '').toLowerCase();
-  const list = document.getElementById('form-client-dropdown');
-  if (!list) return;
-  const filtered = _formClients.filter(c => !q || c.name.toLowerCase().includes(q) || (c.oib && c.oib.includes(q)) || (c.address && c.address.toLowerCase().includes(q)));
-  const internoMatch = !q || 'interno'.includes(q);
-  let html = '';
-  if (internoMatch) {
-    html += `<div style="padding:8px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--gray-100);background:#f5f9ff;"
-      onpointerdown="event.preventDefault();selectFormClient('interno');"
-      onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background='#f5f9ff'">
-      <div style="font-weight:700;color:var(--navy);">Interno</div>
-    </div>`;
-  }
-  if (filtered.length) {
-    html += filtered.map(c => `
-      <div style="padding:8px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--gray-100);"
-        onpointerdown="event.preventDefault();selectFormClient(${JSON.stringify(c.name)});"
-        onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background=''">
-        <div style="font-weight:600;color:var(--navy);">${c.name}</div>
-        ${c.oib ? `<div style="font-size:11px;color:var(--gray-400);">OIB: ${c.oib}${c.address ? ' · '+c.address : ''}</div>` : ''}
-      </div>`).join('');
-  }
-  if (!html) {
-    html = '<div style="padding:10px 14px;color:var(--gray-400);font-size:13px;">Nema rezultata</div>';
-  }
-  list.innerHTML = html;
-  list.style.display = 'block';
-}
-function selectFormClient(name) {
-  document.getElementById('client_info').value = name;
-  document.getElementById('client_info_search').value = name;
-  hideFormClientDropdown();
-}
-// Zatvori dropdown kad klik van
-document.addEventListener('click', function(e) {
-  const dd = document.getElementById('form-client-dropdown');
-  const search = document.getElementById('client_info_search');
-  if (dd && search && !search.contains(e.target) && !dd.contains(e.target)) {
-    hideFormClientDropdown();
-  }
-});
 </script>
 {% endblock %}
