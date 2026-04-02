@@ -226,6 +226,7 @@ function deleteLogo() {
             <td>{% if e.is_default %}<span style="color:var(--accent);">⭐</span>{% endif %}</td>
             <td>
               <div style="display:flex;gap:4px;">
+                <button style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;background:#e8f4fd;color:#1a6fa8;border:1px solid #b3d9f7;border-radius:6px;cursor:pointer;font-size:15px;font-weight:700;" onclick="showEmpInfo({{ e.id }})" title="Kontakt info">ℹ</button>
                 <button class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;" onclick="editEmployeeById({{ e.id }})">✏️</button>
                 <button style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;border-radius:6px;cursor:pointer;" onclick="deleteItem('employees', {{ e.id }}, 'emp-row-{{ e.id }}')">🗑</button>
               </div>
@@ -638,6 +639,47 @@ function deleteLogo() {
           {% endfor %}
         </select>
       </div>
+      <div style="border-top:1px solid var(--gray-100);padding-top:14px;margin-bottom:4px;">
+        <div style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">📋 Kontakt i osobni podaci</div>
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label class="form-label">Telefon</label>
+            <input type="text" class="form-control" id="emp-phone" placeholder="+385 91 123 4567">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-control" id="emp-email" placeholder="ime@domena.hr">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ulica i broj (stanovanje)</label>
+          <input type="text" class="form-control" id="emp-street" placeholder="npr. Ulica kralja Tomislava 12">
+        </div>
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label class="form-label">Mjesto</label>
+            <input type="text" class="form-control" id="emp-city" placeholder="npr. Osijek">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Država</label>
+            <input type="text" class="form-control" id="emp-country" placeholder="Hrvatska">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">OIB zaposlenika</label>
+          <input type="text" class="form-control" id="emp-oib" placeholder="12345678901" maxlength="11" style="font-family:monospace;">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ugovor o radu vrijedi do</label>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <input type="date" class="form-control" id="emp-contract-until" style="flex:1;min-width:140px;" oninput="if(this.value) document.getElementById('emp-contract-indefinite').checked=false;">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;font-size:13px;">
+              <input type="checkbox" id="emp-contract-indefinite" style="width:15px;height:15px;" onchange="if(this.checked) document.getElementById('emp-contract-until').value='';">
+              <span>Neodređeno</span>
+            </label>
+          </div>
+        </div>
+      </div>
       <div style="background:var(--gray-50);border-radius:8px;padding:14px;margin-bottom:12px;">
         <div style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;margin-bottom:10px;" data-hr="Uloge u sustavu" data-en="System roles">Uloge u sustavu</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;">
@@ -667,6 +709,79 @@ function deleteLogo() {
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('employee-modal')" data-hr="Odustani" data-en="Cancel">Odustani</button>
       <button class="btn btn-primary" onclick="saveEmployee()" data-hr="Spremi" data-en="Save">Spremi</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── EMPLOYEE INFO MODAL ── -->
+<div class="modal-overlay" id="emp-info-modal">
+  <div class="modal" style="width:480px;">
+    <div class="modal-header" style="background:linear-gradient(135deg,#1a3a5c,#2563a8);border-radius:12px 12px 0 0;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:40px;height:40px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;">👤</div>
+        <div>
+          <div class="modal-title" id="emp-info-name" style="color:white;font-size:16px;"></div>
+          <div id="emp-info-position" style="color:rgba(255,255,255,0.75);font-size:12px;margin-top:1px;"></div>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('emp-info-modal')" style="color:white;">✕</button>
+    </div>
+    <div class="modal-body" style="padding:20px;">
+
+      <!-- Kontakt -->
+      <div style="margin-bottom:18px;">
+        <div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Kontakt</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;align-items:center;gap:10px;" id="emp-info-phone-row">
+            <span style="font-size:16px;width:22px;text-align:center;">📞</span>
+            <div>
+              <div style="font-size:10px;color:var(--gray-400);">Telefon</div>
+              <div style="font-size:13px;font-weight:500;" id="emp-info-phone"></div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;" id="emp-info-email-row">
+            <span style="font-size:16px;width:22px;text-align:center;">✉️</span>
+            <div>
+              <div style="font-size:10px;color:var(--gray-400);">Email</div>
+              <div style="font-size:13px;font-weight:500;" id="emp-info-email"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid var(--gray-100);padding-top:14px;margin-bottom:18px;">
+        <div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Adresa stanovanja</div>
+        <div style="display:flex;align-items:flex-start;gap:10px;" id="emp-info-addr-row">
+          <span style="font-size:16px;width:22px;text-align:center;margin-top:2px;">🏠</span>
+          <div style="font-size:13px;font-weight:500;line-height:1.6;" id="emp-info-address"></div>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid var(--gray-100);padding-top:14px;margin-bottom:18px;">
+        <div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Osobni podaci</div>
+        <div style="display:flex;gap:24px;flex-wrap:wrap;">
+          <div id="emp-info-oib-row">
+            <div style="font-size:10px;color:var(--gray-400);">OIB</div>
+            <div style="font-size:13px;font-weight:500;font-family:monospace;" id="emp-info-oib"></div>
+          </div>
+          <div id="emp-info-contract-row">
+            <div style="font-size:10px;color:var(--gray-400);">Ugovor vrijedi do</div>
+            <div style="font-size:13px;font-weight:500;" id="emp-info-contract"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Uloge -->
+      <div style="border-top:1px solid var(--gray-100);padding-top:14px;" id="emp-info-roles-row">
+        <div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Uloge u sustavu</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;" id="emp-info-roles"></div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('emp-info-modal')">Zatvori</button>
+      <button class="btn btn-primary" onclick="closeModal('emp-info-modal'); editEmployeeById(currentInfoEmpId)">✏️ Uredi</button>
     </div>
   </div>
 </div>
@@ -1060,6 +1175,8 @@ function openModal(type) {
     document.getElementById('emp-position').value = '';
     ['direktor','validator','blagajnik','knjizio','default'].forEach(r => document.getElementById(`emp-${r}`).checked = false);
     const mgrSel = document.getElementById('emp-manager'); if (mgrSel) mgrSel.value = '';
+    ['emp-phone','emp-email','emp-street','emp-city','emp-country','emp-oib','emp-contract-until'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+    const ci = document.getElementById('emp-contract-indefinite'); if(ci) ci.checked = false;
     document.getElementById('emp-modal-title').textContent = t('Novi zaposlenik', 'New Employee');
     document.getElementById('employee-modal').classList.add('open');
   }
@@ -1076,6 +1193,16 @@ function editEmployee(emp) {
   document.getElementById('emp-default').checked = !!emp.is_default;
   const mgrDropdown = document.getElementById('emp-manager');
   if (mgrDropdown) mgrDropdown.value = emp.manager_id || '';
+  const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
+  setVal('emp-phone', emp.phone);
+  setVal('emp-email', emp.email);
+  setVal('emp-street', emp.street);
+  setVal('emp-city', emp.city);
+  setVal('emp-country', emp.country);
+  setVal('emp-oib', emp.oib);
+  setVal('emp-contract-until', emp.contract_until);
+  const ci = document.getElementById('emp-contract-indefinite');
+  if (ci) ci.checked = !!emp.contract_indefinite;
   document.getElementById('emp-modal-title').textContent = emp.name;
   document.getElementById('employee-modal').classList.add('open');
 }
@@ -1089,12 +1216,87 @@ async function saveEmployee() {
     is_knjizio: document.getElementById('emp-knjizio').checked ? 1 : 0,
     is_default: document.getElementById('emp-default').checked ? 1 : 0,
     manager_id: (() => { const v = document.getElementById('emp-manager')?.value; return v ? parseInt(v) : null; })(),
+    phone: document.getElementById('emp-phone')?.value.trim() || null,
+    email: document.getElementById('emp-email')?.value.trim() || null,
+    street: document.getElementById('emp-street')?.value.trim() || null,
+    city: document.getElementById('emp-city')?.value.trim() || null,
+    country: document.getElementById('emp-country')?.value.trim() || null,
+    oib: document.getElementById('emp-oib')?.value.trim() || null,
+    contract_until: document.getElementById('emp-contract-until')?.value || null,
+    contract_indefinite: document.getElementById('emp-contract-indefinite')?.checked ? 1 : 0,
   };
   const url = id ? `/api/employees/${id}` : '/api/employees';
   const method = id ? 'PUT' : 'POST';
   const res = await fetch(url, {method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)});
   if (res.ok) { toast(t('Zaposlenik spremljen!', 'Employee saved!'), 'success'); setTimeout(() => { localStorage.setItem('settings_tab', localStorage.getItem('settings_tab') || 'general'); location.reload(); }, 600); }
 }
+
+// ── Employee Info popup ────────────────────────────────────────────────────────
+let currentInfoEmpId = null;
+function showEmpInfo(id) {
+  const emp = EMPLOYEES_DATA.find(x => x.id === id);
+  if (!emp) return;
+  currentInfoEmpId = id;
+
+  document.getElementById('emp-info-name').textContent = emp.name;
+  document.getElementById('emp-info-position').textContent = emp.position || '';
+
+  // Kontakt
+  const phoneRow = document.getElementById('emp-info-phone-row');
+  document.getElementById('emp-info-phone').textContent = emp.phone || '—';
+  phoneRow.style.opacity = emp.phone ? '1' : '0.4';
+
+  const emailRow = document.getElementById('emp-info-email-row');
+  document.getElementById('emp-info-email').textContent = emp.email || '—';
+  emailRow.style.opacity = emp.email ? '1' : '0.4';
+
+  // Adresa
+  const parts = [emp.street, emp.city, emp.country].filter(Boolean);
+  const addrEl = document.getElementById('emp-info-address');
+  addrEl.innerHTML = parts.length
+    ? parts.map((p,i) => i===0 ? p : `<span style="color:var(--gray-500)">${p}</span>`).join('<br>')
+    : '<span style="color:var(--gray-400);">—</span>';
+  document.getElementById('emp-info-addr-row').style.opacity = parts.length ? '1' : '0.4';
+
+  // OIB
+  document.getElementById('emp-info-oib').textContent = emp.oib || '—';
+  document.getElementById('emp-info-oib-row').style.opacity = emp.oib ? '1' : '0.4';
+
+  // Ugovor
+  const contractEl = document.getElementById('emp-info-contract');
+  const contractRow = document.getElementById('emp-info-contract-row');
+  if (emp.contract_indefinite) {
+    contractEl.innerHTML = '<span style="background:#e8f5e9;color:#27ae60;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:600;">Neodređeno</span>';
+    contractRow.style.opacity = '1';
+  } else if (emp.contract_until) {
+    const d = emp.contract_until;
+    const fmt = d.length===10 ? d.split('-').reverse().join('.') + '.' : d;
+    const daysLeft = Math.ceil((new Date(d) - new Date()) / 86400000);
+    const color = daysLeft < 30 ? '#e74c3c' : daysLeft < 90 ? '#e67e22' : '#27ae60';
+    const warn = daysLeft < 90 ? ` <span style="font-size:11px;color:${color};">(${daysLeft > 0 ? daysLeft + ' dana' : 'isteklo!'})</span>` : '';
+    contractEl.innerHTML = `<span style="font-weight:600;">${fmt}</span>${warn}`;
+    contractRow.style.opacity = '1';
+  } else {
+    contractEl.textContent = '—';
+    contractRow.style.opacity = '0.4';
+  }
+
+  // Uloge
+  const roleMap = {is_direktor:'Direktor',is_validator:'Validator',is_blagajnik:'Blagajnik',is_knjizio:'Knjižio'};
+  const roleColors = {is_direktor:'#1a6fa8,#dbeeff',is_validator:'#7c3aed,#f0e6ff',is_blagajnik:'#27ae60,#e8f5e9',is_knjizio:'#666,#f0f0f0'};
+  const rolesEl = document.getElementById('emp-info-roles');
+  const roles = Object.entries(roleMap).filter(([k]) => emp[k]);
+  rolesEl.innerHTML = roles.length
+    ? roles.map(([k,v]) => {
+        const [fg,bg] = roleColors[k].split(',');
+        return `<span style="background:${bg};color:${fg};padding:3px 12px;border-radius:20px;font-size:12px;font-weight:600;">${v}</span>`;
+      }).join('')
+    : '<span style="color:var(--gray-400);font-size:12px;">Bez posebnih uloga</span>';
+  document.getElementById('emp-info-roles-row').style.display = 'block';
+
+  document.getElementById('emp-info-modal').classList.add('open');
+}
+
 async function uploadSignature(empId) {
   const file = document.getElementById(`sig-upload-${empId}`).files[0];
   if (!file) return;
