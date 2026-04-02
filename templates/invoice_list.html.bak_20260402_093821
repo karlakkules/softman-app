@@ -822,79 +822,74 @@ function closeExportModal() {
   document.getElementById('export-modal').classList.remove('open');
 }
 
-function toIsoDateStr(s) {
-  // Pretvara bilo koji format datuma u YYYY-MM-DD string za usporedbu
-  // BEZ korištenja Date objekta (izbjegava timezone offset bugove)
-  if (!s) return null;
-  s = s.trim().replace(/\.+$/, '');
-  // Već YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  // DD.MM.YYYY ili D.M.YYYY
-  var p = s.split('.');
-  if (p.length >= 3 && p[2] && p[2].trim().length === 4) {
-    return p[2].trim() + '-' + p[1].trim().padStart(2,'0') + '-' + p[0].trim().padStart(2,'0');
-  }
-  return null;
-}
-
-function getYearFromDateStr(s) {
-  // Izvuci godinu bez Date objekta
-  var iso = toIsoDateStr(s);
-  return iso ? parseInt(iso.slice(0, 4), 10) : null;
-}
-
 function fmtExpDate(s) {
-  // Prikaz uvijek kao DD-MM-YYYY
+  // Prikazuje datum uvijek kao DD.MM.YYYY bez obzira na format u bazi
   if (!s) return '\u2014';
-  var iso = toIsoDateStr(s);
-  if (iso) {
-    var parts = iso.split('-');
-    return parts[2] + '-' + parts[1] + '-' + parts[0];
+  s = s.trim().replace(/\.+$/, '');
+  // Ako je YYYY-MM-DD → pretvori u DD.MM.YYYY
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    var p = s.split('-');
+    return p[2] + '.' + p[1] + '.' + p[0] + '.';
+  }
+  // Ako je DD.MM.YYYY (možda bez zadnje točke) — normaliziraj
+  var p2 = s.split('.');
+  if (p2.length >= 3 && p2[2] && p2[2].trim().length === 4) {
+    return p2[0].trim().padStart(2,'0') + '.' + p2[1].trim().padStart(2,'0') + '.' + p2[2].trim() + '.';
   }
   return s;
 }
 
+function parseInvDate(s) {
+  if (!s) return null;
+  s = s.trim().replace(/\.+$/, '');
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(s + 'T00:00:00');
+  const p = s.split('.');
+  if (p.length >= 3 && p[2] && p[2].trim().length === 4) {
+    const d = p[0].trim().padStart(2,'0');
+    const m = p[1].trim().padStart(2,'0');
+    const y = p[2].trim();
+    return new Date(y + '-' + m + '-' + d + 'T00:00:00');
+  }
+  return null;
+}
+
 function applyExportFilters() {
-  var year  = parseInt(document.getElementById('exp-year').value, 10);
-  var fromV = document.getElementById('exp-date-from').value; // YYYY-MM-DD ili ''
-  var toV   = document.getElementById('exp-date-to').value;   // YYYY-MM-DD ili ''
+  const year  = parseInt(document.getElementById('exp-year').value, 10);
+  const fromV = document.getElementById('exp-date-from').value;
+  const toV   = document.getElementById('exp-date-to').value;
 
-  var tbody = document.getElementById('exp-tbody');
+  const tbody = document.getElementById('exp-tbody');
   tbody.innerHTML = '';
-  var totalVisible = 0;
+  let totalVisible = 0;
 
-  // Sortiraj od najnovijeg prema najstarijem (string usporedba radi za YYYY-MM-DD)
-  var sorted = _expAllInvoices.slice().sort(function(a, b) {
-    var da = toIsoDateStr(a.invoice_date) || '';
-    var db = toIsoDateStr(b.invoice_date) || '';
-    if (db > da) return 1;
-    if (db < da) return -1;
-    return b.id - a.id;
-  });
-
-  sorted.forEach(function(inv) {
-    var invYear = getYearFromDateStr(inv.invoice_date);
+  _expAllInvoices.forEach(function(inv) {
+    const invDate = parseInvDate(inv.invoice_date);
+    const invYear = invDate ? invDate.getFullYear() : null;
 
     // Filter godinom — miče red s popisa
     if (invYear !== year) return;
 
-    var invIso = toIsoDateStr(inv.invoice_date); // YYYY-MM-DD ili null
+    // Datum za usporedbu kao YYYY-MM-DD string
+    const invDateS = invDate ? invDate.toISOString().slice(0,10) : null;
 
-    // Filter datum od/do — inkluzivne granice, bez Date objekta
-    var inRange = true;
-    if (fromV && invIso && invIso < fromV) inRange = false;
-    if (toV   && invIso && invIso > toV)   inRange = false;
+    // Filter datum od/do — mijenja samo checkbox stanje
+    let inRange = true;
+    if (fromV && invDateS && invDateS < fromV) inRange = false;
+    if (toV   && invDateS && invDateS > toV)   inRange = false;
+    // Inkluzivne granice
+    if (fromV && invDateS && invDateS === fromV) inRange = true;
+    if (toV   && invDateS && invDateS === toV)   inRange = true;
 
     totalVisible++;
 
-    var isLiq = inv.is_liquidated
+    const isLiq = inv.is_liquidated
       ? '<span style="color:#27ae60;font-weight:600;">\u2705 DA</span>'
       : '<span style="color:var(--gray-400)">NE</span>';
-    var amount = inv.amount_total != null
+    const amount = inv.amount_total != null
       ? Number(inv.amount_total).toFixed(2) + ' \u20AC'
       : '\u2014';
 
-    var tr = document.createElement('tr');
+    const tr = document.createElement('tr');
     tr.dataset.id = inv.id;
     tr.style.cssText = 'border-bottom:1px solid var(--gray-100);cursor:pointer;';
     tr.innerHTML =
@@ -918,7 +913,7 @@ function applyExportFilters() {
   });
 
   if (totalVisible === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--gray-400);">Nema ra\u010duna za odabranu godinu.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--gray-400);">Nema računa za odabranu godinu.</td></tr>';
   }
 
   updateExpCount();
