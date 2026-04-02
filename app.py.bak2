@@ -8096,7 +8096,7 @@ def leave_list():
                     'remaining': max(0, erow['annual_leave_days'] - int(used))
                 }
 
-    all_holidays = getattr(sys.modules[__name__], 'ALL_HOLIDAYS', {})
+    all_holidays = ALL_HOLIDAYS
     conn.close()
     return render_template('leave_list.html',
         active='leave', user=user,

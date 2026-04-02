@@ -8096,7 +8096,7 @@ def leave_list():
                     'remaining': max(0, erow['annual_leave_days'] - int(used))
                 }
 
-    all_holidays = getattr(sys.modules[__name__], 'ALL_HOLIDAYS', {})
+    all_holidays = ALL_HOLIDAYS
     conn.close()
     return render_template('leave_list.html',
         active='leave', user=user,
@@ -8110,6 +8110,27 @@ def leave_list():
         holidays_json=all_holidays,
     )
 
+
+
+def calc_working_days(date_from_str, date_to_str):
+    """Broj radnih dana između dva datuma (uključivo), isključuje vikende i blagdane."""
+    from datetime import date, timedelta
+    try:
+        d1 = date.fromisoformat(date_from_str)
+        d2 = date.fromisoformat(date_to_str)
+    except Exception:
+        return 0
+    if d1 > d2:
+        return 0
+    count = 0
+    cur = d1
+    while cur <= d2:
+        ds = cur.isoformat()
+        wd = cur.weekday()  # 0=Mon, 6=Sun
+        if wd < 5 and ds not in ALL_HOLIDAYS:
+            count += 1
+        cur += timedelta(days=1)
+    return count
 
 @app.route('/api/leave', methods=['POST'])
 @login_required
@@ -8128,7 +8149,7 @@ def leave_save():
         'employee_id': emp_id,
         'date_from': data.get('date_from'),
         'date_to': data.get('date_to'),
-        'days': data.get('days', 0),
+        'days': calc_working_days(data.get('date_from',''), data.get('date_to','')),
         'notes': data.get('notes') or None,
         'status': data.get('status', 'submitted'),
         'updated_at': datetime.now().isoformat(),
