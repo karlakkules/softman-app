@@ -835,9 +835,6 @@ def init_db():
         c.execute("ALTER TABLE vehicles ADD COLUMN home_city TEXT DEFAULT NULL")
     except: pass
     try:
-        c.execute("ALTER TABLE employees ADD COLUMN manager_id INTEGER DEFAULT NULL")
-    except: pass
-    try:
         c.execute("ALTER TABLE profiles ADD COLUMN can_approve_vehicle_log INTEGER DEFAULT 0")
     except: pass
     try:
@@ -5394,12 +5391,7 @@ for t in ['vehicles', 'destinations', 'expense_categories', 'report_templates']:
 @admin_required
 def list_employees():
     conn = get_db()
-    items = conn.execute("""
-        SELECT e.*, m.name as manager_name
-        FROM employees e
-        LEFT JOIN employees m ON m.id = e.manager_id
-        ORDER BY e.name
-    """).fetchall()
+    items = conn.execute("SELECT * FROM employees ORDER BY name").fetchall()
     conn.close()
     return jsonify([dict(i) for i in items])
 
