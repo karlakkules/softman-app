@@ -2,7 +2,7 @@
 {% set active = 'leave' %}
 {% block topbar_title %}🏖️ Godišnji odmori{% endblock %}
 {% block topbar_actions %}
-{% if current_user.get('is_admin') or current_user.get('can_approve_leave') %}
+{% if is_approver %}
 <button class="btn btn-primary" onclick="openNewRequest()" title="Novi zahtjev za godišnji">➕ Novi zahtjev</button>
 {% else %}
 <button class="btn btn-primary" onclick="openNewRequest()" title="Predaj zahtjev za godišnji">📤 Predaj zahtjev</button>
@@ -33,7 +33,7 @@
           {% endfor %}
         </select>
       </div>
-      {% if current_user.get('is_admin') or current_user.get('can_approve_leave') %}
+      {% if is_approver %}
       <div class="form-group" style="margin:0;min-width:200px;">
         <select class="form-control" id="filter-employee" onchange="applyFilters()">
           <option value="">— Svi zaposlenici —</option>
@@ -59,7 +59,7 @@
 </div>
 
 <!-- Pregled kvota po zaposlenicima (admin/voditelj) -->
-{% if current_user.get('is_admin') or current_user.get('can_approve_leave') %}
+{% if is_approver %}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header">
     <span class="card-title">📊 Pregled godišnjeg po zaposlenicima — {{ current_year }}</span>
@@ -131,7 +131,7 @@
     <table id="leave-table">
       <thead>
         <tr>
-          {% if current_user.get('is_admin') or current_user.get('can_approve_leave') %}
+          {% if is_approver %}
           <th>Zaposlenik</th>
           {% endif %}
           <th>Od</th>
@@ -146,7 +146,7 @@
       <tbody id="leave-tbody">
         {% for req in requests %}
         <tr class="leave-row" data-status="{{ req.status }}" data-employee="{{ req.employee_id }}" data-year="{{ req.date_from[:4] }}">
-          {% if current_user.get('is_admin') or current_user.get('can_approve_leave') %}
+          {% if is_approver %}
           <td><strong>{{ req.employee_name }}</strong></td>
           {% endif %}
           <td>{{ req.date_from | fmt_date }}</td>
@@ -167,7 +167,7 @@
           <td>
             <div style="display:flex;gap:4px;">
               <!-- Odobri — samo admin/voditelj, samo za submitted -->
-              {% if (current_user.get('is_admin') or current_user.get('can_approve_leave')) and req.status == 'submitted' %}
+              {% if is_approver and req.status == 'submitted' %}
               <button class="btn btn-sm btn-success" onclick="changeStatus({{ req.id }}, 'approved')" title="Odobri">✅ Odobri</button>
               <button class="btn btn-sm btn-danger" onclick="changeStatus({{ req.id }}, 'rejected')" title="Odbij">❌</button>
               {% endif %}
@@ -205,7 +205,7 @@
     </div>
     <div class="modal-body">
       <input type="hidden" id="lv-id">
-      {% if current_user.get('is_admin') or current_user.get('can_approve_leave') %}
+      {% if is_approver %}
       <div class="form-group">
         <label class="form-label">Zaposlenik *</label>
         <select class="form-control" id="lv-employee">
@@ -241,7 +241,7 @@
         <select class="form-control" id="lv-status">
           <option value="submitted">Predano (čeka odobrenje)</option>
           <option value="draft">Nacrt (spremi, ne šalji)</option>
-          {% if current_user.get('is_admin') or current_user.get('can_approve_leave') %}
+          {% if is_approver %}
           <option value="approved">Odobreno odmah</option>
           {% endif %}
         </select>
@@ -256,7 +256,7 @@
 
 <script>
 const HOLIDAYS_LEAVE = {{ holidays_json | tojson }};
-const IS_ADMIN_OR_APPROVER = {{ 'true' if current_user.get('is_admin') or current_user.get('can_approve_leave') else 'false' }};
+const IS_ADMIN_OR_APPROVER = {{ 'true' if is_approver else 'false' }};
 
 // ── Filtriranje ────────────────────────────────────────────────
 function applyFilters() {
