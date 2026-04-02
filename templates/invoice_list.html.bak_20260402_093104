@@ -822,23 +822,6 @@ function closeExportModal() {
   document.getElementById('export-modal').classList.remove('open');
 }
 
-function fmtExpDate(s) {
-  // Prikazuje datum uvijek kao DD.MM.YYYY bez obzira na format u bazi
-  if (!s) return '\u2014';
-  s = s.trim().replace(/\.+$/, '');
-  // Ako je YYYY-MM-DD → pretvori u DD.MM.YYYY
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-    var p = s.split('-');
-    return p[2] + '.' + p[1] + '.' + p[0] + '.';
-  }
-  // Ako je DD.MM.YYYY (možda bez zadnje točke) — normaliziraj
-  var p2 = s.split('.');
-  if (p2.length >= 3 && p2[2] && p2[2].trim().length === 4) {
-    return p2[0].trim().padStart(2,'0') + '.' + p2[1].trim().padStart(2,'0') + '.' + p2[2].trim() + '.';
-  }
-  return s;
-}
-
 function parseInvDate(s) {
   if (!s) return null;
   s = s.trim().replace(/\.+$/, '');
@@ -876,14 +859,11 @@ function applyExportFilters() {
     let inRange = true;
     if (fromV && invDateS && invDateS < fromV) inRange = false;
     if (toV   && invDateS && invDateS > toV)   inRange = false;
-    // Inkluzivne granice
-    if (fromV && invDateS && invDateS === fromV) inRange = true;
-    if (toV   && invDateS && invDateS === toV)   inRange = true;
 
     totalVisible++;
 
     const isLiq = inv.is_liquidated
-      ? '<span style="color:#27ae60;font-weight:600;">\u2705 DA</span>'
+      ? '<span style="color:#c0392b;font-weight:600;">\uD83D\uDD34 DA</span>'
       : '<span style="color:var(--gray-400)">NE</span>';
     const amount = inv.amount_total != null
       ? Number(inv.amount_total).toFixed(2) + ' \u20AC'
@@ -900,7 +880,7 @@ function applyExportFilters() {
       '<td style="padding:6px 10px;font-size:13px;">' + (inv.partner_name || '\u2014') + '</td>' +
       '<td style="padding:6px 10px;font-size:11px;color:var(--gray-500);">' + (inv.partner_oib || '\u2014') + '</td>' +
       '<td style="padding:6px 10px;text-align:right;font-weight:600;font-size:13px;">' + amount + '</td>' +
-      '<td style="padding:6px 10px;text-align:center;font-size:12px;white-space:nowrap;">' + fmtExpDate(inv.invoice_date) + '</td>' +
+      '<td style="padding:6px 10px;text-align:center;font-size:12px;white-space:nowrap;">' + (inv.invoice_date || '\u2014') + '</td>' +
       '<td style="padding:6px 10px;text-align:center;font-size:12px;">' + isLiq + '</td>';
 
     tr.addEventListener('click', function(e) {
