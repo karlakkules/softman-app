@@ -189,6 +189,7 @@ function deleteLogo() {
           <tr>
             <th data-hr="Ime" data-en="Name">Ime</th>
             <th data-hr="Radno mjesto" data-en="Position">Radno mjesto</th>
+            <th data-hr="Voditelj" data-en="Manager">Voditelj</th>
             <th data-hr="Potpis" data-en="Signature">Potpis</th>
             <th data-hr="Uloge" data-en="Roles">Uloge</th>
             <th data-hr="Zadano" data-en="Default">Zadano</th>
@@ -200,6 +201,10 @@ function deleteLogo() {
           <tr id="emp-row-{{ e.id }}">
             <td><strong>{{ e.name }}</strong></td>
             <td>{{ e.position or '—' }}</td>
+            <td>
+              {% set mgr = employees | selectattr('id', 'equalto', e.manager_id) | list %}
+              {% if mgr %}<span style="font-size:12px;">{{ mgr[0].name }}</span>{% else %}<span style="color:var(--gray-300);">—</span>{% endif %}
+            </td>
             <td>
               {% if e.signature_path %}
                 <span style="color:var(--green);font-size:12px;">✅ <span data-hr="Učitano" data-en="Uploaded">Učitano</span></span>
@@ -624,14 +629,38 @@ function deleteLogo() {
         <label class="form-label" data-hr="Radno mjesto / pozicija" data-en="Position / role">Radno mjesto / pozicija</label>
         <input type="text" class="form-control" id="emp-position">
       </div>
+      <div class="form-group">
+        <label class="form-label" style="font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:0.5px;" data-hr="Voditelj" data-en="Manager">Voditelj</label>
+        <select class="form-control" id="emp-manager">
+          <option value="">— bez voditelja —</option>
+          {% for e in employees %}
+          <option value="{{ e.id }}">{{ e.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
       <div style="background:var(--gray-50);border-radius:8px;padding:14px;margin-bottom:12px;">
         <div style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;margin-bottom:10px;" data-hr="Uloge u sustavu" data-en="System roles">Uloge u sustavu</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          <label class="checkbox-wrap"><input type="checkbox" id="emp-direktor"> <span data-hr="Direktor (odobrava nalog)" data-en="Director (approves)">Direktor</span></label>
-          <label class="checkbox-wrap"><input type="checkbox" id="emp-validator"> <span data-hr="Validator" data-en="Validator">Validator</span></label>
-          <label class="checkbox-wrap"><input type="checkbox" id="emp-blagajnik"> <span data-hr="Blagajnik/likvidator" data-en="Cashier/liquidator">Blagajnik/likvidator</span></label>
-          <label class="checkbox-wrap"><input type="checkbox" id="emp-knjizio"> <span data-hr="Knjižio" data-en="Posted by">Knjižio</span></label>
-          <label class="checkbox-wrap"><input type="checkbox" id="emp-default"> <span data-hr="Zadani zaposlenik" data-en="Default employee">Zadani zaposlenik</span></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:5px 0;min-width:0;">
+            <input type="checkbox" id="emp-direktor" style="width:15px;height:15px;flex-shrink:0;margin:0;">
+            <span style="font-size:13px;line-height:1.3;" data-hr="Direktor (odobrava nalog)" data-en="Director (approves)">Direktor (odobrava nalog)</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:5px 0;min-width:0;">
+            <input type="checkbox" id="emp-validator" style="width:15px;height:15px;flex-shrink:0;margin:0;">
+            <span style="font-size:13px;line-height:1.3;" data-hr="Validator" data-en="Validator">Validator</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:5px 0;min-width:0;">
+            <input type="checkbox" id="emp-blagajnik" style="width:15px;height:15px;flex-shrink:0;margin:0;">
+            <span style="font-size:13px;line-height:1.3;" data-hr="Blagajnik/likvidator" data-en="Cashier/liquidator">Blagajnik/likvidator</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:5px 0;min-width:0;">
+            <input type="checkbox" id="emp-knjizio" style="width:15px;height:15px;flex-shrink:0;margin:0;">
+            <span style="font-size:13px;line-height:1.3;" data-hr="Knjizio" data-en="Posted by">Knjižio</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:5px 0;min-width:0;">
+            <input type="checkbox" id="emp-default" style="width:15px;height:15px;flex-shrink:0;margin:0;">
+            <span style="font-size:13px;line-height:1.3;" data-hr="Zadani zaposlenik" data-en="Default employee">Zadani zaposlenik</span>
+          </label>
         </div>
       </div>
     </div>
@@ -1030,6 +1059,7 @@ function openModal(type) {
     document.getElementById('emp-name').value = '';
     document.getElementById('emp-position').value = '';
     ['direktor','validator','blagajnik','knjizio','default'].forEach(r => document.getElementById(`emp-${r}`).checked = false);
+    const mgrSel = document.getElementById('emp-manager'); if (mgrSel) mgrSel.value = '';
     document.getElementById('emp-modal-title').textContent = t('Novi zaposlenik', 'New Employee');
     document.getElementById('employee-modal').classList.add('open');
   }
@@ -1044,6 +1074,8 @@ function editEmployee(emp) {
   document.getElementById('emp-blagajnik').checked = !!emp.is_blagajnik;
   document.getElementById('emp-knjizio').checked = !!emp.is_knjizio;
   document.getElementById('emp-default').checked = !!emp.is_default;
+  const mgrDropdown = document.getElementById('emp-manager');
+  if (mgrDropdown) mgrDropdown.value = emp.manager_id || '';
   document.getElementById('emp-modal-title').textContent = emp.name;
   document.getElementById('employee-modal').classList.add('open');
 }
@@ -1056,6 +1088,7 @@ async function saveEmployee() {
     is_blagajnik: document.getElementById('emp-blagajnik').checked ? 1 : 0,
     is_knjizio: document.getElementById('emp-knjizio').checked ? 1 : 0,
     is_default: document.getElementById('emp-default').checked ? 1 : 0,
+    manager_id: (() => { const v = document.getElementById('emp-manager')?.value; return v ? parseInt(v) : null; })(),
   };
   const url = id ? `/api/employees/${id}` : '/api/employees';
   const method = id ? 'PUT' : 'POST';
