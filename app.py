@@ -835,9 +835,6 @@ def init_db():
         c.execute("ALTER TABLE vehicles ADD COLUMN home_city TEXT DEFAULT NULL")
     except: pass
     try:
-        c.execute("ALTER TABLE employees ADD COLUMN manager_id INTEGER DEFAULT NULL")
-    except: pass
-    try:
         c.execute("ALTER TABLE profiles ADD COLUMN can_approve_vehicle_log INTEGER DEFAULT 0")
     except: pass
     try:
@@ -1069,6 +1066,33 @@ def init_db():
             c.execute("INSERT INTO settings (key, value) VALUES ('expense_storage_path', ?)", (_def,))
     except: pass
 
+    try:
+        c.execute("ALTER TABLE employees ADD COLUMN manager_id INTEGER DEFAULT NULL")
+    except: pass
+    try:
+        c.execute("ALTER TABLE employees ADD COLUMN phone TEXT DEFAULT NULL")
+    except: pass
+    try:
+        c.execute("ALTER TABLE employees ADD COLUMN email TEXT DEFAULT NULL")
+    except: pass
+    try:
+        c.execute("ALTER TABLE employees ADD COLUMN street TEXT DEFAULT NULL")
+    except: pass
+    try:
+        c.execute("ALTER TABLE employees ADD COLUMN city TEXT DEFAULT NULL")
+    except: pass
+    try:
+        c.execute("ALTER TABLE employees ADD COLUMN country TEXT DEFAULT NULL")
+    except: pass
+    try:
+        c.execute("ALTER TABLE employees ADD COLUMN oib TEXT DEFAULT NULL")
+    except: pass
+    try:
+        c.execute("ALTER TABLE employees ADD COLUMN contract_until TEXT DEFAULT NULL")
+    except: pass
+    try:
+        c.execute("ALTER TABLE employees ADD COLUMN contract_indefinite INTEGER DEFAULT 0")
+    except: pass
     conn.commit()
     conn.close()
 
