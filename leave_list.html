@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+{% set active = 'leave' %}
+{% block topbar_title %}🏖️ Godišnji odmori{% endblock %}
+{% block topbar_actions %}
+{% if current_user.get('is_admin') or current_user.get('can_approve_leave') %}
+<button class="btn btn-primary" onclick="openNewRequest()" title="Novi zahtjev za godišnji">➕ Novi zahtjev</button>
+{% else %}
+<button class="btn btn-primary" onclick="openNewRequest()" title="Predaj zahtjev za godišnji">📤 Predaj zahtjev</button>
+{% endif %}
+{% endblock %}
+{% block content %}
+
+<style>
+.leave-status-submitted  { background:#fef3e2;color:#c47d0e;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700; }
+.leave-status-approved   { background:#e6f5ef;color:#1a8a5a;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700; }
+.leave-status-used       { background:#e8f2fc;color:#1a4b8c;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700; }
+.leave-status-rejected   { background:#fdecea;color:#c0392b;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700; }
+.leave-status-draft      { background:#f0f0f0;color:#666;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700; }
+.quota-bar { height:8px;border-radius:4px;background:var(--gray-100);overflow:hidden; }
+.quota-bar-fill { height:100%;border-radius:4px;background:var(--accent);transition:width 0.4s; }
+.quota-bar-fill.warn { background:#c47d0e; }
+.quota-bar-fill.danger { background:#c0392b; }
+</style>
+
+<!-- Filter traka -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-body" style="padding:14px 20px;">
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+      <div class="form-group" style="margin:0;min-width:160px;">
+        <select class="form-control" id="filter-year" onchange="applyFilters()">
+          {% for y in years %}
+          <option value="{{ y }}" {% if y == current_year %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% if current_user.get('is_admin') or current_user.get('can_approve_leave') %}
+      <div class="form-group" style="margin:0;min-width:200px;">
+        <select class="form-control" id="filter-employee" onchange="applyFilters()">
+          <option value="">— Svi zaposlenici —</option>
+          {% for e in employees %}
+          <option value="{{ e.id }}">{{ e.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="form-group" style="margin:0;min-width:160px;">
+        <select class="form-control" id="filter-status" onchange="applyFilters()">
+          <option value="">— Svi statusi —</option>
+          <option value="draft">Nacrt</option>
+          <option value="submitted">Predano</option>
+          <option value="approved">Odobreno</option>
+          <option value="used">Iskorišteno</option>
+          <option value="rejected">Odbijeno</option>
+        </select>
+      </div>
+      <div style="margin-left:auto;font-size:12px;color:var(--gray-400);" id="filter-count"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Pregled kvota po zaposlenicima (admin/voditelj) -->
+{% if current_user.get('is_admin') or current_user.get('can_approve_leave') %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <span class="card-title">📊 Pregled godišnjeg po zaposlenicima — {{ current_year }}</span>
+  </div>
+  <div style="padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;" id="quota-grid">
+    {% for eq in employee_quotas %}
+    <div style="padding:14px;border:1px solid var(--gray-200);border-radius:8px;background:white;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div>
+          <div style="font-weight:600;font-size:13px;color:var(--navy);">{{ eq.name }}</div>
+          <div style="font-size:11px;color:var(--gray-400);">{{ eq.position or '—' }}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:18px;font-weight:700;color:{% if eq.remaining < 3 %}var(--red){% elif eq.remaining < 7 %}var(--amber){% else %}var(--navy){% endif %};">{{ eq.remaining }}</div>
+          <div style="font-size:10px;color:var(--gray-400);">dana ostalo</div>
+        </div>
+      </div>
+      <div class="quota-bar">
+        {% set pct = ((eq.used / eq.total_days * 100) if eq.total_days else 0) | int %}
+        <div class="quota-bar-fill {% if pct > 90 %}danger{% elif pct > 70 %}warn{% endif %}" style="width:{{ pct }}%;"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--gray-400);margin-top:4px;">
+        <span>Iskorišteno: <strong>{{ eq.used }}</strong> dana</span>
+        <span>Ukupno: <strong>{{ eq.total_days }}</strong> dana</span>
+      </div>
+    </div>
+    {% else %}
+    <div style="color:var(--gray-400);font-size:13px;">Nema zaposlenika s definiranim godišnjim odmorom.</div>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+<!-- Moja kvota (zaposlenik) -->
+{% if my_quota %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-body">
+    <div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:11px;color:var(--gray-400);text-transform:uppercase;font-weight:600;">Ukupno dana</div>
+        <div style="font-size:28px;font-weight:700;color:var(--navy);">{{ my_quota.total_days }}</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--gray-400);text-transform:uppercase;font-weight:600;">Iskorišteno</div>
+        <div style="font-size:28px;font-weight:700;color:var(--amber);">{{ my_quota.used }}</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--gray-400);text-transform:uppercase;font-weight:600;">Ostalo</div>
+        <div style="font-size:28px;font-weight:700;color:{% if my_quota.remaining < 3 %}var(--red){% else %}var(--green){% endif %};">{{ my_quota.remaining }}</div>
+      </div>
+      <div style="flex:1;min-width:200px;">
+        <div class="quota-bar" style="height:12px;">
+          {% set pct = ((my_quota.used / my_quota.total_days * 100) if my_quota.total_days else 0) | int %}
+          <div class="quota-bar-fill {% if pct > 90 %}danger{% elif pct > 70 %}warn{% endif %}" style="width:{{ pct }}%;"></div>
+        </div>
+        <div style="font-size:11px;color:var(--gray-400);margin-top:4px;">{{ pct }}% iskorišteno u {{ current_year }}. godini</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endif %}
+
+<!-- Tablica zahtjeva -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Zahtjevi za godišnji odmor</span>
+  </div>
+  <div class="table-wrap">
+    <table id="leave-table">
+      <thead>
+        <tr>
+          {% if current_user.get('is_admin') or current_user.get('can_approve_leave') %}
+          <th>Zaposlenik</th>
+          {% endif %}
+          <th>Od</th>
+          <th>Do</th>
+          <th style="text-align:center;">Dana</th>
+          <th>Napomena</th>
+          <th>Status</th>
+          <th>Odobrio</th>
+          <th>Akcije</th>
+        </tr>
+      </thead>
+      <tbody id="leave-tbody">
+        {% for req in requests %}
+        <tr class="leave-row" data-status="{{ req.status }}" data-employee="{{ req.employee_id }}" data-year="{{ req.date_from[:4] }}">
+          {% if current_user.get('is_admin') or current_user.get('can_approve_leave') %}
+          <td><strong>{{ req.employee_name }}</strong></td>
+          {% endif %}
+          <td>{{ req.date_from | fmt_date }}</td>
+          <td>{{ req.date_to | fmt_date }}</td>
+          <td style="text-align:center;font-weight:700;color:var(--navy);">{{ req.days }}</td>
+          <td style="font-size:12px;color:var(--gray-500);">{{ req.notes or '—' }}</td>
+          <td>
+            <span class="leave-status-{{ req.status }}">
+              {% if req.status == 'draft' %}Nacrt
+              {% elif req.status == 'submitted' %}Predano
+              {% elif req.status == 'approved' %}Odobreno
+              {% elif req.status == 'used' %}Iskorišteno
+              {% elif req.status == 'rejected' %}Odbijeno
+              {% endif %}
+            </span>
+          </td>
+          <td style="font-size:12px;color:var(--gray-500);">{{ req.approved_by_name or '—' }}</td>
+          <td>
+            <div style="display:flex;gap:4px;">
+              <!-- Odobri — samo admin/voditelj, samo za submitted -->
+              {% if (current_user.get('is_admin') or current_user.get('can_approve_leave')) and req.status == 'submitted' %}
+              <button class="btn btn-sm btn-success" onclick="changeStatus({{ req.id }}, 'approved')" title="Odobri">✅ Odobri</button>
+              <button class="btn btn-sm btn-danger" onclick="changeStatus({{ req.id }}, 'rejected')" title="Odbij">❌</button>
+              {% endif %}
+              <!-- Potvrdi iskorištenje — zaposlenik ili admin, samo za approved -->
+              {% if req.status == 'approved' and (current_user.get('is_admin') or req.employee_id == current_employee_id) %}
+              <button class="btn btn-sm" style="background:#e8f2fc;color:#1a4b8c;border:1px solid #aac4db;" onclick="changeStatus({{ req.id }}, 'used')" title="Potvrdi iskorištenje">☑️ Iskorišteno</button>
+              {% endif %}
+              <!-- Uredi — samo nacrt ili predano, sam zaposlenik ili admin -->
+              {% if req.status in ['draft', 'submitted'] and (current_user.get('is_admin') or req.employee_id == current_employee_id) %}
+              <button class="btn btn-sm btn-secondary" style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;" onclick="editRequest({{ req | tojson | replace("'", '&#39;') }})" title="Uredi">✏️</button>
+              {% endif %}
+              <!-- Obriši — samo nacrt, sam zaposlenik ili admin -->
+              {% if req.status == 'draft' and (current_user.get('is_admin') or req.employee_id == current_employee_id) %}
+              <button style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;border-radius:6px;cursor:pointer;" onclick="deleteRequest({{ req.id }})" title="Obriši">🗑</button>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" style="text-align:center;padding:32px;color:var(--gray-400);">
+          Nema zahtjeva za godišnji odmor. Kliknite "Predaj zahtjev" za novi.
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── MODAL: Novi/uredi zahtjev ── -->
+<div class="modal-overlay" id="leave-modal" style="display:none;">
+  <div class="modal" style="width:500px;">
+    <div class="modal-header">
+      <span class="modal-title" id="leave-modal-title">Novi zahtjev za godišnji odmor</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeLeaveModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="lv-id">
+      {% if current_user.get('is_admin') or current_user.get('can_approve_leave') %}
+      <div class="form-group">
+        <label class="form-label">Zaposlenik *</label>
+        <select class="form-control" id="lv-employee">
+          <option value="">— odaberi zaposlenika —</option>
+          {% for e in employees %}
+          <option value="{{ e.id }}">{{ e.name }}{% if e.annual_leave_days %} ({{ e.annual_leave_days }} dana/god){% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% else %}
+      <input type="hidden" id="lv-employee" value="{{ current_employee_id }}">
+      {% endif %}
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Od datuma *</label>
+          <input type="date" class="form-control" id="lv-date-from" oninput="calcDays()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Do datuma *</label>
+          <input type="date" class="form-control" id="lv-date-to" oninput="calcDays()">
+        </div>
+      </div>
+      <div style="background:var(--accent-light);border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:13px;color:var(--navy);">Broj radnih dana odmora:</span>
+        <strong style="font-size:20px;color:var(--navy);" id="lv-days-calc">—</strong>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Napomena</label>
+        <input type="text" class="form-control" id="lv-notes" placeholder="Opcionalna napomena...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-control" id="lv-status">
+          <option value="submitted">Predano (čeka odobrenje)</option>
+          <option value="draft">Nacrt (spremi, ne šalji)</option>
+          {% if current_user.get('is_admin') or current_user.get('can_approve_leave') %}
+          <option value="approved">Odobreno odmah</option>
+          {% endif %}
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeLeaveModal()">Odustani</button>
+      <button class="btn btn-primary" onclick="saveLeaveRequest()">💾 Spremi zahtjev</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const HOLIDAYS_LEAVE = {{ holidays_json | tojson }};
+const IS_ADMIN_OR_APPROVER = {{ 'true' if current_user.get('is_admin') or current_user.get('can_approve_leave') else 'false' }};
+
+// ── Filtriranje ────────────────────────────────────────────────
+function applyFilters() {
+  const year = document.getElementById('filter-year').value;
+  const emp = document.getElementById('filter-employee')?.value || '';
+  const status = document.getElementById('filter-status').value;
+  let count = 0;
+  document.querySelectorAll('.leave-row').forEach(row => {
+    const matchYear = !year || row.dataset.year === year;
+    const matchEmp = !emp || row.dataset.employee === emp;
+    const matchStatus = !status || row.dataset.status === status;
+    const show = matchYear && matchEmp && matchStatus;
+    row.style.display = show ? '' : 'none';
+    if (show) count++;
+  });
+  const el = document.getElementById('filter-count');
+  if (el) el.textContent = `${count} zahtjev(a)`;
+}
+
+// ── Broj radnih dana ───────────────────────────────────────────
+function isWeekendOrHoliday(dateStr) {
+  const d = new Date(dateStr);
+  const wd = d.getDay(); // 0=Sun,6=Sat
+  if (wd === 0 || wd === 6) return true;
+  return !!HOLIDAYS_LEAVE[dateStr];
+}
+
+function calcDays() {
+  const from = document.getElementById('lv-date-from').value;
+  const to = document.getElementById('lv-date-to').value;
+  const el = document.getElementById('lv-days-calc');
+  if (!from || !to || from > to) { el.textContent = '—'; return; }
+  let count = 0;
+  const cur = new Date(from);
+  const end = new Date(to);
+  while (cur <= end) {
+    const ds = cur.toISOString().slice(0,10);
+    if (!isWeekendOrHoliday(ds)) count++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  el.textContent = count + ' dana';
+  return count;
+}
+
+// ── Modal ──────────────────────────────────────────────────────
+function openNewRequest() {
+  document.getElementById('lv-id').value = '';
+  document.getElementById('lv-date-from').value = '';
+  document.getElementById('lv-date-to').value = '';
+  document.getElementById('lv-notes').value = '';
+  document.getElementById('lv-status').value = 'submitted';
+  document.getElementById('lv-days-calc').textContent = '—';
+  if (IS_ADMIN_OR_APPROVER) document.getElementById('lv-employee').value = '';
+  document.getElementById('leave-modal-title').textContent = 'Novi zahtjev za godišnji odmor';
+  document.getElementById('leave-modal').style.display = 'flex';
+}
+
+function editRequest(req) {
+  document.getElementById('lv-id').value = req.id;
+  if (IS_ADMIN_OR_APPROVER) document.getElementById('lv-employee').value = req.employee_id;
+  document.getElementById('lv-date-from').value = req.date_from;
+  document.getElementById('lv-date-to').value = req.date_to;
+  document.getElementById('lv-notes').value = req.notes || '';
+  document.getElementById('lv-status').value = req.status;
+  document.getElementById('leave-modal-title').textContent = 'Uredi zahtjev';
+  calcDays();
+  document.getElementById('leave-modal').style.display = 'flex';
+}
+
+function closeLeaveModal() {
+  document.getElementById('leave-modal').style.display = 'none';
+}
+
+// ── Spremi ────────────────────────────────────────────────────
+async function saveLeaveRequest() {
+  const id = document.getElementById('lv-id').value;
+  const employee_id = document.getElementById('lv-employee').value;
+  const date_from = document.getElementById('lv-date-from').value;
+  const date_to = document.getElementById('lv-date-to').value;
+  const notes = document.getElementById('lv-notes').value.trim();
+  const status = document.getElementById('lv-status').value;
+
+  if (!employee_id) { toast('Odaberite zaposlenika!', 'error'); return; }
+  if (!date_from || !date_to) { toast('Unesite datume!', 'error'); return; }
+  if (date_from > date_to) { toast('Datum "Od" mora biti prije datuma "Do"!', 'error'); return; }
+
+  const days = calcDays();
+  if (!days || days < 1) { toast('Nema radnih dana u odabranom periodu!', 'error'); return; }
+
+  const payload = { id: id ? parseInt(id) : null, employee_id: parseInt(employee_id), date_from, date_to, days, notes, status };
+  const res = await fetch('/api/leave', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  const d = await res.json();
+  if (d.success) { toast('Zahtjev spremljen!', 'success'); setTimeout(() => location.reload(), 600); }
+  else toast(d.error || 'Greška!', 'error');
+}
+
+// ── Promjena statusa ───────────────────────────────────────────
+async function changeStatus(id, status) {
+  const labels = { approved: 'odobriti', rejected: 'odbiti', used: 'označiti kao iskorišten' };
+  if (!confirm(`Sigurno želite ${labels[status] || status} ovaj zahtjev?`)) return;
+  const res = await fetch(`/api/leave/${id}/status`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ status }) });
+  const d = await res.json();
+  if (d.success) { toast('Status ažuriran!', 'success'); setTimeout(() => location.reload(), 600); }
+  else toast(d.error || 'Greška!', 'error');
+}
+
+// ── Briši ─────────────────────────────────────────────────────
+async function deleteRequest(id) {
+  if (!confirm('Obrisati ovaj zahtjev?')) return;
+  const res = await fetch(`/api/leave/${id}`, { method: 'DELETE' });
+  const d = await res.json();
+  if (d.success) { toast('Zahtjev obrisan!', 'success'); setTimeout(() => location.reload(), 600); }
+  else toast(d.error || 'Greška!', 'error');
+}
+
+// Init filtera
+document.addEventListener('DOMContentLoaded', () => {
+  applyFilters();
+});
+
+// Zatvori modal klik izvan
+document.getElementById('leave-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeLeaveModal();
+});
+</script>
+{% endblock %}

@@ -670,6 +670,11 @@ function deleteLogo() {
           <input type="text" class="form-control" id="emp-oib" placeholder="12345678901" maxlength="11" style="font-family:monospace;">
         </div>
         <div class="form-group">
+          <label class="form-label">Godišnji odmor (dana/god)</label>
+          <input type="number" class="form-control" id="emp-annual-leave" min="0" max="60" placeholder="npr. 22" style="width:130px;">
+          <div style="font-size:11px;color:var(--gray-400);margin-top:3px;">Dogovoreni broj dana godišnjeg odmora u godini</div>
+        </div>
+        <div class="form-group">
           <label class="form-label">Ugovor o radu vrijedi do</label>
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
             <input type="date" class="form-control" id="emp-contract-until" style="flex:1;min-width:140px;" oninput="if(this.value) document.getElementById('emp-contract-indefinite').checked=false;">
@@ -1224,6 +1229,7 @@ async function saveEmployee() {
     oib: document.getElementById('emp-oib')?.value.trim() || null,
     contract_until: document.getElementById('emp-contract-until')?.value || null,
     contract_indefinite: document.getElementById('emp-contract-indefinite')?.checked ? 1 : 0,
+    annual_leave_days: (() => { const v = document.getElementById('emp-annual-leave')?.value; return v ? parseInt(v) : 0; })(),
   };
   const url = id ? `/api/employees/${id}` : '/api/employees';
   const method = id ? 'PUT' : 'POST';
@@ -1373,6 +1379,7 @@ const PERM_LABELS = {
   can_view_invoices: 'Ulazni računi — pregled', can_edit_invoices: 'Ulazni računi — unos/uređivanje',
   can_liquidate_invoices: 'Ulazni računi — likvidacija', can_edit_invoices_liquidated: 'Ulazni računi — uređivanje nakon likvidacije',
   can_view_loans: 'Pozajmice — pregled', can_edit_loans: 'Pozajmice — kreiranje/uređivanje', can_lock_loans: 'Pozajmice — zaključavanje plana otplate',
+  can_approve_leave: 'Godišnji odmori — odobravanje',
 };
 
 async function loadProfiles() {
@@ -1441,6 +1448,7 @@ const PERM_SHORT = {
   can_view_worktime: 'Pregled', can_edit_worktime: 'Izrada/predaja', can_confirm_worktime: 'Potvrđivanje', can_reopen_worktime: 'Vraćanje statusa', can_copy_worktime: 'Kopiranje',
   can_view_invoices: 'Pregled', can_edit_invoices: 'Unos/uređivanje', can_liquidate_invoices: 'Likvidacija', can_edit_invoices_liquidated: 'Uredi likvidirano',
   can_view_loans: 'Pregled', can_edit_loans: 'Kreiranje/uređivanje', can_lock_loans: 'Zaključavanje',
+  can_approve_leave: 'Odobravanje godišnjih',
 };
 function renderPermsGrid(p) {
   const grid = document.getElementById('perms-grid');
