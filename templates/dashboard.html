@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% set active = 'dashboard' %}
-{% block topbar_title %}Pregled{% endblock %}
+{% block topbar_title %}Dashboard{% endblock %}
 
 {% block content %}
 <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:20px;">
@@ -18,38 +18,55 @@
 
 <!-- Metrike -->
 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
+
+  <!-- Ulazni računi -->
   <div style="background:#e8f0f7;border-radius:8px;padding:14px 16px;border-left:4px solid #2d5986;">
-    <div style="font-size:12px;color:#2d5986;font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;">🧾 Ulazni računi</div>
-    <div style="display:flex;align-items:baseline;gap:8px;">
-      <div style="font-size:32px;font-weight:700;color:{% if inv_pending > 0 %}#c0392b{% else %}#0f3460{% endif %};">{{ inv_pending }}</div>
-      <div style="font-size:12px;color:{% if inv_pending > 0 %}#c0392b;font-weight:600{% else %}#2d5986{% endif %};">na odobrenju</div>
+    <div style="font-size:12px;color:#2d5986;font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em;">🧾 Ulazni računi</div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div style="font-size:44px;font-weight:700;line-height:1;color:{% if inv_pending > 0 %}#c0392b{% else %}#0f3460{% endif %};">{{ inv_pending }}</div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:{% if inv_pending > 0 %}#c0392b{% else %}#2d5986{% endif %};">na odobrenju</div>
+        <div style="font-size:12px;color:#2d5986;margin-top:3px;">{{ inv_total_year | default(inv_total) }} ukupno</div>
+      </div>
     </div>
-    <div style="font-size:12px;color:#2d5986;margin-top:2px;">{{ inv_total_year | default(inv_total) }} ukupno</div>
   </div>
+
+  <!-- Ponude -->
   <div style="background:#eafaf1;border-radius:8px;padding:14px 16px;border-left:4px solid #27ae60;">
-    <div style="font-size:12px;color:#1e8449;font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;">📄 Ponude</div>
-    <div style="display:flex;align-items:baseline;gap:8px;">
-      <div style="font-size:32px;font-weight:700;color:#1a5c33;">{{ quotes_open }}</div>
-      <div style="font-size:12px;color:#1e8449;">čeka prihvaćanje</div>
+    <div style="font-size:12px;color:#1e8449;font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em;">📄 Ponude</div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div style="font-size:44px;font-weight:700;line-height:1;color:#1a5c33;">{{ quotes_open }}</div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:#1e8449;">čeka prihvaćanje</div>
+        <div style="font-size:12px;color:#27ae60;margin-top:3px;">{{ quotes_accepted }} prihvaćeno</div>
+      </div>
     </div>
-    <div style="font-size:12px;color:#27ae60;font-weight:600;margin-top:2px;">{{ quotes_accepted }} prihvaćeno</div>
   </div>
+
+  <!-- Putni nalozi -->
   <div style="background:#fef9e7;border-radius:8px;padding:14px 16px;border-left:4px solid #f39c12;">
-    <div style="font-size:12px;color:#9a6e0a;font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;">📋 Putni nalozi</div>
-    <div style="display:flex;align-items:baseline;gap:8px;">
-      <div style="font-size:32px;font-weight:700;color:{% if orders_pending > 0 %}#c0392b{% else %}#6d4d08{% endif %};">{{ orders_pending }}</div>
-      <div style="font-size:12px;color:{% if orders_pending > 0 %}#c0392b;font-weight:600{% else %}#9a6e0a{% endif %};">na odobrenju</div>
+    <div style="font-size:12px;color:#9a6e0a;font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em;">📋 Putni nalozi</div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div style="font-size:44px;font-weight:700;line-height:1;color:{% if orders_pending > 0 %}#c0392b{% else %}#6d4d08{% endif %};">{{ orders_pending }}</div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:{% if orders_pending > 0 %}#c0392b{% else %}#9a6e0a{% endif %};">na odobrenju</div>
+        <div style="font-size:12px;color:#9a6e0a;margin-top:3px;">{{ orders_year | default(orders_total) }} ukupno</div>
+      </div>
     </div>
-    <div style="font-size:12px;color:#9a6e0a;margin-top:2px;">{{ orders_year | default(orders_total) }} ukupno</div>
   </div>
-  <div style="background:#e6f5ef;border-radius:8px;padding:14px 16px;border-left:4px solid #27ae60;">
-    <div style="font-size:12px;color:#1a8a5a;font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;">🏖️ Godišnji odmori</div>
-    <div style="display:flex;align-items:baseline;gap:8px;">
-      <div style="font-size:32px;font-weight:700;color:{% if leave_pending | default(0) > 0 %}#c0392b{% else %}#1a5c33{% endif %};">{{ leave_pending | default(0) }}</div>
-      <div style="font-size:12px;color:{% if leave_pending | default(0) > 0 %}#c0392b;font-weight:600{% else %}#1a8a5a{% endif %};">na odobrenju</div>
+
+  <!-- Godišnji odmori -->
+  <div style="background:#e6f5ef;border-radius:8px;padding:14px 16px;border-left:4px solid #1a8a5a;">
+    <div style="font-size:12px;color:#1a8a5a;font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em;">🏖️ Godišnji odmori</div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div style="font-size:44px;font-weight:700;line-height:1;color:{% if leave_pending | default(0) > 0 %}#c0392b{% else %}#1a5c33{% endif %};">{{ leave_pending | default(0) }}</div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:{% if leave_pending | default(0) > 0 %}#c0392b{% else %}#1a8a5a{% endif %};">na odobrenju</div>
+        <div style="font-size:12px;color:#1a8a5a;margin-top:3px;">{{ leave_total_year | default(0) }} ukupno</div>
+      </div>
     </div>
-    <div style="font-size:12px;color:#1a8a5a;margin-top:2px;">{{ leave_total_year | default(0) }} ukupno</div>
   </div>
+
 </div>
 
 <!-- Srednji red -->
