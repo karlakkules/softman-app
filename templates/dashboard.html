@@ -6,9 +6,8 @@
 <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:20px;">
   <div>
     <div style="font-size:20px;font-weight:700;color:var(--navy);">
-      Dobro
-      {% set h = now().hour if now is defined else 10 %}
-      jutro, {{ user.display_name or user.username }}
+      {% if now_hour is defined %}{% if now_hour < 12 %}Dobro jutro{% elif now_hour < 18 %}Dobar dan{% else %}Dobra večer{% endif %}{% else %}Dobro jutro{% endif %},
+      {{ user.employee_first_name or (user.display_name or user.username).split()[0] }}!
     </div>
     <div style="font-size:13px;color:var(--gray-500);margin-top:2px;">
       {{ now_year }}. · {{ months[now_month] }}
@@ -21,29 +20,35 @@
 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
   <div style="background:#e8f0f7;border-radius:8px;padding:14px 16px;border-left:4px solid #2d5986;">
     <div style="font-size:12px;color:#2d5986;font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;">🧾 Ulazni računi</div>
-    <div style="font-size:32px;font-weight:700;color:{% if inv_pending > 0 %}#c0392b{% else %}#0f3460{% endif %};">{{ inv_pending }}</div>
-    <div style="font-size:12px;margin-top:4px;color:#2d5986;">
-      na čekanju &nbsp;·&nbsp; <span style="font-weight:600;">{{ inv_total_year }}</span> ukupno {{ now_year }}
+    <div style="display:flex;align-items:baseline;gap:8px;">
+      <div style="font-size:32px;font-weight:700;color:{% if inv_pending > 0 %}#c0392b{% else %}#0f3460{% endif %};">{{ inv_pending }}</div>
+      <div style="font-size:12px;color:{% if inv_pending > 0 %}#c0392b;font-weight:600{% else %}#2d5986{% endif %};">na odobrenju</div>
     </div>
+    <div style="font-size:12px;color:#2d5986;margin-top:2px;">{{ inv_total_year | default(inv_total) }} ukupno</div>
   </div>
   <div style="background:#eafaf1;border-radius:8px;padding:14px 16px;border-left:4px solid #27ae60;">
     <div style="font-size:12px;color:#1e8449;font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;">📄 Ponude</div>
-    <div style="font-size:32px;font-weight:700;color:#1a5c33;">{{ quotes_open }}</div>
-    <div style="font-size:12px;margin-top:4px;color:#27ae60;font-weight:600;">{{ quotes_accepted }} prihvaćeno</div>
+    <div style="display:flex;align-items:baseline;gap:8px;">
+      <div style="font-size:32px;font-weight:700;color:#1a5c33;">{{ quotes_open }}</div>
+      <div style="font-size:12px;color:#1e8449;">čeka prihvaćanje</div>
+    </div>
+    <div style="font-size:12px;color:#27ae60;font-weight:600;margin-top:2px;">{{ quotes_accepted }} prihvaćeno</div>
   </div>
   <div style="background:#fef9e7;border-radius:8px;padding:14px 16px;border-left:4px solid #f39c12;">
     <div style="font-size:12px;color:#9a6e0a;font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;">📋 Putni nalozi</div>
-    <div style="font-size:32px;font-weight:700;color:{% if orders_pending > 0 %}#c0392b{% else %}#6d4d08{% endif %};">{{ orders_pending }}</div>
-    <div style="font-size:12px;margin-top:4px;color:#9a6e0a;">
-      na odobrenju &nbsp;·&nbsp; <span style="font-weight:600;">{{ orders_year }}</span> ukupno {{ now_year }}
+    <div style="display:flex;align-items:baseline;gap:8px;">
+      <div style="font-size:32px;font-weight:700;color:{% if orders_pending > 0 %}#c0392b{% else %}#6d4d08{% endif %};">{{ orders_pending }}</div>
+      <div style="font-size:12px;color:{% if orders_pending > 0 %}#c0392b;font-weight:600{% else %}#9a6e0a{% endif %};">na odobrenju</div>
     </div>
+    <div style="font-size:12px;color:#9a6e0a;margin-top:2px;">{{ orders_year | default(orders_total) }} ukupno</div>
   </div>
   <div style="background:#e6f5ef;border-radius:8px;padding:14px 16px;border-left:4px solid #27ae60;">
     <div style="font-size:12px;color:#1a8a5a;font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;">🏖️ Godišnji odmori</div>
-    <div style="font-size:32px;font-weight:700;color:{% if leave_pending > 0 %}#c0392b{% else %}#1a5c33{% endif %};">{{ leave_pending }}</div>
-    <div style="font-size:12px;margin-top:4px;color:#1a8a5a;">
-      čekaju odobrenje &nbsp;·&nbsp; <span style="font-weight:600;">{{ leave_total_year }}</span> ukupno {{ now_year }}
+    <div style="display:flex;align-items:baseline;gap:8px;">
+      <div style="font-size:32px;font-weight:700;color:{% if leave_pending | default(0) > 0 %}#c0392b{% else %}#1a5c33{% endif %};">{{ leave_pending | default(0) }}</div>
+      <div style="font-size:12px;color:{% if leave_pending | default(0) > 0 %}#c0392b;font-weight:600{% else %}#1a8a5a{% endif %};">na odobrenju</div>
     </div>
+    <div style="font-size:12px;color:#1a8a5a;margin-top:2px;">{{ leave_total_year | default(0) }} ukupno</div>
   </div>
 </div>
 

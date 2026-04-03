@@ -199,7 +199,7 @@ function deleteLogo() {
         <tbody>
           {% for e in employees %}
           <tr id="emp-row-{{ e.id }}">
-            <td><strong>{{ ((e.first_name or "") + " " + (e.last_name or "")).strip() or e.name }}</strong></td>
+            <td><strong>{{ e.name }}</strong></td>
             <td>{{ e.position or '—' }}</td>
             <td>
               {% set mgr = employees | selectattr('id', 'equalto', e.manager_id) | list %}
@@ -265,7 +265,7 @@ function deleteLogo() {
             </td>
             <td>
               {% if v.vehicle_type == 'assigned' and v.assigned_employee_id %}
-                {% for e in employees %}{% if e.id == v.assigned_employee_id %}{{ ((e.first_name or "") + " " + (e.last_name or "")).strip() or e.name }}{% endif %}{% endfor %}
+                {% for e in employees %}{% if e.id == v.assigned_employee_id %}{{ e.name }}{% endif %}{% endfor %}
               {% else %}—{% endif %}
             </td>
             <td>
@@ -316,7 +316,7 @@ function deleteLogo() {
         <label class="form-label">Dodijeljeni zaposlenik</label>
         <select class="form-control" id="vm-employee">
           <option value="">— odaberi zaposlenika —</option>
-          {% for e in employees %}<option value="{{ e.id }}">{{ ((e.first_name or "") + " " + (e.last_name or "")).strip() or e.name }}</option>{% endfor %}
+          {% for e in employees %}<option value="{{ e.id }}">{{ e.name }}</option>{% endfor %}
         </select>
       </div>
       <div style="border-top:1px solid var(--gray-100);padding-top:14px;">
@@ -588,7 +588,7 @@ function deleteLogo() {
         <label class="form-label">Zaposlenik (veza)</label>
         <select class="form-control" id="user-employee">
           <option value="">— bez veze —</option>
-          {% for e in employees %}<option value="{{ e.id }}">{{ ((e.first_name or "") + " " + (e.last_name or "")).strip() or e.name }}</option>{% endfor %}
+          {% for e in employees %}<option value="{{ e.id }}">{{ e.name }}</option>{% endfor %}
         </select>
       </div>
       <div class="form-group" style="margin-top:12px;">
@@ -622,15 +622,9 @@ function deleteLogo() {
     </div>
     <div class="modal-body">
       <input type="hidden" id="emp-id">
-      <div class="form-row form-row-2">
-        <div class="form-group">
-          <label class="form-label">Ime</label>
-          <input type="text" class="form-control" id="emp-first-name" placeholder="npr. Karla">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Prezime</label>
-          <input type="text" class="form-control" id="emp-last-name" placeholder="npr. Korlaet Kuleš">
-        </div>
+      <div class="form-group">
+        <label class="form-label" data-hr="Ime i prezime" data-en="Full name">Ime i prezime</label>
+        <input type="text" class="form-control" id="emp-name">
       </div>
       <div class="form-group">
         <label class="form-label" data-hr="Radno mjesto / pozicija" data-en="Position / role">Radno mjesto / pozicija</label>
@@ -1182,12 +1176,11 @@ async function saveGeneralSettings() {
 function openModal(type) {
   if (type === 'employee') {
     document.getElementById('emp-id').value = '';
-    document.getElementById('emp-first-name').value = '';
-    document.getElementById('emp-last-name').value = '';
+    document.getElementById('emp-name').value = '';
     document.getElementById('emp-position').value = '';
     ['direktor','validator','blagajnik','knjizio','default'].forEach(r => document.getElementById(`emp-${r}`).checked = false);
     const mgrSel = document.getElementById('emp-manager'); if (mgrSel) mgrSel.value = '';
-    ['emp-phone','emp-email','emp-street','emp-city','emp-country','emp-oib','emp-contract-until'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+    ['emp-phone','emp-email','emp-street','emp-city','emp-country','emp-oib','emp-contract-until','emp-annual-leave'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
     const ci = document.getElementById('emp-contract-indefinite'); if(ci) ci.checked = false;
     document.getElementById('emp-modal-title').textContent = t('Novi zaposlenik', 'New Employee');
     document.getElementById('employee-modal').classList.add('open');
@@ -1196,8 +1189,7 @@ function openModal(type) {
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 function editEmployee(emp) {
   document.getElementById('emp-id').value = emp.id;
-  document.getElementById('emp-first-name').value = emp.first_name || '';
-  document.getElementById('emp-last-name').value = emp.last_name || '';
+  document.getElementById('emp-name').value = emp.name;
   document.getElementById('emp-position').value = emp.position || '';
   document.getElementById('emp-direktor').checked = !!emp.is_direktor;
   document.getElementById('emp-validator').checked = !!emp.is_validator;
@@ -1214,18 +1206,16 @@ function editEmployee(emp) {
   setVal('emp-country', emp.country);
   setVal('emp-oib', emp.oib);
   setVal('emp-contract-until', emp.contract_until);
+  setVal('emp-annual-leave', emp.annual_leave_days);
   const ci = document.getElementById('emp-contract-indefinite');
   if (ci) ci.checked = !!emp.contract_indefinite;
-  const _fn = (emp.first_name||'').trim(); const _ln = (emp.last_name||'').trim();
-  document.getElementById('emp-modal-title').textContent = (_fn+' '+_ln).trim() || emp.name;
+  document.getElementById('emp-modal-title').textContent = emp.name;
   document.getElementById('employee-modal').classList.add('open');
 }
 async function saveEmployee() {
   const id = document.getElementById('emp-id').value;
   const data = {
-    first_name: document.getElementById('emp-first-name').value.trim(),
-    last_name: document.getElementById('emp-last-name').value.trim(),
-    position: document.getElementById('emp-position').value,
+    name: document.getElementById('emp-name').value, position: document.getElementById('emp-position').value,
     is_direktor: document.getElementById('emp-direktor').checked ? 1 : 0,
     is_validator: document.getElementById('emp-validator').checked ? 1 : 0,
     is_blagajnik: document.getElementById('emp-blagajnik').checked ? 1 : 0,
@@ -1255,8 +1245,7 @@ function showEmpInfo(id) {
   if (!emp) return;
   currentInfoEmpId = id;
 
-  const _efn = (emp.first_name||'').trim(); const _eln = (emp.last_name||'').trim();
-  document.getElementById('emp-info-name').textContent = (_efn+' '+_eln).trim() || emp.name;
+  document.getElementById('emp-info-name').textContent = emp.name;
   document.getElementById('emp-info-position').textContent = emp.position || '';
 
   // Kontakt

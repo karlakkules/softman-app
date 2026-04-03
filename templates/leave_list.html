@@ -38,7 +38,7 @@
         <select class="form-control" id="filter-employee" onchange="applyFilters()">
           <option value="">— Svi zaposlenici —</option>
           {% for e in employees %}
-          <option value="{{ e.id }}">{{ e.name }}</option>
+          <option value="{{ e.id }}">{{ ((e.first_name or "") + " " + (e.last_name or "")).strip() or e.name }}</option>
           {% endfor %}
         </select>
       </div>
@@ -73,10 +73,15 @@
           <div style="font-size:11px;color:var(--gray-400);">{{ eq.position or '—' }}</div>
         </div>
         <div style="text-align:right;">
+          {% if eq.total_days %}
           <div style="font-size:18px;font-weight:700;color:{% if eq.remaining < 3 %}var(--red){% elif eq.remaining < 7 %}var(--amber){% else %}var(--navy){% endif %};">{{ eq.remaining }}</div>
           <div style="font-size:10px;color:var(--gray-400);">dana ostalo</div>
+          {% else %}
+          <div style="font-size:11px;color:var(--gray-400);font-style:italic;padding-top:4px;">nije<br>definirano</div>
+          {% endif %}
         </div>
       </div>
+      {% if eq.total_days %}
       <div class="quota-bar">
         {% set pct = ((eq.used / eq.total_days * 100) if eq.total_days else 0) | int %}
         <div class="quota-bar-fill {% if pct > 90 %}danger{% elif pct > 70 %}warn{% endif %}" style="width:{{ pct }}%;"></div>
@@ -85,6 +90,9 @@
         <span>Iskorišteno: <strong>{{ eq.used }}</strong> dana</span>
         <span>Ukupno: <strong>{{ eq.total_days }}</strong> dana</span>
       </div>
+      {% else %}
+      <div style="font-size:11px;color:var(--amber);margin-top:6px;">⚠️ Definiraj u Postavkama → Zaposlenici</div>
+      {% endif %}
     </div>
     {% else %}
     <div style="color:var(--gray-400);font-size:13px;">Nema zaposlenika s definiranim godišnjim odmorom.</div>
@@ -211,7 +219,7 @@
         <select class="form-control" id="lv-employee">
           <option value="">— odaberi zaposlenika —</option>
           {% for e in employees %}
-          <option value="{{ e.id }}">{{ e.name }}{% if e.annual_leave_days %} ({{ e.annual_leave_days }} dana/god){% endif %}</option>
+          <option value="{{ e.id }}">{{ ((e.first_name or "") + " " + (e.last_name or "")).strip() or e.name }}{% if e.annual_leave_days %} ({{ e.annual_leave_days }} dana/god){% endif %}</option>
           {% endfor %}
         </select>
       </div>
