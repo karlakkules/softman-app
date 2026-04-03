@@ -11,7 +11,7 @@
   <div class="card-header">
     <span class="card-title">Evidencija radnog vremena</span>
     <div style="display:flex;gap:8px;align-items:center;">
-      <input type="text" id="wt-search" class="form-control" placeholder="Pretraži..." style="width:140px;" oninput="filterWT()">
+      <input type="text" id="wt-search" class="form-control" placeholder="Pretraži..." style="width:200px;" oninput="filterWT()">
       <select id="wt-year" class="form-control" style="width:100px;" onchange="filterWT()">
         <option value="">Sve godine</option>
         {% for y in available_years %}
