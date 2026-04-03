@@ -5645,56 +5645,18 @@ def get_holidays_by_year():
         by_year[year] = [row[:3] for row in by_year[year]]
     return by_year
 
-
-def get_worktime_allowed_employees(conn, user):
-    """Vraća (employee_ids_list, is_manager) za worktime modul."""
-    urow = conn.execute("SELECT employee_id FROM users WHERE id=?", (user['user_id'],)).fetchone()
-    my_emp_id = urow['employee_id'] if urow and urow['employee_id'] else None
-
-    if user.get('is_admin'):
-        all_emps = [r['id'] for r in conn.execute("SELECT id FROM employees").fetchall()]
-        return all_emps, True, my_emp_id
-
-    # Provjeri je li voditelj
-    managed = []
-    if my_emp_id:
-        managed = [r['id'] for r in conn.execute(
-            "SELECT id FROM employees WHERE manager_id=?", (my_emp_id,)
-        ).fetchall()]
-
-    is_manager = len(managed) > 0
-    # Uvijek uključi sebe
-    allowed = list(set(([my_emp_id] if my_emp_id else []) + managed))
-    return allowed, is_manager, my_emp_id
-
 @app.route('/worktime')
 @require_perm('can_view_worktime')
 def worktime_list():
     audit('view', module='radno_vrijeme', entity='list')
     current_user = get_current_user() or {}
     conn = get_db()
-
-    allowed_ids, is_manager, my_emp_id = get_worktime_allowed_employees(conn, current_user)
-
-    if current_user.get('is_admin'):
-        reports = conn.execute('''
-            SELECT wr.*, e.name as employee_name
-            FROM worktime_reports wr
-            LEFT JOIN employees e ON wr.employee_id = e.id
-            ORDER BY wr.year DESC, wr.month DESC, e.name
-        ''').fetchall()
-    elif allowed_ids:
-        placeholders = ','.join('?' for _ in allowed_ids)
-        reports = conn.execute(f'''
-            SELECT wr.*, e.name as employee_name
-            FROM worktime_reports wr
-            LEFT JOIN employees e ON wr.employee_id = e.id
-            WHERE wr.employee_id IN ({placeholders})
-            ORDER BY wr.year DESC, wr.month DESC, e.name
-        ''', allowed_ids).fetchall()
-    else:
-        reports = []
-
+    reports = conn.execute('''
+        SELECT wr.*, e.name as employee_name
+        FROM worktime_reports wr
+        LEFT JOIN employees e ON wr.employee_id = e.id
+        ORDER BY wr.year DESC, wr.month DESC, e.name
+    ''').fetchall()
     employees = conn.execute("SELECT * FROM employees ORDER BY name").fetchall()
     settings = {r['key']: r['value'] for r in conn.execute("SELECT * FROM settings").fetchall()}
     conn.close()
@@ -5713,33 +5675,14 @@ def worktime_list():
                            settings=settings,
                            holidays_json=_json.dumps(holidays_by_year),
                            available_years=all_years,
-                           is_admin=current_user.get('is_admin', False),
-                           is_manager=is_manager)
+                           is_admin=current_user.get('is_admin', False))
 
 
 @app.route('/worktime/new')
 @require_perm('can_edit_worktime')
 def worktime_new():
-    user = get_current_user() or {}
     conn = get_db()
-    allowed_ids, is_manager, my_emp_id = get_worktime_allowed_employees(conn, user)
-
-    if user.get('is_admin'):
-        employees = conn.execute("SELECT * FROM employees ORDER BY name").fetchall()
-    elif allowed_ids:
-        placeholders = ','.join('?' for _ in allowed_ids)
-        employees = conn.execute(
-            f"SELECT * FROM employees WHERE id IN ({placeholders}) ORDER BY name",
-            allowed_ids
-        ).fetchall()
-    else:
-        employees = []
-
-    # Dohvati postojeće kombinacije (employee_id, year, month) za JS
-    existing_months = rows_to_dicts(conn.execute(
-        "SELECT employee_id, year, month FROM worktime_reports"
-    ).fetchall())
-
+    employees = conn.execute("SELECT * FROM employees ORDER BY name").fetchall()
     settings = {r['key']: r['value'] for r in conn.execute("SELECT * FROM settings").fetchall()}
     conn.close()
     return render_template('worktime_form.html',
@@ -5748,9 +5691,7 @@ def worktime_new():
                            holidays=ALL_HOLIDAYS,
                            holidays_by_year={2026: HOLIDAYS_2026, 2027: HOLIDAYS_2027, 2028: HOLIDAYS_2028},
                            work_fund=WORK_FUND_2026,
-                           active='worktime', settings=settings,
-                           existing_months=existing_months,
-                           my_emp_id=my_emp_id)
+                           active='worktime', settings=settings)
 
 
 @app.route('/worktime/<int:report_id>/edit')
@@ -5764,7 +5705,7 @@ def worktime_edit(report_id):
     raw_entries = conn.execute("SELECT * FROM worktime_entries WHERE report_id=?", (report_id,)).fetchall()
     employees = conn.execute("SELECT * FROM employees ORDER BY name").fetchall()
     settings = {r['key']: r['value'] for r in conn.execute("SELECT * FROM settings").fetchall()}
-    conn2 = conn
+    conn.close()
     # Build entries dict: {row_num: {day: hours}}
     entries = {}
     for e in raw_entries:
@@ -5798,16 +5739,9 @@ def save_worktime():
     notes = data.get('notes', '')
     entries = data.get('entries', {})  # {row_num: {day: hours}}
 
-    user = get_current_user()
-    # Provjeri smije li user uopće snimati za tog zaposlenika
-    if not user.get('is_admin'):
-        _conn_chk = get_db()
-        _allowed, _, _my_id = get_worktime_allowed_employees(_conn_chk, user)
-        _conn_chk.close()
-        if employee_id and int(employee_id) not in _allowed:
-            return jsonify({'error': 'Nemate pravo kreirati evidenciju za ovog zaposlenika'}), 403
     # Check confirm permission
     if status == 'confirmed':
+        user = get_current_user()
         if not user.get('is_admin') and not user.get('can_confirm_worktime'):
             return jsonify({'error': 'Nemate pravo potvrđivanja izvješća o radnom vremenu'}), 403
 

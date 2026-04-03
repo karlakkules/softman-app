@@ -76,7 +76,7 @@
                   <text x="3.5" y="11.5" font-family="Arial" font-size="4.5" font-weight="bold" fill="white">PDF</text>
                 </svg>
               </a>
-              {% if current_user.get('is_admin') or current_user.get('can_copy_worktime') or is_manager %}
+              {% if current_user.get('is_admin') or current_user.get('can_copy_worktime') %}
               <a href="/worktime/{{ r.id }}/copy" class="btn btn-sm btn-secondary"
                  style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;"
                  title="Kopiraj izvješće">
@@ -211,7 +211,6 @@ function renderHolidays() {
 }
 
 const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
-const IS_MANAGER = {{ 'true' if is_manager is defined and is_manager else 'false' }};
 const MONTHS_HR_FUND = ['Siječanj','Veljača','Ožujak','Travanj','Svibanj','Lipanj',
                         'Srpanj','Kolovoz','Rujan','Listopad','Studeni','Prosinac'];
 let _fundCache = {};
