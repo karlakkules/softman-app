@@ -1346,6 +1346,10 @@ def index():
     # Ulazni računi
     inv_total = conn.execute("SELECT COUNT(*) FROM invoices WHERE is_deleted=0 OR is_deleted IS NULL").fetchone()[0]
     inv_pending = conn.execute("SELECT COUNT(*) FROM invoices WHERE is_liquidated=0 AND (is_deleted=0 OR is_deleted IS NULL)").fetchone()[0]
+    inv_total_year = conn.execute(
+        "SELECT COUNT(*) FROM invoices WHERE (is_deleted=0 OR is_deleted IS NULL) AND substr(created_at,1,4)=?",
+        (str(now_year),)
+    ).fetchone()[0]
     inv_overdue = conn.execute("""SELECT partner_name, due_date, amount_total FROM invoices
         WHERE is_liquidated=0 AND due_date!='' AND due_date<=? AND (is_deleted=0 OR is_deleted IS NULL)
         ORDER BY due_date LIMIT 3""", (today,)).fetchall()
@@ -1363,12 +1367,25 @@ def index():
     # Putni nalozi
     orders_total = conn.execute("SELECT COUNT(*) FROM travel_orders").fetchone()[0]
     orders_pending = conn.execute("SELECT COUNT(*) FROM travel_orders WHERE status='submitted'").fetchone()[0]
+    orders_year = conn.execute(
+        "SELECT COUNT(*) FROM travel_orders WHERE auto_id LIKE ? AND (is_deleted=0 OR is_deleted IS NULL)",
+        (f"{now_year}-%",)
+    ).fetchone()[0]
 
     # Radno vrijeme
     wt_reports = conn.execute("""SELECT wr.status, e.name as employee_name
         FROM worktime_reports wr LEFT JOIN employees e ON e.id=wr.employee_id
         WHERE wr.month=? AND wr.year=?
         ORDER BY e.name""", (now_month, now_year)).fetchall()
+
+    # Godišnji odmori — dashboard metrika
+    leave_pending = conn.execute(
+        "SELECT COUNT(*) FROM leave_requests WHERE status='submitted'"
+    ).fetchone()[0]
+    leave_total_year = conn.execute(
+        "SELECT COUNT(*) FROM leave_requests WHERE substr(date_from,1,4)=?",
+        (str(now_year),)
+    ).fetchone()[0]
 
     # Pozajmice
     import json as _json
@@ -1413,15 +1430,20 @@ def index():
 
     conn.close()
 
+    now_hour = datetime.now().hour
     return render_template('dashboard.html',
         user=user, active='dashboard',
+        now_hour=now_hour,
         inv_total=inv_total, inv_pending=inv_pending,
+        inv_total_year=inv_total_year,
         inv_overdue=rows_to_dicts(inv_overdue), inv_upcoming=rows_to_dicts(inv_upcoming),
         quotes_open=quotes_open, quotes_accepted=quotes_accepted,
         quotes_recent=rows_to_dicts(quotes_recent),
         orders_total=orders_total, orders_pending=orders_pending,
+        orders_year=orders_year,
         wt_reports=rows_to_dicts(wt_reports),
         loans=loans_data, total_loans_remaining=total_loans_remaining,
+        leave_pending=leave_pending, leave_total_year=leave_total_year,
         activity=rows_to_dicts(activity),
         next_holiday=next_holiday,
         now_month=now_month, now_year=now_year,

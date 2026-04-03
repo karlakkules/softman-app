@@ -21,9 +21,9 @@
 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
   <div style="background:#e8f0f7;border-radius:8px;padding:14px 16px;border-left:4px solid #2d5986;">
     <div style="font-size:12px;color:#2d5986;font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;">🧾 Ulazni računi</div>
-    <div style="font-size:32px;font-weight:700;color:#0f3460;">{{ inv_total }}</div>
-    <div style="font-size:12px;margin-top:4px;color:{% if inv_pending > 0 %}#c0392b;font-weight:600{% else %}#2d5986{% endif %};">
-      {{ inv_pending }} na čekanju
+    <div style="font-size:32px;font-weight:700;color:{% if inv_pending > 0 %}#c0392b{% else %}#0f3460{% endif %};">{{ inv_pending }}</div>
+    <div style="font-size:12px;margin-top:4px;color:#2d5986;">
+      na čekanju &nbsp;·&nbsp; <span style="font-weight:600;">{{ inv_total_year }}</span> ukupno {{ now_year }}
     </div>
   </div>
   <div style="background:#eafaf1;border-radius:8px;padding:14px 16px;border-left:4px solid #27ae60;">
@@ -33,15 +33,17 @@
   </div>
   <div style="background:#fef9e7;border-radius:8px;padding:14px 16px;border-left:4px solid #f39c12;">
     <div style="font-size:12px;color:#9a6e0a;font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;">📋 Putni nalozi</div>
-    <div style="font-size:32px;font-weight:700;color:#6d4d08;">{{ orders_total }}</div>
-    <div style="font-size:12px;margin-top:4px;color:#e67e22;font-weight:600;">{{ orders_pending }} na odobrenju</div>
-  </div>
-  <div style="background:#fdecea;border-radius:8px;padding:14px 16px;border-left:4px solid #c0392b;">
-    <div style="font-size:12px;color:#922b21;font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;">💰 Pozajmice</div>
-    <div style="font-size:22px;font-weight:700;color:#7b241c;">
-      {{ '{:,.0f}'.format(total_loans_remaining).replace(',','.') }} €
+    <div style="font-size:32px;font-weight:700;color:{% if orders_pending > 0 %}#c0392b{% else %}#6d4d08{% endif %};">{{ orders_pending }}</div>
+    <div style="font-size:12px;margin-top:4px;color:#9a6e0a;">
+      na odobrenju &nbsp;·&nbsp; <span style="font-weight:600;">{{ orders_year }}</span> ukupno {{ now_year }}
     </div>
-    <div style="font-size:12px;margin-top:4px;color:#c0392b;">od {{ loans|length }} zajma</div>
+  </div>
+  <div style="background:#e6f5ef;border-radius:8px;padding:14px 16px;border-left:4px solid #27ae60;">
+    <div style="font-size:12px;color:#1a8a5a;font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;">🏖️ Godišnji odmori</div>
+    <div style="font-size:32px;font-weight:700;color:{% if leave_pending > 0 %}#c0392b{% else %}#1a5c33{% endif %};">{{ leave_pending }}</div>
+    <div style="font-size:12px;margin-top:4px;color:#1a8a5a;">
+      čekaju odobrenje &nbsp;·&nbsp; <span style="font-weight:600;">{{ leave_total_year }}</span> ukupno {{ now_year }}
+    </div>
   </div>
 </div>
 
