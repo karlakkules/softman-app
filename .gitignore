@@ -47,3 +47,4 @@ static/company_logo.*
 static/company_logo.*
 static/.DS_Store
 static/uploads/
+.backups/
