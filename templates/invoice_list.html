@@ -45,21 +45,21 @@
       </select>
     </div>
   </div>
-  <div class="table-wrap" id="inv-table-wrap" style="overflow-y:auto;max-height:calc(100vh - 200px);">
+  <div class="table-wrap" id="inv-table-wrap" style="overflow-y:auto;overflow-x:auto;max-height:calc(100vh - 200px);">
     <table>
       <thead style="position:sticky;top:0;z-index:5;">
         <tr>
           <th class="inv-sortable" data-col="broj" style="width:110px;cursor:pointer;user-select:none;" onclick="invSort('broj')">Broj računa <span class="inv-si" id="inv-si-broj">↕</span></th>
-          <th class="inv-sortable" data-col="partner" style="min-width:160px;cursor:pointer;user-select:none;" onclick="invSort('partner')">Partner <span class="inv-si" id="inv-si-partner">↕</span></th>
-          <th class="inv-sortable" data-col="oib" style="width:90px;cursor:pointer;user-select:none;" onclick="invSort('oib')">OIB <span class="inv-si" id="inv-si-oib">↕</span></th>
+          <th class="inv-sortable" data-col="partner" style="min-width:130px;cursor:pointer;user-select:none;" onclick="invSort('partner')">Partner <span class="inv-si" id="inv-si-partner">↕</span></th>
+          <th class="inv-sortable" data-col="oib" style="width:90px;cursor:pointer;user-select:none;display:none;" onclick="invSort('oib')">OIB <span class="inv-si" id="inv-si-oib">↕</span></th>
           <th class="inv-sortable" data-col="iznos" style="text-align:right;width:80px;cursor:pointer;user-select:none;" onclick="invSort('iznos')">Iznos <span class="inv-si" id="inv-si-iznos">↕</span></th>
           <th class="inv-sortable" data-col="datum" style="width:84px;cursor:pointer;user-select:none;" onclick="invSort('datum')">Datum <span class="inv-si" id="inv-si-datum">↕</span></th>
           <th class="inv-sortable" data-col="dospijece" style="width:84px;cursor:pointer;user-select:none;" onclick="invSort('dospijece')">Dospijeće <span class="inv-si" id="inv-si-dospijece">↕</span></th>
           <th style="width:70px;text-align:center;">Veza PN</th>
-          <th class="inv-sortable" data-col="placeno" style="text-align:center;width:62px;cursor:pointer;user-select:none;" onclick="invSort('placeno')">Plaćeno <span class="inv-si" id="inv-si-placeno">↕</span></th>
-          <th class="inv-sortable" data-col="likvidirano" style="text-align:center;width:72px;cursor:pointer;user-select:none;" onclick="invSort('likvidirano')">Likvidirano <span class="inv-si" id="inv-si-likvidirano">↕</span></th>
+          <th class="inv-sortable" data-col="placeno" style="text-align:center;width:56px;cursor:pointer;user-select:none;" onclick="invSort('placeno')">Plaćeno <span class="inv-si" id="inv-si-placeno">↕</span></th>
+          <th class="inv-sortable" data-col="likvidirano" style="text-align:center;width:66px;cursor:pointer;user-select:none;" onclick="invSort('likvidirano')">Likvidirano <span class="inv-si" id="inv-si-likvidirano">↕</span></th>
           <th style="width:24px;text-align:center;padding-left:2px;padding-right:2px;" title="Napomena">💬</th>
-          <th style="width:90px;">Akcije</th>
+          <th style="width:110px;white-space:nowrap;">Akcije</th>
         </tr>
       </thead>
       <tbody id="inv-tbody">
@@ -83,7 +83,7 @@
             ondblclick="if(!event.target.closest('button,a,input')) openEditModal(this)">
           <td style="white-space:nowrap;"><strong style="font-size:13px;">{{ inv.invoice_number or '—' }}</strong></td>
           <td>{{ inv.partner_name or '—' }}</td>
-          <td style="font-size:11px;color:var(--gray-500);padding-right:4px;">{{ inv.partner_oib or '—' }}</td>
+          <td style="display:none;font-size:11px;color:var(--gray-500);padding-right:4px;">{{ inv.partner_oib or '—' }}</td>
           <td style="text-align:right;font-weight:600;white-space:nowrap;min-width:88px;padding-left:4px;padding-right:6px;">
             {% if inv.amount_total %}{{ "%.2f"|format(inv.amount_total) }} €{% else %}—{% endif %}
           </td>
@@ -132,12 +132,12 @@
               title="{{ inv.notes }}">💬</button>
             {% endif %}
           </td>
-          <td>
-            <div style="display:flex;gap:4px;align-items:center;">
+          <td style="white-space:nowrap;">
+            <div style="display:flex;gap:3px;align-items:center;flex-wrap:nowrap;">
               {% if inv.stored_path or inv.liquidated_pdf_path %}
               <a href="/invoices/{{ inv.id }}/pdf" target="_blank"
                 class="btn btn-sm btn-secondary"
-                style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;"
+                style="width:26px;height:26px;padding:0;display:flex;align-items:center;justify-content:center;"
                 title="{{ 'Likvidirani PDF' if inv.is_liquidated else 'Originalni dokument' }}">
                 <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                   <path d="M3 1h7l3 3v10a1 1 0 01-1 1H3a1 1 0 01-1-1V2a1 1 0 011-1z" fill="#e74c3c" stroke="#c0392b" stroke-width="0.5"/>
@@ -149,18 +149,18 @@
               {% if current_user.get('is_admin') or current_user.get('can_edit_invoices') %}
               {% if not inv.is_liquidated or current_user.get('is_admin') or current_user.get('can_edit_invoices_liquidated') %}
               <button class="btn btn-sm btn-secondary"
-                style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;font-size:15px;"
+                style="width:26px;height:26px;padding:0;display:flex;align-items:center;justify-content:center;font-size:14px;"
                 onclick="openEditModal(this)"
                 title="Uredi podatke">✏️</button>
               {% else %}
               <button class="btn btn-sm btn-secondary"
-                style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;font-size:15px;opacity:0.3;cursor:not-allowed;"
+                style="width:26px;height:26px;padding:0;display:flex;align-items:center;justify-content:center;font-size:14px;opacity:0.3;cursor:not-allowed;"
                 disabled title="Račun je likvidiran — nemate pravo uređivanja">✏️</button>
               {% endif %}
-              <button style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;background:#e8f0f7;color:#1a3a5c;border:1px solid #aac4db;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;"
+              <button style="width:26px;height:26px;padding:0;display:flex;align-items:center;justify-content:center;background:#e8f0f7;color:#1a3a5c;border:1px solid #aac4db;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;"
                 onclick="openInfoPopup({{ inv.id }}, {{ inv | tojson }})"
                 title="Info · Korisnik: {{ inv.created_by_username }}{{ ' · Plaćeno: ' + inv.paid_at|fmt_date if inv.paid_at else '' }}{{ ' · ' + inv.paid_card_last4 if inv.paid_card_last4 else '' }}">ℹ</button>
-              <button style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;border-radius:6px;cursor:pointer;"
+              <button style="width:26px;height:26px;padding:0;display:flex;align-items:center;justify-content:center;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;border-radius:6px;cursor:pointer;"
                 onclick="deleteInv({{ inv.id }}, '{{ inv.partner_name }}')"
                 title="Obriši račun">🗑</button>
               {% endif %}

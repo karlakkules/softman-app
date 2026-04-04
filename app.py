@@ -1336,12 +1336,27 @@ def index():
     now_month = datetime.now().month
     now_year = datetime.now().year
 
-    # Dohvati display_name iz baze (token može biti star i ne sadržavati ga)
+    # Dohvati display_name i employee_first_name iz baze
     if user.get('user_id'):
         urow = conn.execute("SELECT display_name FROM users WHERE id=?", (user['user_id'],)).fetchone()
         if urow and urow['display_name']:
             user = dict(user)
             user['display_name'] = urow['display_name']
+        try:
+            emp_row = conn.execute("""
+                SELECT e.first_name, e.name FROM users u
+                JOIN employees e ON e.id = u.employee_id
+                WHERE u.id=?
+            """, (user['user_id'],)).fetchone()
+            user = dict(user)
+            if emp_row:
+                fn = (emp_row['first_name'] or '').strip()
+                user['employee_first_name'] = fn if fn else (emp_row['name'] or '').split()[0]
+            else:
+                user['employee_first_name'] = (user.get('display_name') or user.get('username') or '').split()[0]
+        except:
+            user = dict(user) if not isinstance(user, dict) else user
+            user.setdefault('employee_first_name', (user.get('display_name') or user.get('username') or '').split()[0])
 
     # Ulazni računi
     inv_total = conn.execute("SELECT COUNT(*) FROM invoices WHERE is_deleted=0 OR is_deleted IS NULL").fetchone()[0]
@@ -1399,17 +1414,19 @@ def index():
         FROM audit_log al LEFT JOIN users u ON u.id=al.user_id
         ORDER BY al.created_at DESC LIMIT 5""").fetchall()
 
-    # Sljedeći blagdan
-    next_holiday = None
+    # Sljedeća 3 blagdana
+    from datetime import date as _date
+    next_holidays = []
     for date_str in sorted(ALL_HOLIDAYS.keys()):
         if date_str > today:
-            from datetime import date as _date
             hd = _date(int(date_str[:4]), int(date_str[5:7]), int(date_str[8:10]))
             td = _date.today()
             days_left = (hd - td).days
-            next_holiday = {'date': date_str, 'name': ALL_HOLIDAYS[date_str], 'days_left': days_left,
-                           'day': date_str[8:10], 'month_short': ['Sij','Velj','Ožu','Tra','Svi','Lip','Srp','Kol','Ruj','Lis','Stu','Pro'][int(date_str[5:7])-1]}
-            break
+            next_holidays.append({'date': date_str, 'name': ALL_HOLIDAYS[date_str], 'days_left': days_left,
+                           'day': date_str[8:10], 'month_short': ['Sij','Velj','Ožu','Tra','Svi','Lip','Srp','Kol','Ruj','Lis','Stu','Pro'][int(date_str[5:7])-1]})
+            if len(next_holidays) >= 3:
+                break
+    next_holiday = next_holidays[0] if next_holidays else None
 
     # Dashboard extra varijable
     inv_total_year = conn.execute(
@@ -1423,31 +1440,34 @@ def index():
     leave_pending = 0
     leave_total_year = 0
     try:
-        leave_pending = conn.execute(
-            "SELECT COUNT(*) FROM leave_requests WHERE status='submitted'"
-        ).fetchone()[0]
+        leave_pending = conn.execute("SELECT COUNT(*) FROM leave_requests WHERE status='submitted'").fetchone()[0]
         leave_total_year = conn.execute(
-            "SELECT COUNT(*) FROM leave_requests WHERE substr(date_from,1,4)=?",
-            (str(now_year),)
+            "SELECT COUNT(*) FROM leave_requests WHERE substr(date_from,1,4)=?", (str(now_year),)
         ).fetchone()[0]
     except: pass
 
-    # employee_first_name za pozdrav
-    try:
-        emp_row = conn.execute("""
-            SELECT e.first_name, e.name FROM users u
-            JOIN employees e ON e.id = u.employee_id
-            WHERE u.id=?
-        """, (user['user_id'],)).fetchone()
-        user = dict(user)
-        if emp_row:
-            fn = (emp_row['first_name'] or '').strip()
-            user['employee_first_name'] = fn if fn else (emp_row['name'] or '').split()[0]
-        else:
-            user['employee_first_name'] = (user.get('display_name') or user.get('username') or '').split()[0]
-    except:
-        user = dict(user) if not isinstance(user, dict) else user
-        user.setdefault('employee_first_name', (user.get('display_name') or user.get('username') or '').split()[0])
+    # Nadolazeće uplate pozajmica
+    upcoming_payments = []
+    for loan in loans_raw:
+        ld_s = row_to_dict(loan)
+        try:
+            import json as _json2
+            schedule = _json2.loads(ld_s.get('schedule_json') or '[]')
+        except: schedule = []
+        for s in schedule:
+            pdate = s.get('date') or s.get('payment_date') or ''
+            if pdate >= today and not s.get('paid'):
+                upcoming_payments.append({'loan_name': ld_s['name'], 'date': pdate, 'amount': float(s.get('amount', 0))})
+        if not schedule:
+            pmts = conn.execute("""SELECT * FROM loan_payments WHERE loan_id=?
+                AND (payment_date >= ? OR recurring_start >= ?) LIMIT 3""",
+                (loan['id'], today, today)).fetchall()
+            for p in pmts:
+                pdate = p['payment_date'] or p['recurring_start'] or ''
+                if pdate >= today:
+                    upcoming_payments.append({'loan_name': ld_s['name'], 'date': pdate, 'amount': float(p['amount'] or 0)})
+    upcoming_payments.sort(key=lambda x: x['date'])
+    upcoming_payments = upcoming_payments[:3]
 
     now_hour = datetime.now().hour
 
@@ -1464,13 +1484,15 @@ def index():
         loans=loans_data, total_loans_remaining=total_loans_remaining,
         activity=rows_to_dicts(activity),
         next_holiday=next_holiday,
+        next_holidays=next_holidays,
         now_month=now_month, now_year=now_year,
         now_hour=now_hour,
         months=MONTHS_HR,
         inv_total_year=inv_total_year,
         orders_year=orders_year,
         leave_pending=leave_pending,
-        leave_total_year=leave_total_year)
+        leave_total_year=leave_total_year,
+        upcoming_payments=upcoming_payments)
 
 @app.route('/orders')
 @require_perm('can_view_orders')
