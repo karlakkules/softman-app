@@ -496,31 +496,26 @@ function openInvoiceSupplierEdit(id='', name='', oib='', address='') {
   document.getElementById('inv-supplier-edit-oib').value = oib;
   document.getElementById('inv-supplier-edit-address').value = address;
   document.getElementById('inv-supplier-edit-title').textContent = id ? 'Uredi dobavljača' : 'Novi dobavljač';
-  // Pozicioniraj panel uz gumb ➕ unutar lijeve kolone
   const modal = document.getElementById('inv-supplier-edit-modal');
-  const panel = document.getElementById('inv-supplier-edit-panel');
   modal.style.display = 'block';
-  // Nađi gumb ili lijevu kolonu forme kao sidro
-  const anchor = document.querySelector('#upload-review-overlay [onclick*="openQuickAddSupplier"]') ||
-                 document.querySelector('#upload-review-overlay [id="inv-supplier-search"]');
-  if (anchor) {
-    const rect = anchor.getBoundingClientRect();
-    const panelW = 360;
-    let left = rect.left;
-    let top = rect.bottom + 6;
-    // Ostani unutar viewporta
-    if (left + panelW > window.innerWidth - 8) left = window.innerWidth - panelW - 8;
-    if (left < 8) left = 8;
-    // Ako nema mjesta ispod, otvori iznad
-    const panelH = 230;
-    if (top + panelH > window.innerHeight - 8) top = rect.top - panelH - 6;
-    modal.style.left = left + 'px';
-    modal.style.top = top + 'px';
-  } else {
-    // Fallback: gornji lijevi kut ekrana uz lijevu kolonu
-    modal.style.left = '8px';
-    modal.style.top = '80px';
-  }
+  // Lijevu kolonu forme nađi po border-right stilu — široka je 400px
+  // Panel smjestimo unutar te kolone: od lijevog ruba overlay-a, max do ~390px
+  const overlay = document.getElementById('upload-review-overlay');
+  const overlayRect = overlay ? overlay.getBoundingClientRect() : {left: 0, top: 0};
+  const panel = document.getElementById('inv-supplier-edit-panel');
+  const panelW = 360;
+  const panelH = panel.offsetHeight || 240;
+  // Sidro: gumb ➕ da znamo vertikalnu poziciju
+  const anchor = document.querySelector('#upload-review-overlay [onclick*="openQuickAddSupplier"]');
+  let top = anchor ? anchor.getBoundingClientRect().bottom + 6 : overlayRect.top + 120;
+  // Ostani unutar viewporta vertikalno
+  if (top + panelH > window.innerHeight - 8) top = (anchor ? anchor.getBoundingClientRect().top - panelH - 6 : top - panelH - 12);
+  // Horizontalno: uvijek unutar lijeve kolone (overlay.left + 8, max overlay.left + 390 - panelW)
+  const left = overlayRect.left + 8;
+  modal.style.left = left + 'px';
+  modal.style.top = top + 'px';
+  // Ograniči širinu panela na lijevu kolonu
+  panel.style.width = Math.min(panelW, 390) + 'px';
   setTimeout(() => document.getElementById('inv-supplier-edit-name').focus(), 80);
 }
 function closeInvoiceSupplierEdit() { document.getElementById('inv-supplier-edit-modal').style.display = 'none'; }
