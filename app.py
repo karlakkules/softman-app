@@ -534,6 +534,12 @@ def init_db():
     except: pass
 
 
+    # Migration: narudzbenica_path u quotes
+    try:
+        c.execute("ALTER TABLE quotes ADD COLUMN narudzbenica_path TEXT")
+        print("Migration: quotes.narudzbenica_path added")
+    except: pass
+
     # Migration: create quotes table
     c.executescript('''
         CREATE TABLE IF NOT EXISTS quotes (
@@ -3149,6 +3155,62 @@ def save_quote_comment(quote_id):
 
 
 
+
+
+@app.route('/api/quotes/<int:quote_id>/narudzbenica', methods=['POST'])
+@require_perm('can_edit_quotes')
+def upload_quote_narudzbenica(quote_id):
+    """Upload narudžbenice za ponudu — sprema kao Narudzbenica_<auto_id>.pdf"""
+    import os
+    from datetime import datetime as dt
+
+    if 'file' not in request.files:
+        return jsonify({'error': 'Nema datoteke'}), 400
+    f = request.files['file']
+    if not f.filename or not f.filename.lower().endswith('.pdf'):
+        return jsonify({'error': 'Prihvaćaju se samo PDF datoteke'}), 400
+
+    conn = get_db()
+    quote = conn.execute("SELECT * FROM quotes WHERE id=?", (quote_id,)).fetchone()
+    if not quote:
+        conn.close()
+        return jsonify({'error': 'Ponuda nije pronađena'}), 404
+
+    auto_id = quote['auto_id']
+    pdf_folder = os.path.join(os.path.dirname(__file__), 'pdfs')
+    os.makedirs(pdf_folder, exist_ok=True)
+
+    filename = f"Narudzbenica_{auto_id}.pdf"
+    dest = os.path.join(pdf_folder, filename)
+
+    # Ako već postoji, zamijeni
+    f.save(dest)
+
+    conn.execute("UPDATE quotes SET narudzbenica_path=?, updated_at=? WHERE id=?",
+                 (filename, dt.now().isoformat(), quote_id))
+    conn.commit()
+    conn.close()
+    audit('upload', module='ponude', entity='quote', entity_id=quote_id,
+          detail=f'Narudžbenica priložena: {filename}')
+    return jsonify({'success': True, 'filename': filename})
+
+
+@app.route('/quotes/<int:quote_id>/narudzbenica')
+@require_perm('can_view_quotes')
+def serve_quote_narudzbenica(quote_id):
+    """Serve narudžbenice PDF za ponudu."""
+    import os
+    conn = get_db()
+    quote = conn.execute("SELECT narudzbenica_path FROM quotes WHERE id=?", (quote_id,)).fetchone()
+    conn.close()
+    if not quote or not quote['narudzbenica_path']:
+        return "Narudžbenica nije priložena", 404
+    pdf_folder = os.path.join(os.path.dirname(__file__), 'pdfs')
+    path = os.path.join(pdf_folder, quote['narudzbenica_path'])
+    if not os.path.exists(path):
+        return "Datoteka nije pronađena", 404
+    return send_file(path, mimetype='application/pdf',
+                     download_name=quote['narudzbenica_path'], as_attachment=False)
 
 @app.route('/api/quotes/<int:quote_id>', methods=['DELETE'])
 @require_perm('can_delete_quotes')

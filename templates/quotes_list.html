@@ -67,6 +67,11 @@
   <path d="M10 1l3 3h-3V1z" fill="#c0392b"/>
   <text x="3.5" y="11.5" font-family="Arial" font-size="4.5" font-weight="bold" fill="white">PDF</text>
 </svg></a>
+              {% if q.narudzbenica_path %}
+                <a href="/quotes/{{ q.id }}/narudzbenica" target="_blank" class="btn btn-sm" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;background:#e8f8f5;color:#27ae60;border:1px solid #a8d5b5;" title="Otvori narudžbenicu (priložena)">📋</a>
+              {% else %}
+                <button class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;" onclick="uploadNarudzbenica({{ q.id }}, '{{ q.auto_id }}')" title="Priloži narudžbenicu (PDF)">📎</button>
+              {% endif %}
               <a href="/quotes/{{ q.id }}/copy" class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;" title="Kopiraj ponudu"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></a>
               {% if current_user.get('is_admin') or current_user.get('can_delete_quotes') %}
               <button class="btn btn-sm" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;" onclick="deleteQuote({{ q.id }}, '{{ q.auto_id }}')" title="Obriši ponudu">🗑</button>
@@ -109,9 +114,42 @@ th.sort-asc .sort-icon::after{content:' ▲';}
 th.sort-desc .sort-icon{color:var(--accent);}
 th.sort-desc .sort-icon::after{content:' ▼';}
 </style>
+<!-- Hidden file input za narudžbenicu -->
+<input type="file" id="narudzbenica-input" accept=".pdf" style="display:none;" onchange="submitNarudzbenica()">
+
 {% endblock %}
 
 {% block scripts %}<script>
+let _narudzbenicaQuoteId = null;
+let _narudzbenicaAutoId = null;
+
+function uploadNarudzbenica(quoteId, autoId) {
+  _narudzbenicaQuoteId = quoteId;
+  _narudzbenicaAutoId = autoId;
+  document.getElementById('narudzbenica-input').value = '';
+  document.getElementById('narudzbenica-input').click();
+}
+
+async function submitNarudzbenica() {
+  const file = document.getElementById('narudzbenica-input').files[0];
+  if (!file) return;
+  if (!file.name.toLowerCase().endsWith('.pdf')) {
+    toast('Molimo odaberite PDF datoteku!', 'error'); return;
+  }
+  const fd = new FormData();
+  fd.append('file', file);
+  toast('Učitavam narudžbenicu...', 'success');
+  try {
+    const res = await fetch(`/api/quotes/${_narudzbenicaQuoteId}/narudzbenica`, {method:'POST', body: fd});
+    const d = await res.json();
+    if (d.success) {
+      toast(`Narudžbenica priložena kao "${d.filename}"!`, 'success');
+      setTimeout(() => location.reload(), 900);
+    } else {
+      toast(d.error || 'Greška pri uploadu!', 'error');
+    }
+  } catch(e) { toast('Greška: ' + e.message, 'error'); }
+}
 let qSortCol=-1, qSortDir=1;
 function sortQ(col){
   const tbody=document.getElementById('q-tbody');
