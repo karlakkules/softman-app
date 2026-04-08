@@ -725,6 +725,14 @@ async function saveOrder(status) {
   const empSel = document.getElementById('employee_id');
   const empOpt = empSel.options[empSel.selectedIndex];
 
+  // Validacija obaveznih polja
+  const clientVal = (document.getElementById('client_info')?.value || '').trim();
+  if (!clientVal) {
+    toast(t('Klijent / Partner je obavezno polje!', 'Client / Partner is required!'), 'error');
+    document.getElementById('client_info_search')?.focus();
+    return;
+  }
+
   const payload = {
     id: document.getElementById('order-id')?.value || null,
     auto_id: document.getElementById('auto_id').value,
