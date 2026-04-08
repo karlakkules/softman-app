@@ -197,7 +197,7 @@
                placeholder="npr. Sastanak s klijentom">
       </div>
             <div class="form-group">
-        <label class="form-label" data-hr="Klijent / Partner" data-en="Client / Partner">Klijent / Partner</label>
+        <label class="form-label" data-hr="Klijent / Partner" data-en="Client / Partner">Klijent / Partner *</label>
         <div style="position:relative;">
           <input type="text" class="form-control" id="client_info_search"
             placeholder="Pretraži klijenta..."
@@ -550,6 +550,25 @@ let dnevniceData = {
   rate: {{ order.daily_allowance_rate if order else 0 }},
   total: {{ order.daily_allowance_total if order else 0 }}
 };
+
+// ── Default datetime za novi nalog ──────────────────────────────────────────
+(function setDefaultDatetimes() {
+  // Postavi defaultne vrijednosti samo za NOVI nalog (ne za uređivanje)
+  const isNew = !document.getElementById('order-id');
+  if (!isNew) return;
+  const startEl = document.getElementById('trip_start_datetime');
+  const endEl   = document.getElementById('trip_end_datetime');
+  if (!startEl || !endEl) return;
+  if (startEl.value && endEl.value) return; // već postavljeno
+  // Danas u lokalnom formatu YYYY-MM-DD
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const today = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  startEl.value = `${today}T07:00`;
+  endEl.value   = `${today}T17:00`;
+  // Pokreni kalkulaciju dnevnica s defaultnim vrijednostima
+  calcDnevnice();
+})();
 
 // ── On employee change — fill position ───────────────────────────────────
 function onEmployeeChange() {
