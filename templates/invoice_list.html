@@ -461,15 +461,16 @@ function deleteInv(id, partner) { document.getElementById('del-msg').textContent
 </div>
 
 <!-- Add/edit supplier -->
-<div class="modal-overlay" id="inv-supplier-edit-modal" style="z-index:1100;">
-  <div class="modal" style="width:480px;max-width:95vw;">
-    <div class="modal-header"><span class="modal-title" id="inv-supplier-edit-title">Novi dobavljač</span><button class="btn btn-ghost btn-icon" onclick="closeInvoiceSupplierEdit()">✕</button></div>
-    <div class="modal-body">
+<!-- Supplier quick-add panel — pozicioniran unutar lijeve kolone, ne prekriva PDF -->
+<div id="inv-supplier-edit-modal" style="display:none;position:fixed;z-index:1200;pointer-events:none;">
+  <div id="inv-supplier-edit-panel" style="pointer-events:all;width:360px;background:white;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.22);border:1px solid var(--gray-200);overflow:hidden;">
+    <div class="modal-header" style="padding:12px 16px;"><span class="modal-title" id="inv-supplier-edit-title">Novi dobavljač</span><button class="btn btn-ghost btn-icon" onclick="closeInvoiceSupplierEdit()">✕</button></div>
+    <div class="modal-body" style="padding:14px 16px;">
       <input type="hidden" id="inv-supplier-edit-id">
       <div class="form-row form-row-2" style="margin-bottom:12px;"><div class="form-group"><label class="form-label">Naziv *</label><input type="text" class="form-control" id="inv-supplier-edit-name" placeholder="Naziv tvrtke..."></div><div class="form-group"><label class="form-label">OIB</label><input type="text" class="form-control" id="inv-supplier-edit-oib" placeholder="12345678901" maxlength="11"></div></div>
       <div class="form-group"><label class="form-label">Adresa</label><input type="text" class="form-control" id="inv-supplier-edit-address" placeholder="Ulica i broj, grad..."></div>
     </div>
-    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeInvoiceSupplierEdit()">Odustani</button><button class="btn btn-primary" onclick="saveInvoiceSupplier()">💾 Spremi</button></div>
+    <div class="modal-footer" style="padding:10px 16px;"><button class="btn btn-secondary" onclick="closeInvoiceSupplierEdit()">Odustani</button><button class="btn btn-primary" onclick="saveInvoiceSupplier()">💾 Spremi</button></div>
   </div>
 </div>
 
@@ -479,8 +480,40 @@ async function loadInvSuppliers() { const res = await fetch('/api/suppliers'); _
 async function openSuppliersModal() { document.getElementById('suppliers-mgmt-modal').classList.add('open'); await renderInvSuppliersTable(); }
 function closeSuppliersModal() { document.getElementById('suppliers-mgmt-modal').classList.remove('open'); }
 async function renderInvSuppliersTable() { const list = await loadInvSuppliers(); const tbody = document.getElementById('inv-suppliers-tbody'); if (!list.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--gray-400);">Nema dobavljača.</td></tr>'; return; } tbody.innerHTML = list.map(s => `<tr><td><strong>${s.name}</strong></td><td style="font-family:monospace;font-size:12px;">${s.oib||'—'}</td><td style="font-size:12px;">${s.address||'—'}</td><td><div style="display:flex;gap:3px;"><button class="btn btn-sm btn-secondary" onclick='openInvoiceSupplierEdit(${s.id},${JSON.stringify(s.name)},${JSON.stringify(s.oib||"")},${JSON.stringify(s.address||"")})'>✏️</button><button class="btn btn-sm" style="background:#fdecea;color:#c0392b;border:1px solid #f5aca6;" onclick='deleteInvSupplier(${s.id},${JSON.stringify(s.name)})'>🗑</button></div></td></tr>`).join(''); refreshSupplierDropdown(); }
-function openInvoiceSupplierEdit(id='', name='', oib='', address='') { document.getElementById('inv-supplier-edit-id').value = id; document.getElementById('inv-supplier-edit-name').value = name; document.getElementById('inv-supplier-edit-oib').value = oib; document.getElementById('inv-supplier-edit-address').value = address; document.getElementById('inv-supplier-edit-title').textContent = id ? 'Uredi dobavljača' : 'Novi dobavljač'; document.getElementById('inv-supplier-edit-modal').classList.add('open'); setTimeout(() => document.getElementById('inv-supplier-edit-name').focus(), 100); }
-function closeInvoiceSupplierEdit() { document.getElementById('inv-supplier-edit-modal').classList.remove('open'); }
+function openInvoiceSupplierEdit(id='', name='', oib='', address='') {
+  document.getElementById('inv-supplier-edit-id').value = id;
+  document.getElementById('inv-supplier-edit-name').value = name;
+  document.getElementById('inv-supplier-edit-oib').value = oib;
+  document.getElementById('inv-supplier-edit-address').value = address;
+  document.getElementById('inv-supplier-edit-title').textContent = id ? 'Uredi dobavljača' : 'Novi dobavljač';
+  // Pozicioniraj panel uz gumb ➕ unutar lijeve kolone
+  const modal = document.getElementById('inv-supplier-edit-modal');
+  const panel = document.getElementById('inv-supplier-edit-panel');
+  modal.style.display = 'block';
+  // Nađi gumb ili lijevu kolonu forme kao sidro
+  const anchor = document.querySelector('#upload-review-overlay [onclick*="openQuickAddSupplier"]') ||
+                 document.querySelector('#upload-review-overlay [id="inv-supplier-search"]');
+  if (anchor) {
+    const rect = anchor.getBoundingClientRect();
+    const panelW = 360;
+    let left = rect.left;
+    let top = rect.bottom + 6;
+    // Ostani unutar viewporta
+    if (left + panelW > window.innerWidth - 8) left = window.innerWidth - panelW - 8;
+    if (left < 8) left = 8;
+    // Ako nema mjesta ispod, otvori iznad
+    const panelH = 230;
+    if (top + panelH > window.innerHeight - 8) top = rect.top - panelH - 6;
+    modal.style.left = left + 'px';
+    modal.style.top = top + 'px';
+  } else {
+    // Fallback: gornji lijevi kut ekrana uz lijevu kolonu
+    modal.style.left = '8px';
+    modal.style.top = '80px';
+  }
+  setTimeout(() => document.getElementById('inv-supplier-edit-name').focus(), 80);
+}
+function closeInvoiceSupplierEdit() { document.getElementById('inv-supplier-edit-modal').style.display = 'none'; }
 async function saveInvoiceSupplier() { const id = document.getElementById('inv-supplier-edit-id').value; const name = document.getElementById('inv-supplier-edit-name').value.trim(); if (!name) { alert('Naziv je obavezan!'); return; } const body = { name, oib: document.getElementById('inv-supplier-edit-oib').value.trim(), address: document.getElementById('inv-supplier-edit-address').value.trim() }; const url = id ? `/api/suppliers/${id}` : '/api/suppliers'; const method = id ? 'PUT' : 'POST'; const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) }); const d = await res.json(); if (d.success || d.id) { closeInvoiceSupplierEdit(); toast('Dobavljač spremljen!', 'success'); await renderInvSuppliersTable(); if (!id && d.id) { await loadInvSuppliers(); const newS = _suppliersCache.find(s => s.id == d.id); if (newS) onSupplierSelect(newS.id, newS.name, newS.oib||''); } } else alert(d.error || 'Greška pri spremanju'); }
 async function deleteInvSupplier(id, name) { if (!confirm(`Obrisati dobavljača "${name}"?`)) return; await fetch(`/api/suppliers/${id}`, { method: 'DELETE' }); toast('Dobavljač obrisan!', 'success'); await renderInvSuppliersTable(); }
 function openQuickAddSupplier() { const partnerVal = document.getElementById('inv-partner')?.value || ''; const oibVal = document.getElementById('inv-oib')?.value || ''; openInvoiceSupplierEdit('', partnerVal, oibVal, ''); }

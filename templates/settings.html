@@ -1116,6 +1116,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const savedPrimary = localStorage.getItem('settings_primary_tab') || TAB_TO_PRIMARY[savedTab] || 'organizacija';
   showPrimaryTab(savedPrimary);
   showTab(savedTab);
+  // Pokreni load za tabove koji lazy-fetchaju podatke (gumb ih poziva ručno, ali restore ne)
+  if (savedTab === 'profiles') loadProfiles();
+  else if (savedTab === 'users') loadUsers();
+  else if (savedTab === 'suppliers') loadSuppliers();
+  else if (savedTab === 'bankcards') loadCards();
 });
 
 // ── VEHICLE MODAL ─────────────────────────────────────────────────────────────
