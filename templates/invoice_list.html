@@ -497,25 +497,25 @@ function openInvoiceSupplierEdit(id='', name='', oib='', address='') {
   document.getElementById('inv-supplier-edit-address').value = address;
   document.getElementById('inv-supplier-edit-title').textContent = id ? 'Uredi dobavljača' : 'Novi dobavljač';
   const modal = document.getElementById('inv-supplier-edit-modal');
-  modal.style.display = 'block';
-  // Lijevu kolonu forme nađi po border-right stilu — široka je 400px
-  // Panel smjestimo unutar te kolone: od lijevog ruba overlay-a, max do ~390px
-  const overlay = document.getElementById('upload-review-overlay');
-  const overlayRect = overlay ? overlay.getBoundingClientRect() : {left: 0, top: 0};
   const panel = document.getElementById('inv-supplier-edit-panel');
-  const panelW = 360;
-  const panelH = panel.offsetHeight || 240;
-  // Sidro: gumb ➕ da znamo vertikalnu poziciju
+  panel.style.width = '360px';
+  modal.style.display = 'block';
+  // Koristi gumb ➕ kao sidro za poziciju
   const anchor = document.querySelector('#upload-review-overlay [onclick*="openQuickAddSupplier"]');
-  let top = anchor ? anchor.getBoundingClientRect().bottom + 6 : overlayRect.top + 120;
-  // Ostani unutar viewporta vertikalno
-  if (top + panelH > window.innerHeight - 8) top = (anchor ? anchor.getBoundingClientRect().top - panelH - 6 : top - panelH - 12);
-  // Horizontalno: uvijek unutar lijeve kolone (overlay.left + 8, max overlay.left + 390 - panelW)
-  const left = overlayRect.left + 8;
-  modal.style.left = left + 'px';
-  modal.style.top = top + 'px';
-  // Ograniči širinu panela na lijevu kolonu
-  panel.style.width = Math.min(panelW, 390) + 'px';
+  if (anchor) {
+    const r = anchor.getBoundingClientRect();
+    // Otvori ispod gumba, poravnaj desni rub panela s desnim rubom gumba
+    let left = r.right - 360;
+    let top = r.bottom + 6;
+    if (left < 8) left = 8;
+    const panelH = 240;
+    if (top + panelH > window.innerHeight - 8) top = r.top - panelH - 6;
+    modal.style.left = left + 'px';
+    modal.style.top = top + 'px';
+  } else {
+    modal.style.left = '240px';
+    modal.style.top = '200px';
+  }
   setTimeout(() => document.getElementById('inv-supplier-edit-name').focus(), 80);
 }
 function closeInvoiceSupplierEdit() { document.getElementById('inv-supplier-edit-modal').style.display = 'none'; }
