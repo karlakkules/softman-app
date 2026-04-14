@@ -534,6 +534,67 @@ def init_db():
     except: pass
 
 
+    # Migration: subproject sort_order
+    try:
+        c.execute('ALTER TABLE subprojects ADD COLUMN sort_order INTEGER DEFAULT 0')
+    except: pass
+
+    # Migration: project_employees i can_manage_projects
+    c.executescript('''
+        CREATE TABLE IF NOT EXISTS project_employees (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL,
+            employee_id INTEGER NOT NULL,
+            created_at TEXT,
+            UNIQUE(project_id, employee_id),
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+            FOREIGN KEY (employee_id) REFERENCES employees(id)
+        );
+    ''')
+    try:
+        c.execute('ALTER TABLE profiles ADD COLUMN can_manage_projects INTEGER DEFAULT 0')
+    except: pass
+
+    # Migration: podprojekti
+    c.executescript('''
+        CREATE TABLE IF NOT EXISTS subprojects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            created_at TEXT,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        );
+    ''')
+    try:
+        c.execute('ALTER TABLE project_time_entries ADD COLUMN subproject_id INTEGER')
+    except: pass
+
+    # Migration: projekti
+    c.executescript('''
+        CREATE TABLE IF NOT EXISTS projects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            auto_id TEXT UNIQUE NOT NULL,
+            name TEXT NOT NULL,
+            client_id INTEGER,
+            status TEXT DEFAULT 'active',
+            color TEXT DEFAULT '#2d5986',
+            notes TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        );
+        CREATE TABLE IF NOT EXISTS project_time_entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL,
+            employee_id INTEGER NOT NULL,
+            date TEXT NOT NULL,
+            hours REAL NOT NULL,
+            notes TEXT,
+            created_at TEXT,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+            FOREIGN KEY (employee_id) REFERENCES employees(id)
+        );
+    ''')
+
     # Migration: narudzbenica_path u quotes
     try:
         c.execute("ALTER TABLE quotes ADD COLUMN narudzbenica_path TEXT")
@@ -1479,6 +1540,30 @@ def index():
 
     conn.close()
 
+    # Projekti danas — svježa konekcija
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    user_obj = get_current_user()
+    _disp = (user_obj.get('display_name') or '').split(' ')[0]
+    _conn_proj = get_db()
+    emp_today = _conn_proj.execute(
+        'SELECT id FROM employees WHERE name LIKE ?', ('%' + _disp + '%',)
+    ).fetchone() if _disp else None
+    project_hours_today = []
+    if emp_today:
+        _sql = ('SELECT p.name, p.color, pte.hours '
+                'FROM project_time_entries pte '
+                'JOIN projects p ON p.id = pte.project_id '
+                'WHERE pte.employee_id=? AND pte.date=? ORDER BY pte.hours DESC')
+        project_hours_today = rows_to_dicts(_conn_proj.execute(_sql, (emp_today['id'], today_str)).fetchall())
+    try:
+        projects_active = _conn_proj.execute(
+            'SELECT COUNT(*) as cnt FROM projects WHERE status=?', ('active',)
+        ).fetchone()['cnt']
+    except Exception:
+        projects_active = 0
+    _conn_proj.close()
+    project_hours_today_total = round(sum(r['hours'] for r in project_hours_today), 2)
+
     return render_template('dashboard.html',
         user=user, active='dashboard',
         inv_total=inv_total, inv_pending=inv_pending,
@@ -1498,7 +1583,10 @@ def index():
         orders_year=orders_year,
         leave_pending=leave_pending,
         leave_total_year=leave_total_year,
-        upcoming_payments=upcoming_payments)
+        upcoming_payments=upcoming_payments,
+                           project_hours_today=project_hours_today,
+                           project_hours_today_total=project_hours_today_total,
+                           projects_active=projects_active)
 
 @app.route('/orders')
 @require_perm('can_view_orders')
@@ -1835,6 +1923,12 @@ def delete_order(order_id):
     conn.commit()
     conn.close()
     return jsonify({'success': True})
+
+
+@app.route('/reports')
+@require_perm('can_view_reports')
+def reports_hub():
+    return render_template('reports_hub.html', active='reports')
 
 @app.route('/reports/popis-naloga')
 @require_perm('can_view_reports')
@@ -5020,6 +5114,329 @@ def vehicle_log_pdf(log_id):
     from flask import send_file
     return send_file(buf, mimetype='application/pdf', download_name=fname, as_attachment=False)
 
+
+
+
+# ─── PROJEKTI ────────────────────────────────────────────────────────────────────────────────
+
+def _get_next_project_id():
+    conn = get_db()
+    year = datetime.now().year
+    rows = conn.execute("SELECT auto_id FROM projects WHERE auto_id LIKE ?", (f"{year}-%",)).fetchall()
+    conn.close()
+    used = set()
+    for r in rows:
+        try: used.add(int(r['auto_id'].split('-')[1]))
+        except: pass
+    num = 1
+    while num in used: num += 1
+    return f"{year}-{num}"
+
+@app.route('/projects')
+@login_required
+def projects_list():
+    conn = get_db()
+    user = get_current_user()
+    is_admin = user.get('is_admin') if user else False
+    can_manage = is_admin or bool(user.get('can_manage_projects') if user else False)
+    # Admin/manager vidi sve; zaposlenik vidi samo dodijeljene projekte
+    if can_manage:
+        sql = ("SELECT p.*, c.name as client_name, "
+               "COALESCE((SELECT SUM(hours) FROM project_time_entries WHERE project_id=p.id),0) as total_hours, "
+               "COALESCE((SELECT SUM(CASE WHEN date >= date('now','start of month') THEN hours ELSE 0 END) FROM project_time_entries WHERE project_id=p.id),0) as mtd_hours, "
+               "COALESCE((SELECT MAX(date) FROM project_time_entries WHERE project_id=p.id),'') as last_entry_date "
+               "FROM projects p LEFT JOIN clients c ON c.id=p.client_id ORDER BY p.status ASC, p.name ASC")
+        projects = conn.execute(sql).fetchall()
+    else:
+        # Nađi employee_id za ovog korisnika
+        disp = (user.get('display_name') or '').strip()
+        emp = conn.execute('SELECT id FROM employees WHERE name=? OR name LIKE ?', (disp, f'%{disp}%')).fetchone()
+        if emp:
+            sql = ("SELECT p.*, c.name as client_name, "
+                   "COALESCE((SELECT SUM(hours) FROM project_time_entries WHERE project_id=p.id AND employee_id=?),0) as total_hours, "
+                   "COALESCE((SELECT SUM(CASE WHEN date >= date('now','start of month') THEN hours ELSE 0 END) "
+                   "         FROM project_time_entries WHERE project_id=p.id AND employee_id=?),0) as mtd_hours, "
+                   "COALESCE((SELECT MAX(date) FROM project_time_entries WHERE project_id=p.id AND employee_id=?),'') as last_entry_date "
+                   "FROM projects p LEFT JOIN clients c ON c.id=p.client_id "
+                   "JOIN project_employees pe ON pe.project_id=p.id AND pe.employee_id=? "
+                   "WHERE p.status='active' ORDER BY p.name ASC")
+            projects = conn.execute(sql, (emp['id'], emp['id'], emp['id'], emp['id'])).fetchall()
+        else:
+            projects = []
+    clients = conn.execute('SELECT id, name FROM clients ORDER BY name').fetchall()
+    employees = conn.execute('SELECT id, name FROM employees ORDER BY name').fetchall()
+    # Za svaki projekt dohvati dodijeljene zaposlenike
+    project_employees_map = {}
+    for pe_row in conn.execute('SELECT pe.project_id, e.id, e.name FROM project_employees pe JOIN employees e ON e.id=pe.employee_id').fetchall():
+        pid = pe_row['project_id']
+        if pid not in project_employees_map: project_employees_map[pid] = []
+        project_employees_map[pid].append({'id': pe_row['id'], 'name': pe_row['name']})
+    conn.close()
+    return render_template('projects_list.html', projects=rows_to_dicts(projects),
+                           clients=rows_to_dicts(clients), employees=rows_to_dicts(employees),
+                           project_employees_map=project_employees_map,
+                           can_manage=can_manage, active='projects')
+
+@app.route('/api/projects', methods=['GET'])
+@login_required
+def api_projects_get():
+    conn = get_db()
+    rows = conn.execute("SELECT id, auto_id, name, color, status FROM projects WHERE status='active' ORDER BY name").fetchall()
+    conn.close()
+    return jsonify(rows_to_dicts(rows))
+
+@app.route('/api/projects', methods=['POST'])
+@login_required
+def api_project_save():
+    data = request.json
+    conn = get_db()
+    now = datetime.now().isoformat()
+    pid = data.get('id')
+    name = (data.get('name') or '').strip()
+    if not name:
+        conn.close()
+        return jsonify({'error': 'Naziv projekta je obavezan'}), 400
+    client_id = data.get('client_id') or None
+    color = data.get('color') or '#2d5986'
+    status = data.get('status') or 'active'
+    notes = data.get('notes') or ''
+    if pid:
+        conn.execute("UPDATE projects SET name=?, client_id=?, color=?, status=?, notes=?, updated_at=? WHERE id=?",
+                     (name, client_id, color, status, notes, now, pid))
+        conn.commit(); conn.close()
+        audit('edit', module='projekti', entity='project', entity_id=int(pid), detail=name)
+        return jsonify({'success': True, 'id': int(pid)})
+    # Retry loop za slučaj race condition na auto_id
+    for _attempt in range(3):
+        auto_id = _get_next_project_id()
+        try:
+            conn.execute("INSERT INTO projects (auto_id, name, client_id, color, status, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)",
+                         (auto_id, name, client_id, color, status, notes, now, now))
+            conn.commit()
+            break
+        except Exception as _e:
+            if 'UNIQUE' in str(_e) and _attempt < 2:
+                continue
+            conn.close()
+            return jsonify({'error': f'Greška pri kreiranju projekta: {_e}'}), 500
+    new_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+    conn.close()
+    audit('create', module='projekti', entity='project', entity_id=new_id, detail=name)
+    return jsonify({'success': True, 'id': new_id, 'auto_id': auto_id})
+
+
+
+@app.route('/api/projects/<int:project_id>/employees', methods=['GET'])
+@login_required
+def api_project_employees_get(project_id):
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT e.id, e.name FROM project_employees pe JOIN employees e ON e.id=pe.employee_id WHERE pe.project_id=? ORDER BY e.name",
+        (project_id,)
+    ).fetchall()
+    conn.close()
+    return jsonify(rows_to_dicts(rows))
+
+@app.route('/api/projects/<int:project_id>/employees', methods=['POST'])
+@login_required
+def api_project_employees_save(project_id):
+    """Postavi listu zaposlenika za projekt (zamijeni sve)."""
+    data = request.json
+    employee_ids = data.get('employee_ids', [])
+    conn = get_db()
+    now = datetime.now().isoformat()
+    conn.execute("DELETE FROM project_employees WHERE project_id=?", (project_id,))
+    for emp_id in employee_ids:
+        try:
+            conn.execute("INSERT INTO project_employees (project_id, employee_id, created_at) VALUES (?,?,?)",
+                         (project_id, int(emp_id), now))
+        except: pass
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True})
+
+
+@app.route('/api/projects/my-employee-id')
+@login_required
+def api_my_employee_id():
+    """Vrati employee_id za prijavljenog korisnika."""
+    user = get_current_user()
+    disp = (user.get('display_name') or '').strip()
+    conn = get_db()
+    emp = None
+    if disp:
+        emp = conn.execute(
+            'SELECT id FROM employees WHERE name=? OR name LIKE ?', (disp, f'%{disp}%')
+        ).fetchone()
+    conn.close()
+    return jsonify({'employee_id': emp['id'] if emp else None})
+
+@app.route('/api/projects/missing-hours')
+@login_required
+def api_project_missing_hours():
+    """Izračun: fond sati ovog mjeseca - godišnji - evidentiran po projektima (max 8h/dan)."""
+    from datetime import date as _date, timedelta as _td
+    import calendar as _cal
+    employee_id = request.args.get('employee_id')
+    if not employee_id:
+        return jsonify({'error': 'employee_id obavezan'}), 400
+    now = datetime.now()
+    year, month = now.year, now.month
+    conn = get_db()
+    # Fond sati za ovaj mjesec
+    fund_row = conn.execute(
+        "SELECT radni FROM work_fund WHERE year=? AND month=?", (year, month)
+    ).fetchone()
+    fond = fund_row['radni'] if fund_row else 0
+    # Godišnji odmor iz worktime_entries (row 16 = Godišnji odmor)
+    wt_report = conn.execute(
+        "SELECT wr.id FROM worktime_reports wr WHERE wr.employee_id=? AND wr.year=? AND wr.month=?",
+        (employee_id, year, month)
+    ).fetchone()
+    vacation_hours = 0
+    if wt_report:
+        vac = conn.execute(
+            "SELECT SUM(hours) as h FROM worktime_entries WHERE report_id=? AND row_num=16",
+            (wt_report['id'],)
+        ).fetchone()
+        vacation_hours = float(vac['h'] or 0) if vac else 0
+    # Evidentirani sati po projektima ovaj mjesec (max 8h/dan)
+    first_day = f"{year}-{month:02d}-01"
+    last_day_num = _cal.monthrange(year, month)[1]
+    last_day = f"{year}-{month:02d}-{last_day_num:02d}"
+    daily_rows = conn.execute(
+        "SELECT date, SUM(hours) as h FROM project_time_entries "
+        "WHERE employee_id=? AND date>=? AND date<=? GROUP BY date",
+        (employee_id, first_day, last_day)
+    ).fetchall()
+    conn.close()
+    project_hours = sum(min(float(r['h']), 8.0) for r in daily_rows)
+    missing = max(0, fond - vacation_hours - project_hours)
+    return jsonify({
+        'fond': fond,
+        'vacation_hours': vacation_hours,
+        'project_hours': round(project_hours, 1),
+        'missing': round(missing, 1),
+        'year': year,
+        'month': month
+    })
+
+@app.route('/api/projects/<int:project_id>/subprojects', methods=['GET'])
+@login_required
+def api_subprojects_get(project_id):
+    conn = get_db()
+    sql = ("SELECT s.*, "
+           "COALESCE((SELECT SUM(hours) FROM project_time_entries WHERE subproject_id=s.id),0) as total_hours "
+           "FROM subprojects s WHERE s.project_id=? ORDER BY s.sort_order ASC, s.name ASC")
+    rows = conn.execute(sql, (project_id,)).fetchall()
+    conn.close()
+    return jsonify(rows_to_dicts(rows))
+
+
+@app.route('/api/projects/<int:project_id>/subprojects/reorder', methods=['POST'])
+@login_required
+def api_subproject_reorder(project_id):
+    """Spremi novi redoslijed podprojekata."""
+    data = request.json
+    ids = data.get('ids', [])
+    conn = get_db()
+    for i, sub_id in enumerate(ids):
+        conn.execute("UPDATE subprojects SET sort_order=? WHERE id=? AND project_id=?",
+                     (i, sub_id, project_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True})
+
+@app.route('/api/subprojects', methods=['POST'])
+@login_required
+def api_subproject_save():
+    data = request.json
+    name = (data.get('name') or '').strip()
+    project_id = data.get('project_id')
+    sub_id = data.get('id')
+    if not name or not project_id:
+        return jsonify({'error': 'Naziv i projekt su obavezni'}), 400
+    conn = get_db()
+    now = datetime.now().isoformat()
+    if sub_id:
+        conn.execute("UPDATE subprojects SET name=? WHERE id=?", (name, sub_id))
+        conn.commit(); conn.close()
+        return jsonify({'success': True, 'id': int(sub_id)})
+    conn.execute("INSERT INTO subprojects (project_id, name, created_at) VALUES (?,?,?)",
+                 (int(project_id), name, now))
+    conn.commit()
+    new_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+    conn.close()
+    audit('create', module='projekti', entity='subproject', entity_id=new_id, detail=name)
+    return jsonify({'success': True, 'id': new_id})
+
+@app.route('/api/subprojects/<int:sub_id>', methods=['DELETE'])
+@login_required
+def api_subproject_delete(sub_id):
+    conn = get_db()
+    conn.execute("DELETE FROM subprojects WHERE id=?", (sub_id,))
+    conn.commit(); conn.close()
+    audit('delete', module='projekti', entity='subproject', entity_id=sub_id)
+    return jsonify({'success': True})
+
+@app.route('/api/projects/<int:project_id>', methods=['DELETE'])
+@login_required
+def api_project_delete(project_id):
+    conn = get_db()
+    conn.execute("DELETE FROM projects WHERE id=?", (project_id,))
+    conn.commit(); conn.close()
+    audit('delete', module='projekti', entity='project', entity_id=project_id)
+    return jsonify({'success': True})
+
+@app.route('/api/projects/time', methods=['POST'])
+@login_required
+def api_project_time_save():
+    data = request.json
+    employee_id = data.get('employee_id')
+    date_str = data.get('date')
+    entries = data.get('entries', [])
+    if not employee_id or not date_str:
+        return jsonify({'error': 'employee_id i date su obavezni'}), 400
+    conn = get_db()
+    now = datetime.now().isoformat()
+    conn.execute("DELETE FROM project_time_entries WHERE employee_id=? AND date=?", (employee_id, date_str))
+    total = 0
+    for e in entries:
+        hours = float(e.get('hours') or 0)
+        if hours <= 0: continue
+        sub_id = e.get('subproject_id') or None
+        conn.execute("INSERT INTO project_time_entries (project_id, subproject_id, employee_id, date, hours, notes, created_at) VALUES (?,?,?,?,?,?,?)",
+                     (int(e['project_id']), sub_id, int(employee_id), date_str, hours, e.get('notes') or '', now))
+        total += hours
+    conn.commit(); conn.close()
+    audit('create', module='projekti', entity='project_time', detail=f'{date_str} - {total}h')
+    return jsonify({'success': True, 'total_hours': total})
+
+@app.route('/api/projects/time', methods=['GET'])
+@login_required
+def api_project_time_get():
+    employee_id = request.args.get('employee_id')
+    date_str = request.args.get('date')
+    if not employee_id or not date_str: return jsonify([])
+    conn = get_db()
+    sql = ("SELECT pte.*, p.name as project_name, p.color, s.name as subproject_name "
+           "FROM project_time_entries pte "
+           "JOIN projects p ON p.id = pte.project_id "
+           "LEFT JOIN subprojects s ON s.id = pte.subproject_id "
+           "WHERE pte.employee_id=? AND pte.date=? ORDER BY pte.hours DESC")
+    rows = conn.execute(sql, (employee_id, date_str)).fetchall()
+    conn.close()
+    return jsonify(rows_to_dicts(rows))
+
+@app.route('/api/projects/<int:project_id>/time-history')
+@login_required
+def api_project_time_history(project_id):
+    conn = get_db()
+    sql = ("SELECT pte.date, pte.hours, pte.notes, e.name as employee_name FROM project_time_entries pte "
+           "JOIN employees e ON e.id = pte.employee_id WHERE pte.project_id=? ORDER BY pte.date DESC, pte.hours DESC")
+    rows = conn.execute(sql, (project_id,)).fetchall()
+    conn.close()
+    return jsonify(rows_to_dicts(rows))
 
 # ─── CAR LOGS ─────────────────────────────────────────────────────────────────
 

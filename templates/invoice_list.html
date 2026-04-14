@@ -126,11 +126,11 @@
             {% endif %}
           </td>
           <td style="text-align:center;padding:0 2px;">
-            {% if inv.notes %}
-            <button onclick="openNotePopup({{ inv.id }}, {{ inv.notes | tojson }})"
-              style="background:none;border:none;cursor:pointer;font-size:17px;line-height:1;padding:2px;"
-              title="{{ inv.notes }}">💬</button>
-            {% endif %}
+            <button class="inv-note-btn"
+              data-id="{{ inv.id }}"
+              data-note="{{ inv.notes | e if inv.notes else '' }}"
+              style="background:none;border:none;cursor:pointer;font-size:17px;line-height:1;padding:2px;opacity:{% if inv.notes %}1{% else %}0.25{% endif %};"
+              title="{% if inv.notes %}{{ inv.notes }}{% else %}Dodaj napomenu{% endif %}">💬</button>
           </td>
           <td style="white-space:nowrap;">
             <div style="display:flex;gap:3px;align-items:center;flex-wrap:nowrap;">
@@ -465,8 +465,17 @@ async function confirmLiquidate() { if (!_liqId) return; const btn = document.ge
 let _noteInvId = null;
 function openNotePopup(id, text) { _noteInvId = id; document.getElementById('note-textarea').value = text || ''; document.getElementById('note-modal').classList.add('open'); setTimeout(() => document.getElementById('note-textarea').focus(), 50); }
 function closeNotePopup() { document.getElementById('note-modal').classList.remove('open'); _noteInvId = null; }
-async function saveNotePopup() { if (!_noteInvId) return; const val = document.getElementById('note-textarea').value; await saveNote(_noteInvId, val); const row = document.querySelector(`tr[data-id="${_noteInvId}"]`); if (row) { const td = row.querySelectorAll('td')[9]; if (val) { td.innerHTML = `<button onclick="openNotePopup(${_noteInvId}, ${JSON.stringify(val)})" style="background:none;border:none;cursor:pointer;font-size:17px;line-height:1;padding:2px;" title="${val.replace(/"/g,'&quot;')}">💬</button>`; } else { td.innerHTML = ''; } } closeNotePopup(); }
+async function saveNotePopup() { if (!_noteInvId) return; const val = document.getElementById('note-textarea').value; await saveNote(_noteInvId, val); const row = document.querySelector(`tr[data-id="${_noteInvId}"]`); if (row) { const btn = row.querySelector('.inv-note-btn'); if (btn) { btn.dataset.note = val; btn.title = val || 'Dodaj napomenu'; btn.style.opacity = val ? '1' : '0.25'; } } closeNotePopup(); }
 async function saveNote(id, val) { await fetch(`/api/invoices/${id}/note`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ notes: val }) }); }
+
+// Event delegation za note gumbe — izbjegava probleme s inline JSON u onclick
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('.inv-note-btn');
+  if (!btn) return;
+  const id = parseInt(btn.dataset.id);
+  const note = btn.dataset.note || '';
+  openNotePopup(id, note);
+});
 function deleteInv(id, partner) { document.getElementById('del-msg').textContent = `Obrisati račun od "${partner}"? Zapis će biti uklonjen iz baze (datoteka na disku ostaje).`; document.getElementById('del-ok').onclick = async () => { const res = await fetch(`/api/invoices/${id}`, { method: 'DELETE' }); const d = await res.json(); if (d.success) { _saveFilterState(); location.reload(); } else alert(d.error || 'Greška'); document.getElementById('del-modal').classList.remove('open'); }; document.getElementById('del-modal').classList.add('open'); }
 </script>
 

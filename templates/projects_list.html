@@ -1,0 +1,699 @@
+{% extends "base.html" %}
+{% set active = 'projects' %}
+{% block topbar_title %}Projekti{% endblock %}
+{% block topbar_actions %}
+{% if can_manage %}
+<button class="btn btn-secondary" onclick="openTimeModal()" title="Unesi sate za danas">⏱️ Unesi sate</button>
+<button class="btn btn-primary" onclick="openProjectModal()" title="Novi projekt">➕ Novi projekt</button>
+{% else %}
+<button class="btn btn-primary" onclick="openTimeModal()" title="Unesi sate za danas">⏱️ Unesi sate</button>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<!-- Summary kartice -->
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+  <div style="background:linear-gradient(135deg,#1a3a5c,#2d5986);border-radius:10px;padding:16px 20px;">
+    <div style="font-size:11px;color:rgba(255,255,255,0.65);text-transform:uppercase;letter-spacing:.05em;">Aktivni projekti</div>
+    <div style="font-size:36px;font-weight:700;color:white;margin-top:4px;">{{ projects|selectattr('status','equalto','active')|list|length }}</div>
+  </div>
+  <div style="background:linear-gradient(135deg,#1e8449,#27ae60);border-radius:10px;padding:16px 20px;">
+    <div style="font-size:11px;color:rgba(255,255,255,0.65);text-transform:uppercase;letter-spacing:.05em;">Sati ovaj mjesec</div>
+    <div style="font-size:36px;font-weight:700;color:white;margin-top:4px;">{{ '%.1f'|format(projects|sum(attribute='mtd_hours')) }}</div>
+  </div>
+  <div style="background:linear-gradient(135deg,#7d3c98,#8e44ad);border-radius:10px;padding:16px 20px;">
+    <div style="font-size:11px;color:rgba(255,255,255,0.65);text-transform:uppercase;letter-spacing:.05em;">Nedostaje ovaj mjesec</div>
+    <div style="font-size:36px;font-weight:700;color:white;margin-top:4px;" id="summary-missing">—</div>
+  </div>
+</div>
+
+<!-- Filter (samo za managere) -->
+{% if can_manage %}
+<div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;">
+  <input type="text" id="proj-search" class="form-control" placeholder="Pretraži projekte..." style="width:240px;" oninput="filterProjects()">
+  <select id="proj-status-filter" class="form-control" style="width:140px;" onchange="filterProjects()">
+    <option value="active">Aktivni</option>
+    <option value="">Svi</option>
+    <option value="closed">Zatvoreni</option>
+  </select>
+  <select id="proj-sort" class="form-control" style="width:160px;" onchange="sortProjects()">
+    <option value="num">Sortiraj: po broju</option>
+    <option value="name">Sortiraj: po nazivu</option>
+  </select>
+</div>
+{% endif %}
+
+<!-- Lista projekata -->
+<div id="projects-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;">
+  {% for p in projects %}
+  <div class="project-card" data-status="{{ p.status }}" data-name="{{ p.name|lower }}" data-auto-id="{{ p.auto_id }}"
+       style="background:white;border-radius:10px;border:1px solid var(--gray-200);border-top:4px solid {{ p.color or '#2d5986' }};padding:16px 18px;box-shadow:0 1px 4px rgba(0,0,0,0.06);{% if p.status=='closed' %}opacity:0.65;{% endif %}">
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--gray-400);margin-bottom:2px;">PRJ-{{ p.auto_id }}</div>
+        <div style="font-size:15px;font-weight:700;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ p.name }}</div>
+        {% if p.client_name %}<div style="font-size:12px;color:var(--gray-500);margin-top:2px;">{{ p.client_name }}</div>{% endif %}
+      </div>
+      {% if can_manage %}
+      <div style="display:flex;gap:4px;margin-left:8px;flex-shrink:0;">
+        {% if p.status == 'active' %}
+        <button style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;background:#e8f8f0;color:#27ae60;border:1px solid #a8d5b5;border-radius:6px;cursor:pointer;font-size:15px;" onclick="openTimeModal({{ p.id }})" title="Unesi sate za ovaj projekt">⏱️</button>
+        {% endif %}
+        <button style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;background:white;border:1px solid var(--gray-200);border-radius:6px;cursor:pointer;font-size:15px;" onclick="openProjectModalById({{ p.id }})" title="Uredi projekt">✏️</button>
+        <button style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;border-radius:6px;cursor:pointer;font-size:15px;" onclick="deleteProject({{ p.id }}, '{{ p.name }}')" title="Obriši projekt">🗑</button>
+      </div>
+      {% else %}
+      <div style="margin-left:8px;flex-shrink:0;">
+        {% if p.status == 'active' %}
+        <button style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;background:#e8f8f0;color:#27ae60;border:1px solid #a8d5b5;border-radius:6px;cursor:pointer;font-size:15px;" onclick="openTimeModal({{ p.id }})" title="Unesi sate">⏱️</button>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Sati stats -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+      <div style="background:var(--gray-50);border-radius:6px;padding:8px 10px;">
+        <div style="font-size:10px;color:var(--gray-400);text-transform:uppercase;letter-spacing:.04em;">Ovaj mjesec</div>
+        <div style="font-size:18px;font-weight:700;color:var(--navy);">{{ '%.1f'|format(p.mtd_hours) }}h</div>
+      </div>
+      <div style="background:var(--gray-50);border-radius:6px;padding:8px 10px;">
+        <div style="font-size:10px;color:var(--gray-400);text-transform:uppercase;letter-spacing:.04em;">Ukupno</div>
+        <div style="font-size:18px;font-weight:700;color:var(--navy);">{{ '%.1f'|format(p.total_hours) }}h</div>
+      </div>
+    </div>
+
+    <!-- Podprojekti -->
+    <div style="margin-bottom:8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <span style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:.04em;">Podprojekti / Ustanove</span>
+        {% if can_manage and p.status == 'active' %}
+        <button style="font-size:10px;color:var(--accent);background:none;border:none;cursor:pointer;padding:0;font-weight:600;" onclick="openSubprojectModal({{ p.id }}, '{{ p.name }}')">+ Dodaj</button>
+        {% endif %}
+      </div>
+      <div id="subprojects-{{ p.id }}" style="display:flex;flex-direction:column;gap:3px;">
+        <div style="font-size:11px;color:var(--gray-300);font-style:italic;">Učitavam...</div>
+      </div>
+    </div>
+
+    {% if can_manage %}
+    <!-- Dodijeljeni zaposlenici -->
+    <div style="margin-bottom:8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <span style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:.04em;">Zaposlenici</span>
+        <button style="font-size:10px;color:var(--accent);background:none;border:none;cursor:pointer;padding:0;font-weight:600;" onclick="openAssignModal({{ p.id }}, '{{ p.name }}')">✎ Uredi</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;">
+        {% set assigned = project_employees_map.get(p.id, []) %}
+        {% if assigned %}
+          {% for emp in assigned %}
+          <span style="background:{{ p.color or '#2d5986' }}22;color:{{ p.color or '#2d5986' }};border:1px solid {{ p.color or '#2d5986' }}44;border-radius:20px;padding:2px 8px;font-size:11px;font-weight:600;">{{ emp.name }}</span>
+          {% endfor %}
+        {% else %}
+          <span style="font-size:11px;color:var(--gray-300);font-style:italic;">Nema dodijeljenih zaposlenika</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Footer -->
+    <div style="font-size:11px;color:var(--gray-400);display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--gray-100);padding-top:8px;margin-top:4px;">
+      <span>{% if p.last_entry_date %}Zadnji unos: {{ p.last_entry_date }}{% else %}Još nema unosa{% endif %}</span>
+      {% if p.status == 'active' %}
+      <span style="background:#e8f8f0;color:#27ae60;border-radius:20px;padding:1px 8px;font-size:10px;font-weight:600;">Aktivan</span>
+      {% else %}
+      <span style="background:var(--gray-100);color:var(--gray-500);border-radius:20px;padding:1px 8px;font-size:10px;font-weight:600;">Zatvoren</span>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--gray-400);">
+    <div style="font-size:48px;margin-bottom:12px;">📁</div>
+    <div style="font-size:15px;font-weight:600;">Nema projekata</div>
+    <div style="font-size:13px;margin-top:4px;">
+      {% if can_manage %}Dodajte prvi projekt klikom na "Novi projekt"{% else %}Niste dodijeljeni ni jednom projektu{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ── MODAL: Unos sati ─────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="time-modal">
+  <div class="modal" style="width:540px;max-width:95vw;">
+    <div class="modal-header">
+      <span class="modal-title">⏱️ Unesi sate po projektima</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeTimeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row form-row-2" style="margin-bottom:16px;">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Datum *</label>
+          <input type="date" class="form-control" id="time-date">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Zaposlenik</label>
+          {% if can_manage %}
+          <select class="form-control" id="time-employee">
+            <option value="">— odaberi —</option>
+            {% for e in employees %}
+            <option value="{{ e.id }}">{{ e.name }}</option>
+            {% endfor %}
+          </select>
+          {% else %}
+          <!-- Obični korisnik vidi samo sebe -->
+          <input type="text" class="form-control" id="time-employee-display" value="{{ current_user.get('display_name') or current_user.get('username') }}" readonly style="background:var(--gray-50);">
+          <input type="hidden" id="time-employee" value="">
+          {% endif %}
+        </div>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Projekti i podprojekti</div>
+      <div id="time-projects-list" style="display:flex;flex-direction:column;gap:4px;max-height:360px;overflow-y:auto;">
+        <div style="text-align:center;padding:20px;color:var(--gray-400);font-size:13px;">Učitavam...</div>
+      </div>
+      <div style="margin-top:12px;padding:10px 14px;background:var(--gray-50);border-radius:8px;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:13px;color:var(--gray-600);">Ukupno uneseno:</span>
+        <span id="time-total" style="font-size:18px;font-weight:700;color:var(--gray-400);">0.0h</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeTimeModal()">Odustani</button>
+      <button class="btn btn-primary" onclick="saveTimeEntries()">💾 Spremi sate</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Projekt ───────────────────────────────────────────────────── -->
+{% if can_manage %}
+<div class="modal-overlay" id="project-modal">
+  <div class="modal" style="width:480px;max-width:95vw;">
+    <div class="modal-header">
+      <span class="modal-title" id="project-modal-title">Novi projekt</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeProjectModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="project-id">
+      <div class="form-group" style="margin-bottom:12px;">
+        <label class="form-label">Naziv projekta *</label>
+        <input type="text" class="form-control" id="project-name" placeholder="npr. Arsano Medical Group">
+      </div>
+      <div class="form-row form-row-2" style="margin-bottom:12px;">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Klijent</label>
+          <select class="form-control" id="project-client">
+            <option value="">— bez klijenta —</option>
+            {% for c in clients %}
+            <option value="{{ c.id }}">{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Status</label>
+          <select class="form-control" id="project-status">
+            <option value="active">Aktivan</option>
+            <option value="closed">Zatvoren</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label class="form-label">Boja</label>
+        <!-- 8 dobro razlučivih boja: plava, zelena, narančasta, ljubičasta, crvena, žuta, ružičasta, smeđa -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;" id="color-picker">
+          {% for color in ['#2d5986','#27ae60','#e67e22','#8e44ad','#c0392b','#f1c40f','#e91e8c','#795548'] %}
+          <div onclick="selectColor('{{ color }}')"
+               style="width:32px;height:32px;border-radius:8px;background:{{ color }};cursor:pointer;border:3px solid transparent;transition:all .15s;"
+               data-color="{{ color }}" class="color-dot"></div>
+          {% endfor %}
+        </div>
+        <input type="hidden" id="project-color" value="#2d5986">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Napomena</label>
+        <textarea class="form-control" id="project-notes" rows="2" placeholder="Opcionalno..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeProjectModal()">Odustani</button>
+      <button class="btn btn-primary" onclick="saveProject()">💾 Spremi</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Dodjela zaposlenika ──────────────────────────────────────── -->
+<div class="modal-overlay" id="assign-modal">
+  <div class="modal" style="width:420px;max-width:95vw;">
+    <div class="modal-header">
+      <span class="modal-title">👥 Dodjela zaposlenika</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeAssignModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--gray-500);margin-bottom:12px;" id="assign-project-label"></div>
+      <input type="hidden" id="assign-project-id">
+      <div id="assign-employees-list" style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto;">
+        {% for e in employees %}
+        <label style="display:flex;align-items:center;padding:8px 12px;border:1px solid var(--gray-200);border-radius:8px;cursor:pointer;">
+          <span style="flex:1;font-size:13px;color:var(--navy);">{{ e.name }}</span>
+          <div style="width:40px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <input type="checkbox" class="assign-emp-cb" value="{{ e.id }}" style="width:18px;height:18px;cursor:pointer;">
+          </div>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAssignModal()">Odustani</button>
+      <button class="btn btn-primary" onclick="saveAssignment()">💾 Spremi dodjelu</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Podprojekt ────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="subproject-modal">
+  <div class="modal" style="width:420px;max-width:95vw;">
+    <div class="modal-header">
+      <span class="modal-title" id="subproject-modal-title">Novi podprojekt</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeSubprojectModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="subproject-id">
+      <input type="hidden" id="subproject-project-id">
+      <div style="font-size:12px;color:var(--gray-500);margin-bottom:12px;" id="subproject-parent-label"></div>
+      <div class="form-group">
+        <label class="form-label">Naziv podprojekta / ustanove *</label>
+        <input type="text" class="form-control" id="subproject-name" placeholder="npr. KBC Osijek">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeSubprojectModal()">Odustani</button>
+      <button class="btn btn-primary" onclick="saveSubproject()">💾 Spremi</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm brisanje -->
+<div class="modal-overlay" id="del-proj-modal">
+  <div class="modal" style="width:400px;">
+    <div class="modal-header"><span class="modal-title">Brisanje projekta</span><button class="btn btn-ghost btn-icon" onclick="document.getElementById('del-proj-modal').classList.remove('open')">✕</button></div>
+    <div class="modal-body"><p id="del-proj-msg" style="font-size:14px;color:var(--gray-600);"></p></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('del-proj-modal').classList.remove('open')">Odustani</button>
+      <button class="btn btn-danger" id="del-proj-ok">Da, obriši</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}<script>
+const _allProjects = {{ projects|tojson }};
+const _canManage = {{ 'true' if can_manage else 'false' }};
+const _allEmployees = {{ employees|tojson }};
+let _activeProjects = _allProjects.filter(p => p.status === 'active');
+let _subprojectsMap = {};
+let _preselectedProjectId = null;
+
+// Postavi employee ID za ne-managere (jedini zaposlenik = sam korisnik)
+{% if not can_manage %}
+// Pronađi employee_id za prijavljenog korisnika
+(async () => {
+  // Backend API vraća employee_id za current user
+  const res = await fetch('/api/projects/my-employee-id');
+  const d = await res.json();
+  if (d.employee_id) {
+    document.getElementById('time-employee').value = d.employee_id;
+  }
+})();
+{% endif %}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  if (_canManage) { filterProjects(); sortProjects(); }
+  await loadAllSubprojects();
+  loadMissingHours();
+});
+
+// ── Nedostaje ovaj mjesec ─────────────────────────────────────────────────────
+async function loadMissingHours() {
+  const empId = document.getElementById('time-employee').value;
+  if (!empId) return;
+  try {
+    const res = await fetch(`/api/projects/missing-hours?employee_id=${empId}`);
+    // Ignorira project_id — gleda sve projekte
+    // Koristimo dummy project_id=0 jer ruta ne treba project_id ovdje
+    const d = await res.json();
+    if (d.missing !== undefined) {
+      document.getElementById('summary-missing').textContent = d.missing.toFixed(1) + 'h';
+    }
+  } catch(e) {}
+}
+
+// ── Učitaj podprojekte ────────────────────────────────────────────────────────
+async function loadAllSubprojects() {
+  for (const p of _allProjects) {
+    await loadSubprojectsForProject(p.id);
+  }
+  if (document.getElementById('time-modal').classList.contains('open')) renderTimeProjects();
+}
+
+async function loadSubprojectsForProject(projectId) {
+  try {
+    const res = await fetch(`/api/projects/${projectId}/subprojects`);
+    const subs = await res.json();
+    _subprojectsMap[projectId] = subs;
+    renderSubprojectsList(projectId, subs);
+  } catch(e) { _subprojectsMap[projectId] = []; }
+}
+
+function renderSubprojectsList(projectId, subs) {
+  const container = document.getElementById(`subprojects-${projectId}`);
+  if (!container) return;
+  if (!subs || !subs.length) {
+    container.innerHTML = '<div style="font-size:11px;color:var(--gray-300);font-style:italic;">Nema podprojekata</div>';
+    return;
+  }
+  const proj = _allProjects.find(p => p.id === projectId);
+  const color = proj ? (proj.color || '#2d5986') : '#2d5986';
+
+  container.innerHTML = subs.map((s, idx) => `
+    <div class="subproject-row" data-sub-id="${s.id}" data-project-id="${projectId}"
+         draggable="${_canManage ? 'true' : 'false'}"
+         style="display:flex;align-items:center;padding:4px 8px;background:var(--gray-50);border-radius:5px;border-left:3px solid ${color};gap:6px;cursor:${_canManage ? 'grab' : 'default'};">
+      ${_canManage ? `<span style="color:var(--gray-300);font-size:12px;flex-shrink:0;" title="Povuci za promjenu redoslijeda">⠿</span>` : ''}
+      <span style="font-size:12px;color:var(--gray-700);flex:1;">📍 ${s.name}</span>
+      <span style="font-size:11px;color:var(--gray-400);">${s.total_hours ? s.total_hours.toFixed(1)+'h' : '0h'}</span>
+      ${_canManage ? `
+      <button style="width:18px;height:18px;padding:0;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;font-size:11px;" onclick="openSubprojectModal(${projectId}, '', ${s.id}, '${s.name.replace(/'/g, "\\'")}')">✏️</button>
+      <button style="width:18px;height:18px;padding:0;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;color:#c0392b;font-size:12px;font-weight:700;" onclick="deleteSubproject(${s.id}, '${s.name.replace(/'/g, "\\'")}')">✕</button>
+      ` : ''}
+    </div>
+  `).join('');
+
+  if (_canManage) initDragDrop(container, projectId);
+}
+
+function initDragDrop(container, projectId) {
+  let dragEl = null;
+
+  container.addEventListener('dragstart', e => {
+    dragEl = e.target.closest('.subproject-row');
+    if (!dragEl) return;
+    dragEl.style.opacity = '0.4';
+    e.dataTransfer.effectAllowed = 'move';
+  });
+
+  container.addEventListener('dragend', e => {
+    if (dragEl) dragEl.style.opacity = '';
+    dragEl = null;
+    // Spremi novi redoslijed
+    const ids = Array.from(container.querySelectorAll('.subproject-row')).map(r => parseInt(r.dataset.subId));
+    saveSubprojectOrder(projectId, ids);
+  });
+
+  container.addEventListener('dragover', e => {
+    e.preventDefault();
+    const over = e.target.closest('.subproject-row');
+    if (!over || over === dragEl) return;
+    const rect = over.getBoundingClientRect();
+    const after = e.clientY > rect.top + rect.height / 2;
+    container.insertBefore(dragEl, after ? over.nextSibling : over);
+  });
+}
+
+async function saveSubprojectOrder(projectId, orderedIds) {
+  try {
+    await fetch(`/api/projects/${projectId}/subprojects/reorder`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ ids: orderedIds })
+    });
+  } catch(e) {}
+}
+
+// ── Filter ────────────────────────────────────────────────────────────────────
+function filterProjects() {
+  const q = (document.getElementById('proj-search')?.value || '').toLowerCase();
+  const st = document.getElementById('proj-status-filter')?.value || 'active';
+  document.querySelectorAll('.project-card').forEach(card => {
+    const nameMatch = !q || card.dataset.name.includes(q);
+    const stMatch = !st || card.dataset.status === st;
+    card.style.display = (nameMatch && stMatch) ? '' : 'none';
+  });
+}
+
+function sortProjects() {
+  const by = document.getElementById('proj-sort')?.value || 'num';
+  const grid = document.getElementById('projects-grid');
+  const cards = Array.from(grid.querySelectorAll('.project-card'));
+  cards.sort((a, b) => {
+    if (by === 'num') {
+      const na = parseInt((a.dataset.autoId || '0-0').split('-')[1] || 0);
+      const nb = parseInt((b.dataset.autoId || '0-0').split('-')[1] || 0);
+      return na - nb;
+    }
+    return a.dataset.name.localeCompare(b.dataset.name, 'hr');
+  });
+  cards.forEach(c => grid.appendChild(c));
+}
+
+// ── Helper: otvori modal za uređivanje projekta po ID-u ──────────────────────
+function openProjectModalById(id) {
+  const p = _allProjects.find(x => x.id === id);
+  if (p) openProjectModal(p.id, p);
+}
+
+// ── Projekt CRUD ──────────────────────────────────────────────────────────────
+function openProjectModal(id='', data={}) {
+  document.getElementById('project-id').value = id || '';
+  document.getElementById('project-name').value = data.name || '';
+  document.getElementById('project-client').value = data.client_id || '';
+  document.getElementById('project-status').value = data.status || 'active';
+  document.getElementById('project-notes').value = data.notes || '';
+  document.getElementById('project-modal-title').textContent = id ? 'Uredi projekt' : 'Novi projekt';
+  selectColor(data.color || '#2d5986');
+  document.getElementById('project-modal').classList.add('open');
+  setTimeout(() => document.getElementById('project-name').focus(), 100);
+}
+function closeProjectModal() { document.getElementById('project-modal').classList.remove('open'); }
+
+function selectColor(color) {
+  document.getElementById('project-color').value = color;
+  document.querySelectorAll('.color-dot').forEach(d => {
+    d.style.borderColor = 'transparent';
+    d.style.outline = 'none';
+    if (d.dataset.color === color) {
+      d.style.borderColor = '#fff';
+      d.style.outline = `3px solid ${color}`;
+      d.style.outlineOffset = '2px';
+    }
+  });
+}
+
+async function saveProject() {
+  const name = document.getElementById('project-name').value.trim();
+  if (!name) { toast('Naziv projekta je obavezan!', 'error'); return; }
+  const payload = {
+    id: document.getElementById('project-id').value || null,
+    name,
+    client_id: document.getElementById('project-client').value || null,
+    status: document.getElementById('project-status').value,
+    color: document.getElementById('project-color').value,
+    notes: document.getElementById('project-notes').value,
+  };
+  const res = await fetch('/api/projects', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+  const d = await res.json();
+  if (d.success) { toast('Projekt spremljen!', 'success'); setTimeout(() => location.reload(), 700); }
+  else toast(d.error || 'Greška!', 'error');
+}
+
+let _delProjCb = null;
+function deleteProject(id, name) {
+  document.getElementById('del-proj-msg').textContent = `Obrisati projekt "${name}" i sve unesene sate? Ova radnja se ne može poništiti.`;
+  _delProjCb = async () => {
+    const r = await fetch(`/api/projects/${id}`, {method:'DELETE'});
+    if (r.ok) { toast('Projekt obrisan!', 'success'); setTimeout(() => location.reload(), 700); }
+  };
+  document.getElementById('del-proj-ok').onclick = () => { if(_delProjCb) _delProjCb(); document.getElementById('del-proj-modal').classList.remove('open'); };
+  document.getElementById('del-proj-modal').classList.add('open');
+}
+
+// ── Dodjela zaposlenika ───────────────────────────────────────────────────────
+async function openAssignModal(projectId, projectName) {
+  document.getElementById('assign-project-id').value = projectId;
+  document.getElementById('assign-project-label').textContent = `Projekt: ${projectName}`;
+  // Dohvati trenutno dodijeljene
+  const res = await fetch(`/api/projects/${projectId}/employees`);
+  const assigned = await res.json();
+  const assignedIds = new Set(assigned.map(e => String(e.id)));
+  document.querySelectorAll('.assign-emp-cb').forEach(cb => {
+    cb.checked = assignedIds.has(cb.value);
+  });
+  document.getElementById('assign-modal').classList.add('open');
+}
+function closeAssignModal() { document.getElementById('assign-modal').classList.remove('open'); }
+
+async function saveAssignment() {
+  const projectId = document.getElementById('assign-project-id').value;
+  const ids = Array.from(document.querySelectorAll('.assign-emp-cb:checked')).map(cb => parseInt(cb.value));
+  const res = await fetch(`/api/projects/${projectId}/employees`, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({employee_ids: ids})
+  });
+  const d = await res.json();
+  if (d.success) { toast('Dodjela spremljena!', 'success'); closeAssignModal(); setTimeout(() => location.reload(), 600); }
+  else toast(d.error || 'Greška!', 'error');
+}
+
+// ── Podprojekti ───────────────────────────────────────────────────────────────
+function openSubprojectModal(projectId, projectName='', subId='', subName='') {
+  document.getElementById('subproject-project-id').value = projectId;
+  document.getElementById('subproject-id').value = subId || '';
+  document.getElementById('subproject-name').value = subName || '';
+  const proj = _allProjects.find(p => p.id === projectId);
+  document.getElementById('subproject-parent-label').textContent = `Projekt: ${proj ? proj.name : projectName}`;
+  document.getElementById('subproject-modal-title').textContent = subId ? 'Uredi podprojekt' : 'Novi podprojekt';
+  document.getElementById('subproject-modal').classList.add('open');
+  setTimeout(() => document.getElementById('subproject-name').focus(), 100);
+}
+function closeSubprojectModal() { document.getElementById('subproject-modal').classList.remove('open'); }
+
+async function saveSubproject() {
+  const name = document.getElementById('subproject-name').value.trim();
+  if (!name) { toast('Naziv je obavezan!', 'error'); return; }
+  const projectId = document.getElementById('subproject-project-id').value;
+  const subId = document.getElementById('subproject-id').value;
+  const payload = { name, project_id: parseInt(projectId), id: subId ? parseInt(subId) : null };
+  const res = await fetch('/api/subprojects', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+  const d = await res.json();
+  if (d.success) {
+    toast('Podprojekt spremljen!', 'success');
+    closeSubprojectModal();
+    await loadSubprojectsForProject(parseInt(projectId));
+    if (document.getElementById('time-modal').classList.contains('open')) renderTimeProjects();
+  } else toast(d.error || 'Greška!', 'error');
+}
+
+async function deleteSubproject(subId, name) {
+  if (!confirm(`Obrisati podprojekt "${name}" i sve unesene sate?`)) return;
+  const res = await fetch(`/api/subprojects/${subId}`, {method:'DELETE'});
+  const d = await res.json();
+  if (d.success) { toast('Podprojekt obrisan!', 'success'); await loadAllSubprojects(); }
+  else toast(d.error || 'Greška!', 'error');
+}
+
+// ── Unos sati modal ───────────────────────────────────────────────────────────
+async function openTimeModal(preselectedProjectId = null) {
+  _preselectedProjectId = preselectedProjectId;
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('time-date').value = today;
+  // Za managere — postavi defaultnog zaposlenika
+  const empSel = document.getElementById('time-employee');
+  if (_canManage && !empSel.value && empSel.options.length > 1) empSel.value = empSel.options[1].value;
+  document.getElementById('time-modal').classList.add('open');
+  renderTimeProjects();
+  await loadExistingEntries();
+}
+function closeTimeModal() { document.getElementById('time-modal').classList.remove('open'); }
+
+function renderTimeProjects() {
+  const container = document.getElementById('time-projects-list');
+  let html = '';
+  let hasAny = false;
+  for (const p of _activeProjects) {
+    const subs = _subprojectsMap[p.id] || [];
+    const color = p.color || '#2d5986';
+    if (subs.length === 0) {
+      hasAny = true;
+      html += `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--gray-200);border-radius:8px;border-left:4px solid ${color};">
+          <div style="flex:1;min-width:0;font-size:13px;font-weight:600;color:var(--navy);">${p.name}</div>
+          <input type="number" id="hours-p-${p.id}" min="0" max="24" step="0.5" placeholder="0"
+                 style="width:70px;text-align:center;font-size:14px;font-weight:600;border:1px solid var(--gray-200);border-radius:6px;padding:4px 6px;"
+                 oninput="updateTotal()">
+          <span style="font-size:12px;color:var(--gray-400);flex-shrink:0;">h</span>
+        </div>`;
+    } else {
+      hasAny = true;
+      html += `<div style="margin-top:4px;">
+        <div style="font-size:11px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:.04em;padding:0 2px;margin-bottom:3px;">📁 ${p.name}</div>`;
+      for (const s of subs) {
+        html += `
+        <div style="display:flex;align-items:center;gap:10px;padding:6px 10px;border:1px solid var(--gray-100);border-radius:6px;border-left:3px solid ${color};margin-bottom:3px;background:var(--gray-50);">
+          <div style="flex:1;min-width:0;font-size:12px;color:var(--navy);">📍 ${s.name}</div>
+          <input type="number" id="hours-s-${s.id}" min="0" max="24" step="0.5" placeholder="0"
+                 style="width:70px;text-align:center;font-size:13px;font-weight:600;border:1px solid var(--gray-200);border-radius:6px;padding:4px 6px;background:white;"
+                 oninput="updateTotal()">
+          <span style="font-size:12px;color:var(--gray-400);flex-shrink:0;">h</span>
+        </div>`;
+      }
+      html += `</div>`;
+    }
+  }
+  if (!hasAny) {
+    container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--gray-400);">Nema aktivnih projekata.</div>';
+    return;
+  }
+  container.innerHTML = html;
+  updateTotal();
+}
+
+async function loadExistingEntries() {
+  const employeeId = document.getElementById('time-employee').value;
+  const date = document.getElementById('time-date').value;
+  if (!employeeId || !date) return;
+  try {
+    const res = await fetch(`/api/projects/time?employee_id=${employeeId}&date=${date}`);
+    const entries = await res.json();
+    entries.forEach(e => {
+      const subInp = document.getElementById(`hours-s-${e.subproject_id}`);
+      const projInp = document.getElementById(`hours-p-${e.project_id}`);
+      if (subInp) subInp.value = e.hours;
+      else if (projInp) projInp.value = e.hours;
+    });
+    updateTotal();
+  } catch(e) {}
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('time-date')?.addEventListener('change', loadExistingEntries);
+  document.getElementById('time-employee')?.addEventListener('change', loadExistingEntries);
+});
+
+function updateTotal() {
+  let total = 0;
+  document.querySelectorAll('#time-projects-list input[type=number]').forEach(inp => {
+    const v = parseFloat(inp.value || 0);
+    if (!isNaN(v)) total += v;
+  });
+  const el = document.getElementById('time-total');
+  el.textContent = total.toFixed(1) + 'h';
+  el.style.color = total > 0 ? 'var(--navy)' : 'var(--gray-400)';
+}
+
+async function saveTimeEntries() {
+  const employeeId = document.getElementById('time-employee').value;
+  const date = document.getElementById('time-date').value;
+  if (!employeeId) { toast('Zaposlenik nije identificiran!', 'error'); return; }
+  if (!date) { toast('Odaberi datum!', 'error'); return; }
+  const entries = [];
+  for (const p of _activeProjects) {
+    const subs = _subprojectsMap[p.id] || [];
+    if (subs.length === 0) {
+      const hours = parseFloat(document.getElementById(`hours-p-${p.id}`)?.value || 0);
+      if (hours > 0) entries.push({ project_id: p.id, subproject_id: null, hours });
+    } else {
+      for (const s of subs) {
+        const hours = parseFloat(document.getElementById(`hours-s-${s.id}`)?.value || 0);
+        if (hours > 0) entries.push({ project_id: p.id, subproject_id: s.id, hours });
+      }
+    }
+  }
+  if (!entries.length) { toast('Unesi sate za barem jedan projekt!', 'error'); return; }
+  const res = await fetch('/api/projects/time', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ employee_id: parseInt(employeeId), date, entries })
+  });
+  const d = await res.json();
+  if (d.success) { toast(`Uneseno ${d.total_hours.toFixed(1)}h za ${date}!`, 'success'); closeTimeModal(); setTimeout(() => location.reload(), 800); }
+  else toast(d.error || 'Greška!', 'error');
+}
+</script>{% endblock %}

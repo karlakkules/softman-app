@@ -1385,6 +1385,7 @@ const PERM_LABELS = {
   can_view_invoices: 'Ulazni računi — pregled', can_edit_invoices: 'Ulazni računi — unos/uređivanje',
   can_liquidate_invoices: 'Ulazni računi — likvidacija', can_edit_invoices_liquidated: 'Ulazni računi — uređivanje nakon likvidacije',
   can_view_loans: 'Pozajmice — pregled', can_edit_loans: 'Pozajmice — kreiranje/uređivanje', can_lock_loans: 'Pozajmice — zaključavanje plana otplate',
+  can_manage_projects: 'Projekti — upravljanje i dodjela zaposlenika',
   can_approve_leave: 'Godišnji odmori — odobravanje',
 };
 
@@ -1403,6 +1404,7 @@ async function loadProfiles() {
     if (p.can_view_worktime || p.can_edit_worktime || p.can_confirm_worktime) mods.push('Radno vrijeme');
     if (p.can_view_invoices || p.can_edit_invoices) mods.push('Ulazni računi');
     if (p.can_view_loans || p.can_edit_loans) mods.push('Pozajmice');
+    if (p.can_manage_projects) mods.push('Projekti');
     const badges = mods.map(m => `<span style="background:var(--accent-light);color:var(--accent);padding:2px 8px;border-radius:20px;font-size:11px;margin-right:4px;">${m}</span>`).join('');
     return `<tr>
       <td><strong>${p.name}</strong></td>
@@ -1445,6 +1447,7 @@ const PERM_GROUPS = [
   { label: 'Radno vrijeme', perms: ['can_view_worktime','can_edit_worktime','can_confirm_worktime','can_reopen_worktime','can_copy_worktime'] },
   { label: 'Ulazni računi', perms: ['can_view_invoices','can_edit_invoices','can_liquidate_invoices','can_edit_invoices_liquidated'] },
   { label: 'Pozajmice', perms: ['can_view_loans','can_edit_loans','can_lock_loans'] },
+  { label: 'Projekti', perms: ['can_manage_projects'] },
   { label: 'Godišnji odmori', perms: ['can_approve_leave'] },
 ];
 const PERM_SHORT = {
@@ -1455,6 +1458,7 @@ const PERM_SHORT = {
   can_view_worktime: 'Pregled', can_edit_worktime: 'Izrada/predaja', can_confirm_worktime: 'Potvrđivanje', can_reopen_worktime: 'Vraćanje statusa', can_copy_worktime: 'Kopiranje',
   can_view_invoices: 'Pregled', can_edit_invoices: 'Unos/uređivanje', can_liquidate_invoices: 'Likvidacija', can_edit_invoices_liquidated: 'Uredi likvidirano',
   can_view_loans: 'Pregled', can_edit_loans: 'Kreiranje/uređivanje', can_lock_loans: 'Zaključavanje',
+  can_manage_projects: 'Upravljanje i dodjela',
   can_approve_leave: 'Odobravanje godišnjih',
 };
 function renderPermsGrid(p) {
