@@ -48,3 +48,5 @@ static/company_logo.*
 static/.DS_Store
 static/uploads/
 .backups/
+patch_*.py
+fix_*.py
