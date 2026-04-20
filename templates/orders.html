@@ -82,7 +82,7 @@
             <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" title="Odaberi sve">
           </th>
           <th class="sortable" style="width:140px;min-width:140px;white-space:nowrap;" data-col="1" onclick="sortTable(1)">Br. Naloga <span class="sort-icon">↕</span></th>
-          <th class="sortable" style="width:110px;" data-col="2" onclick="sortTable(2)">Datum <span class="sort-icon">↕</span></th>
+          <th class="sortable" style="width:110px;" data-col="2" onclick="sortTable(2)">Polazak <span class="sort-icon">↕</span></th>
           <th class="sortable" data-col="3" onclick="sortTable(3)">Zaposlenik <span class="sort-icon">↕</span></th>
           <th class="sortable" style="width:110px;" data-col="4" onclick="sortTable(4)">Destinacija <span class="sort-icon">↕</span></th>
           <th>Svrha</th>
@@ -117,7 +117,7 @@
           <td data-col="1" data-val="{{ o.auto_id or '' }}">
             <span style="font-family:'DM Mono',monospace;font-weight:600;color:var(--navy);">PN {{ o.auto_id }}</span>
           </td>
-          <td data-col="2" data-val="{{ o.issue_date or '' }}">{{ o.issue_date|fmt_date or '—' }}</td>
+          <td data-col="2" data-val="{{ o.departure_date or o.issue_date or '' }}">{{ (o.departure_date or o.issue_date)|fmt_date or '—' }}{% if o.trip_duration_days %} <span style="font-size:11px;color:var(--gray-400);">({{ o.trip_duration_days }})</span>{% endif %}</td>
           <td data-col="3" data-val="{{ o.employee_name or '' }}">{{ o.employee_name or '—' }}</td>
           <td data-col="4" data-val="{{ o.destination or '' }}">{{ o.destination or '—' }}</td>
           <td data-col="5" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ o.purpose or '—' }}</td>
