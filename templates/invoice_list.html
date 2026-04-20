@@ -275,7 +275,7 @@
             <label class="form-label">OIB partnera</label>
             <input type="text" class="form-control" id="inv-oib" placeholder="12345678901" maxlength="11">
             <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--gray-500);cursor:pointer;">
-              <input type="checkbox" id="inv-non-eu" onchange="toggleNonEuOib()"> Ne-EU subjekt (OIB nije obavezan)
+              <input type="checkbox" id="inv-non-eu" onchange="toggleNonEuOib()" style="display:inline-block;margin:0;width:auto;flex-shrink:0;"> Ne-EU subjekt (OIB nije obavezan)
             </label>
           </div>
           <div class="form-group" style="margin-bottom:10px;">
@@ -513,13 +513,13 @@ function deleteInv(id, partner) { document.getElementById('del-msg').textContent
 
 <!-- Add/edit supplier -->
 <!-- Supplier quick-add panel — pozicioniran unutar lijeve kolone, ne prekriva PDF -->
-<div id="inv-supplier-edit-modal" style="display:none;position:fixed;z-index:1200;top:0;left:0;right:0;bottom:0;pointer-events:none;justify-content:flex-start;align-items:center;padding-left:30px;">
+<div id="inv-supplier-edit-modal" style="display:none;position:fixed;z-index:1200;top:0;left:0;right:0;bottom:0;pointer-events:none;justify-content:center;align-items:center;">
   <div id="inv-supplier-edit-panel" style="pointer-events:all;width:360px;background:white;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.22);border:1px solid var(--gray-200);overflow:hidden;">
     <div class="modal-header" style="padding:12px 16px;"><span class="modal-title" id="inv-supplier-edit-title">Novi dobavljač</span><button class="btn btn-ghost btn-icon" onclick="closeInvoiceSupplierEdit()">✕</button></div>
     <div class="modal-body" style="padding:14px 16px;">
       <input type="hidden" id="inv-supplier-edit-id">
       <div class="form-row form-row-2" style="margin-bottom:12px;"><div class="form-group"><label class="form-label">Naziv *</label><input type="text" class="form-control" id="inv-supplier-edit-name" placeholder="Naziv tvrtke..."></div><div class="form-group"><label class="form-label">OIB</label><input type="text" class="form-control" id="inv-supplier-edit-oib" placeholder="12345678901" maxlength="11"></div></div>
-      <div class="form-row form-row-2" style="margin-bottom:12px;"><div class="form-group"><label class="form-label">Država</label><input type="text" class="form-control" id="inv-supplier-edit-country" placeholder="Hrvatska" value="Hrvatska"></div><div class="form-group" style="display:flex;align-items:flex-end;"><label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gray-500);cursor:pointer;padding-bottom:8px;"><input type="checkbox" id="inv-supplier-edit-noneu"> Ne-EU subjekt</label></div></div>
+      <div class="form-row form-row-2" style="margin-bottom:12px;"><div class="form-group"><label class="form-label">Država</label><input type="text" class="form-control" id="inv-supplier-edit-country" placeholder="Hrvatska" value="Hrvatska"></div><div class="form-group" style="display:flex;align-items:flex-end;"><label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gray-500);cursor:pointer;padding-bottom:8px;"><input type="checkbox" id="inv-supplier-edit-noneu" style="display:inline-block;margin:0;width:auto;flex-shrink:0;"> Ne-EU subjekt</label></div></div>
       <div class="form-group"><label class="form-label">Adresa</label><input type="text" class="form-control" id="inv-supplier-edit-address" placeholder="Ulica i broj, grad..."></div>
     </div>
     <div class="modal-footer" style="padding:10px 16px;"><button class="btn btn-secondary" onclick="closeInvoiceSupplierEdit()">Odustani</button><button class="btn btn-primary" onclick="saveInvoiceSupplier()">💾 Spremi</button></div>
