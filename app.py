@@ -15,6 +15,7 @@ from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 
 import io
 from PIL import Image as PILImage
+PILImage.MAX_IMAGE_PIXELS = 300_000_000  # Dopusti velike skenove
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -927,6 +928,17 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+    except: pass
+
+    # --- Supplier country & non_eu migration ---
+    try:
+        c.execute("ALTER TABLE suppliers ADD COLUMN country TEXT DEFAULT 'Hrvatska'")
+    except: pass
+    try:
+        c.execute("ALTER TABLE suppliers ADD COLUMN non_eu INTEGER DEFAULT 0")
+    except: pass
+    try:
+        c.execute("UPDATE suppliers SET country='Hrvatska' WHERE country IS NULL")
     except: pass
 
     # Invoice tables
@@ -7771,8 +7783,10 @@ def supplier_create():
     if not data.get('name'):
         return jsonify({'error': 'Naziv je obavezan'}), 400
     conn = get_db()
-    conn.execute("INSERT INTO suppliers (name, oib, address) VALUES (?,?,?)",
-                 (data['name'].strip(), data.get('oib','').strip(), data.get('address','').strip()))
+    non_eu = 1 if data.get('non_eu') else 0
+    country = data.get('country', 'Hrvatska').strip() or 'Hrvatska'
+    conn.execute("INSERT INTO suppliers (name, oib, address, country, non_eu) VALUES (?,?,?,?,?)",
+                 (data['name'].strip(), data.get('oib','').strip(), data.get('address','').strip(), country, non_eu))
     conn.commit()
     new_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
     conn.close()
@@ -7786,8 +7800,10 @@ def supplier_update(sid):
         return jsonify({'success': False, 'error': 'Nemate ovlasti za ovu akciju.'}), 403
     data = request.json
     conn = get_db()
-    conn.execute("UPDATE suppliers SET name=?, oib=?, address=? WHERE id=?",
-                 (data.get('name','').strip(), data.get('oib','').strip(), data.get('address','').strip(), sid))
+    non_eu = 1 if data.get('non_eu') else 0
+    country = data.get('country', '').strip() or 'Hrvatska'
+    conn.execute("UPDATE suppliers SET name=?, oib=?, address=?, country=?, non_eu=? WHERE id=?",
+                 (data.get('name','').strip(), data.get('oib','').strip(), data.get('address','').strip(), country, non_eu, sid))
     conn.commit()
     conn.close()
     return jsonify({'success': True})
@@ -8038,8 +8054,11 @@ def pn_expense_upload():
 
 
 @app.route('/api/pn-expenses', methods=['POST'])
-@require_perm('can_edit_orders')
+@api_login_required
 def pn_expense_save():
+    user = get_current_user()
+    if not user.get('is_admin') and not user.get('can_edit_orders'):
+        return jsonify({'success': False, 'error': 'Nemate ovlasti za ovu akciju.'}), 403
     """Sprema trošak. Ako je R1, kreira i invoice zapis."""
     data = request.json
     user = get_current_user()

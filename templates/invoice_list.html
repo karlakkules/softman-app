@@ -262,7 +262,7 @@
           <div class="form-group" style="margin-bottom:10px;">
             <label class="form-label" style="font-size:11px;color:var(--gray-500);margin-bottom:4px;">Dobavljač s liste</label>
             <div style="display:flex;gap:6px;align-items:center;">
-              <div style="flex:1;position:relative;">
+              <div id="supplier-dropdown-wrap" style="flex:1;position:relative;">
                 <input type="text" class="form-control" id="inv-supplier-search" placeholder="Pretraži dobavljača..." style="font-size:13px;" autocomplete="off" oninput="filterSupplierDropdown()" onfocus="showSupplierDropdown()" onblur="">
                 <input type="hidden" id="inv-supplier-select">
                 <div id="supplier-dropdown-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--gray-300);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:99999;max-height:200px;overflow-y:auto;margin-top:2px;"></div>
@@ -274,6 +274,9 @@
           <div class="form-group" style="margin-bottom:10px;">
             <label class="form-label">OIB partnera</label>
             <input type="text" class="form-control" id="inv-oib" placeholder="12345678901" maxlength="11">
+            <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--gray-500);cursor:pointer;">
+              <input type="checkbox" id="inv-non-eu" onchange="toggleNonEuOib()"> Ne-EU subjekt (OIB nije obavezan)
+            </label>
           </div>
           <div class="form-group" style="margin-bottom:10px;">
             <label class="form-label">Broj računa *</label>
@@ -316,7 +319,7 @@
     <div class="modal-header"><span class="modal-title">Uredi podatke računa</span><button class="btn btn-ghost btn-icon" onclick="closeEdit()">✕</button></div>
     <div class="modal-body">
       <input type="hidden" id="edit-inv-id">
-      <div class="form-row form-row-2" style="margin-bottom:12px;"><div class="form-group"><label class="form-label">Naziv partnera</label><input type="text" class="form-control" id="edit-partner"></div><div class="form-group"><label class="form-label">OIB partnera</label><input type="text" class="form-control" id="edit-oib" maxlength="11"></div></div>
+      <div class="form-row form-row-2" style="margin-bottom:12px;"><div class="form-group"><label class="form-label">Naziv partnera</label><input type="text" class="form-control" id="edit-partner"></div><div class="form-group"><label class="form-label">OIB partnera</label><input type="text" class="form-control" id="edit-oib" maxlength="11"><label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--gray-500);cursor:pointer;"><input type="checkbox" id="edit-non-eu"> Ne-EU subjekt</label></div></div>
       <div class="form-row form-row-2" style="margin-bottom:12px;"><div class="form-group"><label class="form-label">Broj računa</label><input type="text" class="form-control" id="edit-number"></div><div class="form-group"><label class="form-label">Iznos s PDV-om (EUR)</label><input type="number" class="form-control" id="edit-amount" step="0.01" min="0"></div></div>
       <div class="form-row form-row-2" style="margin-bottom:12px;"><div class="form-group"><label class="form-label">Datum računa</label><input type="text" class="form-control" id="edit-date"></div><div class="form-group"><label class="form-label">Datum dospijeća</label><input type="text" class="form-control" id="edit-due"></div></div>
       <div class="form-group"><label class="form-label">Napomena</label><input type="text" class="form-control" id="edit-notes"></div>
@@ -354,6 +357,15 @@
 #inv-col-filters th { padding:4px 5px; font-weight:normal; background:var(--gray-50); }
 </style>
 <script>
+// Toast fallback — osigurava da toast() postoji
+if (typeof toast !== 'function') {
+  window.toast = function(msg, type) {
+    type = type || 'success';
+    var el = document.getElementById('toast');
+    if (el) { el.textContent = msg; el.className = 'toast show ' + type; setTimeout(function(){ el.className = 'toast'; }, 3000); }
+    else { console.log('TOAST [' + type + ']:', msg); }
+  };
+}
 let _currentFile = null;
 let _payInvId = null;
 let _ocrData = {};
@@ -389,6 +401,7 @@ function filterInv() { const search = document.getElementById('inv-search').valu
 
 function openUploadModal() {
   _currentFile = null;
+  const fi = document.getElementById('file-input'); if (fi) fi.value = '';
   if (document.getElementById('pdf-viewer-content')) document.getElementById('pdf-viewer-content').innerHTML = '';
   document.getElementById('upload-review-overlay').classList.remove('open');
   // Reset drop zone i progress na početno stanje
@@ -398,7 +411,7 @@ function openUploadModal() {
   if (op) op.style.display = 'none';
   document.getElementById('upload-modal').classList.add('open');
 }
-function closeUpload() { document.getElementById('upload-modal').classList.remove('open'); document.getElementById('upload-review-overlay').classList.remove('open'); if (window._previewUrl) { URL.revokeObjectURL(window._previewUrl); window._previewUrl = null; } }
+function closeUpload() { document.getElementById('upload-modal').classList.remove('open'); document.getElementById('upload-review-overlay').classList.remove('open'); const fi = document.getElementById('file-input'); if (fi) fi.value = ''; if (window._previewUrl) { URL.revokeObjectURL(window._previewUrl); window._previewUrl = null; } }
 function handleDrop(e) { e.preventDefault(); document.getElementById('drop-zone').style.background = 'var(--accent-light)'; const file = e.dataTransfer.files[0]; if (file) handleFileSelect(file); }
 function showFilePreview(file) { if (!file) return; const container = document.getElementById('pdf-viewer-content'); if (!container) return; container.innerHTML = ''; if (window._previewUrl) URL.revokeObjectURL(window._previewUrl); window._previewUrl = URL.createObjectURL(file); const ext = file.name.split('.').pop().toLowerCase(); if (ext === 'pdf') { const embed = document.createElement('embed'); embed.src = window._previewUrl; embed.type = 'application/pdf'; embed.style.cssText = 'width:100%;height:100%;min-height:500px;border:none;'; container.style.cssText = 'width:100%;height:100%;'; container.appendChild(embed); } else { const img = document.createElement('img'); img.src = window._previewUrl; img.style.cssText = 'width:100%;border-radius:6px;'; container.appendChild(img); } }
 
@@ -493,19 +506,20 @@ function deleteInv(id, partner) { document.getElementById('del-msg').textContent
 <div class="modal-overlay" id="suppliers-mgmt-modal" style="z-index:1100;">
   <div class="modal" style="width:680px;max-width:95vw;">
     <div class="modal-header"><span class="modal-title">Dobavljači</span><div style="display:flex;align-items:center;gap:8px;margin-left:auto;"><button class="btn btn-primary btn-sm" onclick="openInvoiceSupplierEdit()">➕ Novi dobavljač</button><button class="btn btn-ghost btn-icon" onclick="closeSuppliersModal()">✕</button></div></div>
-    <div class="modal-body" style="padding:0;"><div class="table-wrap" style="margin:0;max-height:400px;overflow-y:auto;"><table><thead><tr><th>Naziv</th><th style="width:130px;">OIB</th><th>Adresa</th><th style="width:80px;">Akcije</th></tr></thead><tbody id="inv-suppliers-tbody"><tr><td colspan="4" style="text-align:center;padding:32px;color:var(--gray-400);">Učitavanje...</td></tr></tbody></table></div></div>
+    <div class="modal-body" style="padding:0;"><div class="table-wrap" style="margin:0;max-height:400px;overflow-y:auto;"><table><thead><tr><th>Naziv</th><th style="width:130px;">OIB</th><th style="width:110px;">Država</th><th style="width:80px;">Akcije</th></tr></thead><tbody id="inv-suppliers-tbody"><tr><td colspan="4" style="text-align:center;padding:32px;color:var(--gray-400);">Učitavanje...</td></tr></tbody></table></div></div>
     <div class="modal-footer"><button class="btn btn-secondary" onclick="closeSuppliersModal()">Zatvori</button></div>
   </div>
 </div>
 
 <!-- Add/edit supplier -->
 <!-- Supplier quick-add panel — pozicioniran unutar lijeve kolone, ne prekriva PDF -->
-<div id="inv-supplier-edit-modal" style="display:none;position:fixed;z-index:1200;pointer-events:none;">
+<div id="inv-supplier-edit-modal" style="display:none;position:fixed;z-index:1200;top:0;left:0;right:0;bottom:0;pointer-events:none;justify-content:flex-start;align-items:center;padding-left:30px;">
   <div id="inv-supplier-edit-panel" style="pointer-events:all;width:360px;background:white;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.22);border:1px solid var(--gray-200);overflow:hidden;">
     <div class="modal-header" style="padding:12px 16px;"><span class="modal-title" id="inv-supplier-edit-title">Novi dobavljač</span><button class="btn btn-ghost btn-icon" onclick="closeInvoiceSupplierEdit()">✕</button></div>
     <div class="modal-body" style="padding:14px 16px;">
       <input type="hidden" id="inv-supplier-edit-id">
       <div class="form-row form-row-2" style="margin-bottom:12px;"><div class="form-group"><label class="form-label">Naziv *</label><input type="text" class="form-control" id="inv-supplier-edit-name" placeholder="Naziv tvrtke..."></div><div class="form-group"><label class="form-label">OIB</label><input type="text" class="form-control" id="inv-supplier-edit-oib" placeholder="12345678901" maxlength="11"></div></div>
+      <div class="form-row form-row-2" style="margin-bottom:12px;"><div class="form-group"><label class="form-label">Država</label><input type="text" class="form-control" id="inv-supplier-edit-country" placeholder="Hrvatska" value="Hrvatska"></div><div class="form-group" style="display:flex;align-items:flex-end;"><label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gray-500);cursor:pointer;padding-bottom:8px;"><input type="checkbox" id="inv-supplier-edit-noneu"> Ne-EU subjekt</label></div></div>
       <div class="form-group"><label class="form-label">Adresa</label><input type="text" class="form-control" id="inv-supplier-edit-address" placeholder="Ulica i broj, grad..."></div>
     </div>
     <div class="modal-footer" style="padding:10px 16px;"><button class="btn btn-secondary" onclick="closeInvoiceSupplierEdit()">Odustani</button><button class="btn btn-primary" onclick="saveInvoiceSupplier()">💾 Spremi</button></div>
@@ -514,49 +528,49 @@ function deleteInv(id, partner) { document.getElementById('del-msg').textContent
 
 <script>
 let _suppliersCache = [];
-async function loadInvSuppliers() { const res = await fetch('/api/suppliers'); _suppliersCache = await res.json(); return _suppliersCache; }
+async function loadInvSuppliers() { const res = await fetch('/api/suppliers?_t=' + Date.now()); _suppliersCache = await res.json(); return _suppliersCache; }
 async function openSuppliersModal() { document.getElementById('suppliers-mgmt-modal').classList.add('open'); await renderInvSuppliersTable(); }
 function closeSuppliersModal() { document.getElementById('suppliers-mgmt-modal').classList.remove('open'); }
-async function renderInvSuppliersTable() { const list = await loadInvSuppliers(); const tbody = document.getElementById('inv-suppliers-tbody'); if (!list.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--gray-400);">Nema dobavljača.</td></tr>'; return; } tbody.innerHTML = list.map(s => `<tr><td><strong>${s.name}</strong></td><td style="font-family:monospace;font-size:12px;">${s.oib||'—'}</td><td style="font-size:12px;">${s.address||'—'}</td><td><div style="display:flex;gap:3px;"><button class="btn btn-sm btn-secondary" onclick='openInvoiceSupplierEdit(${s.id},${JSON.stringify(s.name)},${JSON.stringify(s.oib||"")},${JSON.stringify(s.address||"")})'>✏️</button><button class="btn btn-sm" style="background:#fdecea;color:#c0392b;border:1px solid #f5aca6;" onclick='deleteInvSupplier(${s.id},${JSON.stringify(s.name)})'>🗑</button></div></td></tr>`).join(''); refreshSupplierDropdown(); }
-function openInvoiceSupplierEdit(id='', name='', oib='', address='') {
+async function renderInvSuppliersTable() { const list = await loadInvSuppliers(); const tbody = document.getElementById('inv-suppliers-tbody'); if (!list.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--gray-400);">Nema dobavljača.</td></tr>'; return; } tbody.innerHTML = list.map(s => `<tr><td><strong>${s.name}</strong>${s.non_eu ? ' <span style="font-size:10px;background:#fff3cd;color:#856404;padding:1px 6px;border-radius:10px;font-weight:600;">ne-EU</span>' : ''}</td><td style="font-family:monospace;font-size:12px;">${s.oib||'—'}</td><td style="font-size:12px;">${s.country||'Hrvatska'}</td><td><div style="display:flex;gap:3px;"><button class="btn btn-sm btn-secondary" onclick='openInvoiceSupplierEdit(${s.id},${JSON.stringify(s.name)},${JSON.stringify(s.oib||"")},${JSON.stringify(s.address||"")},${JSON.stringify(s.country||"Hrvatska")},${s.non_eu?1:0})'>✏️</button><button class="btn btn-sm" style="background:#fdecea;color:#c0392b;border:1px solid #f5aca6;" onclick='deleteInvSupplier(${s.id},${JSON.stringify(s.name)})'>🗑</button></div></td></tr>`).join(''); refreshSupplierDropdown(); }
+function openInvoiceSupplierEdit(id='', name='', oib='', address='', country='Hrvatska', non_eu=0) {
   document.getElementById('inv-supplier-edit-id').value = id;
   document.getElementById('inv-supplier-edit-name').value = name;
   document.getElementById('inv-supplier-edit-oib').value = oib;
   document.getElementById('inv-supplier-edit-address').value = address;
+  document.getElementById('inv-supplier-edit-country').value = country || 'Hrvatska';
+  document.getElementById('inv-supplier-edit-noneu').checked = !!non_eu;
   document.getElementById('inv-supplier-edit-title').textContent = id ? 'Uredi dobavljača' : 'Novi dobavljač';
   const modal = document.getElementById('inv-supplier-edit-modal');
   const panel = document.getElementById('inv-supplier-edit-panel');
-  panel.style.width = '360px';
-  modal.style.display = 'block';
-  // Koristi gumb ➕ kao sidro za poziciju
-  const anchor = document.querySelector('#upload-review-overlay [onclick*="openQuickAddSupplier"]');
-  if (anchor) {
-    const r = anchor.getBoundingClientRect();
-    // Otvori ispod gumba, poravnaj desni rub panela s desnim rubom gumba
-    let left = r.right - 360;
-    let top = r.bottom + 6;
-    if (left < 8) left = 8;
-    const panelH = 240;
-    if (top + panelH > window.innerHeight - 8) top = r.top - panelH - 6;
-    modal.style.left = left + 'px';
-    modal.style.top = top + 'px';
-  } else {
-    modal.style.left = '240px';
-    modal.style.top = '200px';
-  }
+  panel.style.width = '400px';
+  modal.style.display = 'flex';
   setTimeout(() => document.getElementById('inv-supplier-edit-name').focus(), 80);
 }
 function closeInvoiceSupplierEdit() { document.getElementById('inv-supplier-edit-modal').style.display = 'none'; }
-async function saveInvoiceSupplier() { const id = document.getElementById('inv-supplier-edit-id').value; const name = document.getElementById('inv-supplier-edit-name').value.trim(); if (!name) { alert('Naziv je obavezan!'); return; } const body = { name, oib: document.getElementById('inv-supplier-edit-oib').value.trim(), address: document.getElementById('inv-supplier-edit-address').value.trim() }; const url = id ? `/api/suppliers/${id}` : '/api/suppliers'; const method = id ? 'PUT' : 'POST'; const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) }); const d = await res.json(); if (d.success || d.id) { closeInvoiceSupplierEdit(); toast('Dobavljač spremljen!', 'success'); await renderInvSuppliersTable(); if (!id && d.id) { await loadInvSuppliers(); const newS = _suppliersCache.find(s => s.id == d.id); if (newS) onSupplierSelect(newS.id, newS.name, newS.oib||''); } } else alert(d.error || 'Greška pri spremanju'); }
+async function saveInvoiceSupplier() { const id = document.getElementById('inv-supplier-edit-id').value; const name = document.getElementById('inv-supplier-edit-name').value.trim(); if (!name) { alert('Naziv je obavezan!'); return; } const oib = document.getElementById('inv-supplier-edit-oib').value.trim(); const isNonEu = document.getElementById('inv-supplier-edit-noneu').checked; if (!oib && !isNonEu) { alert('Unesite OIB ili označite "Ne-EU subjekt"!'); return; } const body = { name, oib, address: document.getElementById('inv-supplier-edit-address').value.trim(), country: document.getElementById('inv-supplier-edit-country').value.trim() || 'Hrvatska', non_eu: document.getElementById('inv-supplier-edit-noneu').checked ? 1 : 0 }; const url = id ? `/api/suppliers/${id}` : '/api/suppliers'; const method = id ? 'PUT' : 'POST'; const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) }); const d = await res.json(); if (d.success || d.id) { closeInvoiceSupplierEdit(); toast('Dobavljač spremljen!', 'success'); await renderInvSuppliersTable(); if (!id && d.id) { await loadInvSuppliers(); const newS = _suppliersCache.find(s => s.id == d.id); if (newS) onSupplierSelect(newS.id, newS.name, newS.oib||''); } } else alert(d.error || 'Greška pri spremanju'); }
 async function deleteInvSupplier(id, name) { if (!confirm(`Obrisati dobavljača "${name}"?`)) return; await fetch(`/api/suppliers/${id}`, { method: 'DELETE' }); toast('Dobavljač obrisan!', 'success'); await renderInvSuppliersTable(); }
-function openQuickAddSupplier() { const partnerVal = document.getElementById('inv-partner')?.value || ''; const oibVal = document.getElementById('inv-oib')?.value || ''; openInvoiceSupplierEdit('', partnerVal, oibVal, ''); }
+function openQuickAddSupplier() { const partnerVal = document.getElementById('inv-partner')?.value || ''; const oibVal = document.getElementById('inv-oib')?.value || ''; openInvoiceSupplierEdit('', partnerVal, oibVal, '', 'Hrvatska', 0); }
 async function refreshSupplierDropdown() { if (!_suppliersCache.length) await loadInvSuppliers(); }
-function onSupplierSelect(id, name, oib) { const s = _suppliersCache.find(x => String(x.id) === String(id)) || {id, name, oib}; const inp = document.getElementById('inv-supplier-search'); const hid = document.getElementById('inv-supplier-select'); const par = document.getElementById('inv-partner'); const oibEl = document.getElementById('inv-oib'); const list = document.getElementById('supplier-dropdown-list'); const badge = document.getElementById('supplier-match-badge'); if (inp) inp.value = s.name || name; if (hid) hid.value = s.id || id; if (par) par.value = s.name || name; if (oibEl) oibEl.value = s.oib || oib || ''; if (list) list.style.display = 'none'; if (badge) { badge.style.display = 'block'; badge.textContent = '✅ ' + (s.name || name); } }
+function onSupplierSelect(id, name, oib) { const s = _suppliersCache.find(x => String(x.id) === String(id)) || {id, name, oib, non_eu:0}; const inp = document.getElementById('inv-supplier-search'); const hid = document.getElementById('inv-supplier-select'); const par = document.getElementById('inv-partner'); const oibEl = document.getElementById('inv-oib'); const list = document.getElementById('supplier-dropdown-list'); const badge = document.getElementById('supplier-match-badge'); if (inp) inp.value = s.name || name; if (hid) hid.value = s.id || id; if (par) par.value = s.name || name; if (oibEl) oibEl.value = s.oib || oib || ''; if (list) list.style.display = 'none'; if (badge) { badge.style.display = 'block'; badge.textContent = '✅ ' + (s.name || name); } const neuCb = document.getElementById('inv-non-eu'); if (neuCb) { neuCb.checked = !!s.non_eu; toggleNonEuOib(); } }
 async function showSupplierDropdown() { if (!_suppliersCache.length) await loadInvSuppliers(); filterSupplierDropdown(); const el = document.getElementById('supplier-dropdown-list'); if (el) el.style.display = 'block'; }
 function hideSupplierDropdown() { const el = document.getElementById('supplier-dropdown-list'); if (el) el.style.display = 'none'; }
 document.addEventListener('focusin', function(e) { const wrap = document.getElementById('supplier-dropdown-wrap'); if (wrap && !wrap.contains(e.target)) hideSupplierDropdown(); });
 document.addEventListener('click', function(e) { const wrap = document.getElementById('supplier-dropdown-wrap'); if (wrap && !wrap.contains(e.target)) hideSupplierDropdown(); });
-function filterSupplierDropdown() { const q = (document.getElementById('inv-supplier-search')?.value || '').toLowerCase(); const list = document.getElementById('supplier-dropdown-list'); if (!list) return; const filtered = _suppliersCache.filter(s => !q || s.name.toLowerCase().includes(q) || (s.oib && s.oib.includes(q)) || (s.address && s.address.toLowerCase().includes(q))); if (!filtered.length) { list.innerHTML = '<div style="padding:10px 14px;color:var(--gray-400);font-size:13px;">Nema rezultata</div>'; } else { list.innerHTML = filtered.map(s => `<div data-sid="${s.id}" style="padding:8px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--gray-100);"><div style="font-weight:600;color:var(--navy);">${s.name}</div>${s.oib ? `<div style="font-size:11px;color:var(--gray-400);">OIB: ${s.oib}${s.address ? ' · '+s.address : ''}</div>` : ''}</div>`).join(''); list.querySelectorAll('[data-sid]').forEach(el => { el.addEventListener('mousedown', function(e) { e.preventDefault(); e.stopPropagation(); const s = _suppliersCache.find(x => String(x.id) === this.dataset.sid); if (!s) return; const inp = document.getElementById('inv-supplier-search'); const hid = document.getElementById('inv-supplier-select'); const par = document.getElementById('inv-partner'); const oibEl = document.getElementById('inv-oib'); const badge = document.getElementById('supplier-match-badge'); if (inp) inp.value = s.name; if (hid) hid.value = s.id; if (par) par.value = s.name; if (oibEl) oibEl.value = s.oib || ''; if (list) list.style.display = 'none'; if (badge) { badge.style.display = 'block'; badge.textContent = '✅ ' + s.name; } }); el.addEventListener('mouseover', function() { this.style.background = 'var(--accent-light)'; }); el.addEventListener('mouseout', function() { this.style.background = ''; }); }); } list.style.display = 'block'; }
+function toggleNonEuOib() {
+  const cb = document.getElementById('inv-non-eu');
+  const oibEl = document.getElementById('inv-oib');
+  if (!cb || !oibEl) return;
+  if (cb.checked) {
+    oibEl.removeAttribute('maxlength');
+    oibEl.placeholder = 'ID / VAT broj (opcionalno)';
+    oibEl.style.borderColor = '';
+  } else {
+    oibEl.setAttribute('maxlength', '11');
+    oibEl.placeholder = '12345678901';
+  }
+}
+
+function filterSupplierDropdown() { const q = (document.getElementById('inv-supplier-search')?.value || '').toLowerCase(); const list = document.getElementById('supplier-dropdown-list'); if (!list) return; const filtered = _suppliersCache.filter(s => !q || s.name.toLowerCase().includes(q) || (s.oib && s.oib.includes(q)) || (s.address && s.address.toLowerCase().includes(q))); if (!filtered.length) { list.innerHTML = '<div style="padding:10px 14px;color:var(--gray-400);font-size:13px;">Nema rezultata</div>'; } else { list.innerHTML = filtered.map(s => `<div data-sid="${s.id}" style="padding:8px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--gray-100);"><div style="font-weight:600;color:var(--navy);">${s.name}${s.non_eu ? ' <span style=\'font-size:10px;background:#fff3cd;color:#856404;padding:1px 5px;border-radius:8px;\'>ne-EU</span>' : ''}</div><div style="font-size:11px;color:var(--gray-400);">${s.oib ? 'OIB: '+s.oib+' · ' : ''}${s.country||'Hrvatska'}${s.address ? ' · '+s.address : ''}</div></div>`).join(''); list.querySelectorAll('[data-sid]').forEach(el => { el.addEventListener('mousedown', function(e) { e.preventDefault(); e.stopPropagation(); const s = _suppliersCache.find(x => String(x.id) === this.dataset.sid); if (!s) return; const inp = document.getElementById('inv-supplier-search'); const hid = document.getElementById('inv-supplier-select'); const par = document.getElementById('inv-partner'); const oibEl = document.getElementById('inv-oib'); const badge = document.getElementById('supplier-match-badge'); if (inp) inp.value = s.name; if (hid) hid.value = s.id; if (par) par.value = s.name; if (oibEl) oibEl.value = s.oib || ''; if (list) list.style.display = 'none'; if (badge) { badge.style.display = 'block'; badge.textContent = '✅ ' + s.name; } const neuCb2 = document.getElementById('inv-non-eu'); if (neuCb2) { neuCb2.checked = !!s.non_eu; toggleNonEuOib(); } }); el.addEventListener('mouseover', function() { this.style.background = 'var(--accent-light)'; }); el.addEventListener('mouseout', function() { this.style.background = ''; }); }); } list.style.display = 'block'; }
 
 /* ═══════════════════════════════════════════════════════════════════
    IZMJENA: tryAutoMatchSupplier

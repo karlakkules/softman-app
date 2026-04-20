@@ -517,6 +517,24 @@ th.sort-desc .sort-icon::after { content:' ▼'; }
 
 {% block scripts %}
 <script>
+// Fallback toast — osigurava da toast() postoji čak i ako base.html ga ne definira ispravno
+if (typeof toast !== 'function') {
+  window.toast = function(msg, type) {
+    type = type || 'success';
+    var el = document.getElementById('toast');
+    if (el) { el.textContent = msg; el.className = 'toast show ' + type; setTimeout(function(){ el.className = 'toast'; }, 3000); }
+    else { console.log('TOAST [' + type + ']:', msg); }
+  };
+}
+// Fallback toast — osigurava da toast() postoji čak i ako base.html ga ne definira ispravno
+if (typeof toast !== 'function') {
+  window.toast = function(msg, type) {
+    type = type || 'success';
+    var el = document.getElementById('toast');
+    if (el) { el.textContent = msg; el.className = 'toast show ' + type; setTimeout(function(){ el.className = 'toast'; }, 3000); }
+    else { console.log('TOAST [' + type + ']:', msg); }
+  };
+}
 // ── Double click to open ──────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('#orders-tbody tr[data-status]').forEach(row => {
@@ -1055,84 +1073,104 @@ function onExpPaymentChange() {
 }
 
 async function saveExpense() {
-  const amount = parseFloat(document.getElementById('exp-amount').value);
-  if (!amount || amount <= 0) { toast('Unesite iznos!', 'error'); return; }
-
-  // FIX 4: Kategorija je obavezno polje
-  const categoryEl = document.getElementById('exp-category');
-  if (!categoryEl.value) {
-    categoryEl.style.border = '2px solid #c0392b';
-    categoryEl.focus();
-    toast('Kategorija troška je obavezno polje!', 'error');
-    setTimeout(() => { categoryEl.style.border = ''; }, 2500);
-    return;
-  }
-
-  // FIX 2: Provjeri duplikat (isti datum + isti iznos)
-  const docDate = document.getElementById('exp-doc-date').value;
-  if (docDate && amount > 0) {
-    try {
-      const chkRes = await fetch(`/api/pn-expenses/check-duplicate?date=${docDate}&amount=${amount}`);
-      if (chkRes.ok) {
-        const chkData = await chkRes.json();
-        if (chkData.found) {
-          const existing = chkData.expenses.map(e =>
-            `• ${e.doc_date} · ${parseFloat(e.amount).toFixed(2)} € · ${e.description || 'bez opisa'} · ${e.category_name || ''}`
-          ).join('\n');
-          const confirmed = confirm(
-            `⚠️ Upozorenje: Već postoji trošak s istim datumom (${docDate}) i iznosom (${amount.toFixed(2)} €):\n\n${existing}\n\nJesi li siguran/na da želiš evidentirati ovaj trošak?`
-          );
-          if (!confirmed) return;
-        }
-      }
-    } catch(e) { /* tiho — nastavi sa spremanjem */ }
-  }
-
-  const paymentVal = document.getElementById('exp-payment-method').value;
-  let paymentMethod = paymentVal;
-  let bankCardId = null;
-  if (paymentVal.startsWith('card:')) {
-    paymentMethod = 'card';
-    bankCardId = parseInt(paymentVal.split(':')[1]);
-  }
-
-  const payload = {
-    doc_type: _expDocType,
-    travel_order_id: document.getElementById('exp-pn-select').value || null,
-    temp_filename: document.getElementById('exp-temp-filename').value,
-    original_filename: document.getElementById('exp-original-filename').value,
-    ocr_raw: document.getElementById('exp-ocr-raw').value,
-    category_id: document.getElementById('exp-category').value || null,
-    description: document.getElementById('exp-description').value.trim(),
-    amount: amount,
-    doc_date: document.getElementById('exp-doc-date').value,
-    payment_method: paymentMethod,
-    bank_card_id: bankCardId,
-  };
-
-  // R1 polja
-  if (_expDocType === 'r1') {
-    payload.partner_name = document.getElementById('exp-partner-name').value.trim();
-    payload.partner_oib = document.getElementById('exp-partner-oib').value.trim();
-    payload.invoice_number = document.getElementById('exp-invoice-number').value.trim();
-    payload.due_date = document.getElementById('exp-due-date').value;
-  }
+  // Disable gumb ODMAH na početku
+  const saveBtn = document.querySelector('#expense-detail-modal .btn-primary');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ Spremam...'; }
 
   try {
+    const amount = parseFloat(document.getElementById('exp-amount').value);
+    if (!amount || amount <= 0) { toast('Unesite iznos!', 'error'); return; }
+
+    const categoryEl = document.getElementById('exp-category');
+    if (!categoryEl.value) {
+      categoryEl.style.border = '2px solid #c0392b';
+      categoryEl.focus();
+      toast('Kategorija troška je obavezno polje!', 'error');
+      setTimeout(() => { categoryEl.style.border = ''; }, 2500);
+      return;
+    }
+
+    // Provjeri duplikat (isti datum + isti iznos)
+    const docDate = document.getElementById('exp-doc-date').value;
+    if (docDate && amount > 0) {
+      try {
+        const chkRes = await fetch(`/api/pn-expenses/check-duplicate?date=${docDate}&amount=${amount}`);
+        if (chkRes.ok) {
+          const chkData = await chkRes.json();
+          if (chkData.found) {
+            const existing = chkData.expenses.map(e =>
+              `• ${e.doc_date} · ${parseFloat(e.amount).toFixed(2)} € · ${e.description || 'bez opisa'} · ${e.category_name || ''}`
+            ).join('\n');
+            const confirmed = confirm(
+              `⚠️ Upozorenje: Već postoji trošak s istim datumom (${docDate}) i iznosom (${amount.toFixed(2)} €):\n\n${existing}\n\nJesi li siguran/na da želiš evidentirati ovaj trošak?`
+            );
+            if (!confirmed) return;
+          }
+        }
+      } catch(e) { /* tiho — nastavi sa spremanjem */ }
+    }
+
+    const paymentVal = document.getElementById('exp-payment-method').value;
+    let paymentMethod = paymentVal;
+    let bankCardId = null;
+    if (paymentVal.startsWith('card:')) {
+      paymentMethod = 'card';
+      bankCardId = parseInt(paymentVal.split(':')[1]);
+    }
+
+    const payload = {
+      doc_type: _expDocType,
+      travel_order_id: document.getElementById('exp-pn-select').value || null,
+      temp_filename: document.getElementById('exp-temp-filename').value,
+      original_filename: document.getElementById('exp-original-filename').value,
+      ocr_raw: document.getElementById('exp-ocr-raw').value,
+      category_id: document.getElementById('exp-category').value || null,
+      description: document.getElementById('exp-description').value.trim(),
+      amount: amount,
+      doc_date: document.getElementById('exp-doc-date').value,
+      payment_method: paymentMethod,
+      bank_card_id: bankCardId,
+    };
+
+    if (_expDocType === 'r1') {
+      payload.partner_name = document.getElementById('exp-partner-name').value.trim();
+      payload.partner_oib = document.getElementById('exp-partner-oib').value.trim();
+      payload.invoice_number = document.getElementById('exp-invoice-number').value.trim();
+      payload.due_date = document.getElementById('exp-due-date').value;
+    }
+
     const res = await fetch('/api/pn-expenses', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(payload)
     });
+
+    const ct = res.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      console.error('pn-expenses vratio ne-JSON:', res.status, ct);
+      alert('GREŠKA: Server vratio ne-JSON odgovor (status: ' + res.status + '). Trošak je možda spremljen — osvježi stranicu.');
+      closeExpenseDetail();
+      setTimeout(() => location.reload(), 500);
+      return;
+    }
+
     const d = await res.json();
+    console.log('saveExpense response:', d);
     if (d.success) {
       toast('Trošak uspješno spremljen!', 'success');
       closeExpenseDetail();
-      setTimeout(() => location.reload(), 800);
+      setTimeout(() => location.reload(), 600);
     } else {
-      toast(d.error || 'Greška pri spremanju', 'error');
+      alert('Greška pri spremanju: ' + (d.error || JSON.stringify(d)));
     }
   } catch(e) {
-    toast('Greška: ' + e.message, 'error');
+    console.error('saveExpense EXCEPTION:', e);
+    alert('saveExpense GREŠKA: ' + e.message + '\n\nTrošak je možda spremljen — osvježi stranicu.');
+    console.error('Full error:', e);
+    console.error('Full error:', e);
+    closeExpenseDetail();
+    setTimeout(() => location.reload(), 500);
+  } finally {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 Spremi trošak'; }
   }
 }
 
