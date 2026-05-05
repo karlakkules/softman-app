@@ -18,7 +18,7 @@
   body { font-family: 'DM Sans', sans-serif; background: var(--gray-50); color: var(--gray-800); display: flex; min-height: 100vh; font-size: 14px; }
    .sidebar { width: var(--sidebar-w); background: var(--navy); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; transition: width 0.25s; overflow: hidden; }
    .sidebar.collapsed { width: 56px; }
-   .sidebar-logo { display: flex; flex-direction: column; padding: 12px 18px 8px; border-bottom: 1px solid rgba(255,255,255,0.08); text-decoration: none; }
+   .sidebar-logo { display: flex; flex-direction: column; padding: 12px 18px 8px; border-bottom: 1px solid rgba(255,255,255,0.08); text-decoration: none; height: 82px; overflow: hidden; }
    .sidebar-logo:hover { background: rgba(255,255,255,0.06); }
    .logo-full { width: 130px; filter: brightness(0) invert(1); display: block; }
    .logo-mini { display: none; height: 32px; width: auto; filter: brightness(0) invert(1); object-fit: contain; }
@@ -32,7 +32,7 @@
    .nav-item .icon-img { width: 20px; height: 20px; object-fit: contain; opacity: 0.75; mix-blend-mode: screen; flex-shrink: 0; }
    .nav-item:hover .icon-img, .nav-item.active .icon-img { opacity: 1; }
    .nav-label { white-space: nowrap; }
-   .hamburger-btn { background: none; border: none; cursor: pointer; color: rgba(255,255,255,0.5); width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border-radius: 5px; flex-shrink: 0; }
+   .hamburger-btn { background: none; border: none; cursor: pointer; color: rgba(255,255,255,0.5); width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 5px; flex-shrink: 0; transition: all 0.15s; }
    .hamburger-btn:hover { background: rgba(255,255,255,0.1); color: white; }
 
 
@@ -117,11 +117,23 @@
   .modal-footer { padding: 14px 20px; border-top: 1px solid var(--gray-100); display: flex; gap: 8px; justify-content: flex-end; }
   [data-en], [data-hr] { }
 
+   /* Hamburger toggle row */
+   .sidebar-toggle-row {
+     display: flex; align-items: center; justify-content: space-between;
+     padding: 0 14px; height: 36px; border-bottom: 1px solid rgba(255,255,255,0.06);
+   }
+   .sidebar-toggle-row .nav-section-label {
+     font-size: 10px; color: rgba(255,255,255,0.3); text-transform: uppercase;
+     letter-spacing: .1em; font-weight: 600;
+   }
+   .sidebar.collapsed .sidebar-toggle-row { justify-content: center; padding: 0; height: 36px; }
+   .sidebar.collapsed .sidebar-toggle-row .nav-section-label { display: none; }
+
    /* Collapsed sidebar */
    .sidebar.collapsed { width: var(--sidebar-collapsed-w); }
-   .sidebar.collapsed .sidebar-logo { align-items: center; justify-content: center; padding: 10px 0 8px; }
+   .sidebar.collapsed .sidebar-logo { align-items: center; justify-content: center; padding: 0; height: 82px; }
    .sidebar.collapsed .sidebar-logo img.logo-full { display: none; }
-   .sidebar.collapsed .sidebar-logo img.logo-mini { display: block; margin: 0 auto; }
+   .sidebar.collapsed .sidebar-logo img.logo-mini { display: block; margin: auto; }
    .sidebar.collapsed .logo-text { display: none; }
    .sidebar.collapsed .nav-section-label { visibility: hidden; }
    .sidebar.collapsed .nav-label { display: none; }
@@ -137,13 +149,13 @@
     <img class="logo-mini" src="/static/Softman_sign.png" alt="S" onerror="this.style.display='none'">
     <div class="logo-text">{{ company_name }}</div>
   </a>
+  <div class="sidebar-toggle-row">
+    <span class="nav-section-label">Moduli</span>
+    <button class="hamburger-btn" id="sidebar-toggle">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="3" width="14" height="2" rx="1"/><rect x="1" y="7" width="14" height="2" rx="1"/><rect x="1" y="11" width="14" height="2" rx="1"/></svg>
+    </button>
+  </div>
   <nav class="sidebar-nav">
-    <div class="nav-section">
-      <span class="nav-section-label">Moduli</span>
-      <button class="hamburger-btn" id="sidebar-toggle">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="3" width="14" height="2" rx="1"/><rect x="1" y="7" width="14" height="2" rx="1"/><rect x="1" y="11" width="14" height="2" rx="1"/></svg>
-      </button>
-    </div>
     {% if current_user.get("is_admin") or current_user.get("can_view_worktime") %}
     <a href="/projects" data-label="Projekti" class="nav-item {% if active=='projects' %}active{% endif %}">
       <img src="/static/icons/board.png" class="icon-img" alt="">
@@ -236,6 +248,31 @@
   </div>
 </main>
 <div class="toast" id="toast"></div>
+{% include '_pdf_preview.html' %}
+<script>
+// ── Globalni prijevod i jezik ──
+function t(hr, en) {
+  return (document.documentElement.getAttribute('data-lang') || 'hr') === 'en' ? en : hr;
+}
+function setLang(lang) {
+  document.documentElement.setAttribute('data-lang', lang);
+  document.documentElement.setAttribute('lang', lang);
+  localStorage.setItem('lang', lang);
+  // Ažuriraj HR/EN gumbe
+  document.querySelectorAll('.lang-btn').forEach(function(btn) {
+    btn.classList.toggle('active', btn.textContent.trim().toLowerCase() === lang);
+  });
+  // Ažuriraj sve elemente s data-hr / data-en atributima
+  document.querySelectorAll('[data-hr][data-en]').forEach(function(el) {
+    el.textContent = lang === 'en' ? el.getAttribute('data-en') : el.getAttribute('data-hr');
+  });
+}
+// Postavi jezik iz localStorage pri učitavanju
+(function() {
+  var saved = localStorage.getItem('lang') || 'hr';
+  if (saved !== 'hr') setLang(saved);
+})();
+</script>
 {% block scripts %}{% endblock %}
 
 

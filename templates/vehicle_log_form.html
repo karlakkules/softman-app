@@ -467,8 +467,12 @@ function renderDailyBreakdown(breakdown) {
     if (d.trips && d.trips.length) {
       d.trips.forEach(function(t, ti) {
         var isPn = t.is_pn;
-        var depShort = t.dep.split(',')[0];
-        var destShort = t.dest.split(',')[0];
+        var depParts = t.dep.split(',');
+        var depShort = depParts[0].trim();
+        if (depParts.length > 1) { var city = depParts[1].trim().replace(/^\d{5}\s*/, ''); if (city && city !== 'Croatia') depShort += ', ' + city; }
+        var destParts = t.dest.split(',');
+        var destShort = destParts[0].trim();
+        if (destParts.length > 1) { var city2 = destParts[1].trim().replace(/^\d{5}\s*/, ''); if (city2 && city2 !== 'Croatia') destShort += ', ' + city2; }
         var borderColor = isPn ? '#f5c6cb' : '#d4edda';
         var btnBg = isPn ? '#fdecea' : '#eafaf1';
         var btnColor = isPn ? '#c0392b' : '#27ae60';

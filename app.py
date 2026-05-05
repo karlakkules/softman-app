@@ -21,6 +21,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
+app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.secret_key = os.environ.get('SECRET_KEY', 'change-this-secret-key')
 JWT_SECRET = os.environ.get('JWT_SECRET', 'change-this-jwt-secret')
 JWT_EXPIRY_HOURS = 8
@@ -1072,6 +1073,14 @@ def init_db():
         c.execute("ALTER TABLE travel_orders ADD COLUMN paid_at DATE")
     except:
         pass
+    try:
+        c.execute("ALTER TABLE travel_orders ADD COLUMN private_times TEXT DEFAULT '[]'")
+    except:
+        pass
+    try:
+        c.execute("ALTER TABLE travel_orders ADD COLUMN private_minutes REAL DEFAULT 0")
+    except:
+        pass
 
     # Audit log tablica
     try:
@@ -1293,22 +1302,26 @@ def _calc_loan_repaid(loan, payments):
     return round(total, 2)
 
 
-def calculate_dnevnice(start_dt_str, end_dt_str, rate):
+def calculate_dnevnice(start_dt_str, end_dt_str, rate, private_minutes=0):
     try:
         start_dt = datetime.fromisoformat(start_dt_str)
         end_dt = datetime.fromisoformat(end_dt_str)
         delta = end_dt - start_dt
         total_minutes = int(delta.total_seconds() / 60)
-        total_hours = total_minutes // 60
-        remaining_minutes = total_minutes % 60
-        total_days = total_hours // 24
-        remaining_hours = total_hours % 24
 
-        # Calculate dnevnice (prema HR pravilima)
+        # Subtract private time
+        official_minutes = max(0, total_minutes - int(private_minutes or 0))
+
+        official_hours = official_minutes // 60
+        remaining_minutes = official_minutes % 60
+        official_days = official_hours // 24
+        remaining_hours = official_hours % 24
+
+        # Calculate dnevnice (prema HR pravilima) based on OFFICIAL time
         # < 8h  → nema extra dnevnice
         # 8–11h → pola dnevnice (0.5)
         # ≥ 12h → puna dnevnica (1.0)
-        dnevnice = total_days  # full days
+        dnevnice = official_days  # full days
         if remaining_hours < 8:
             pass  # nema extra dnevnice
         elif remaining_hours < 12:
@@ -1316,15 +1329,25 @@ def calculate_dnevnice(start_dt_str, end_dt_str, rate):
         else:
             dnevnice += 1.0
 
+        # Also return total (gross) duration for display
+        total_hours_gross = total_minutes // 60
+        total_days_gross = total_hours_gross // 24
+        remaining_hours_gross = total_hours_gross % 24
+        remaining_minutes_gross = total_minutes % 60
+
         return {
-            'days': total_days,
-            'hours': remaining_hours,
-            'minutes': remaining_minutes,
+            'days': total_days_gross,
+            'hours': remaining_hours_gross,
+            'minutes': remaining_minutes_gross,
+            'private_minutes': int(private_minutes or 0),
+            'official_days': official_days,
+            'official_hours': remaining_hours,
+            'official_minutes': remaining_minutes,
             'dnevnice': dnevnice,
             'total': round(dnevnice * rate, 2)
         }
     except:
-        return {'days': 0, 'hours': 0, 'minutes': 0, 'dnevnice': 0, 'total': 0}
+        return {'days': 0, 'hours': 0, 'minutes': 0, 'private_minutes': 0, 'official_days': 0, 'official_hours': 0, 'official_minutes': 0, 'dnevnice': 0, 'total': 0}
 
 # ─── ROUTES ───────────────────────────────────────────────────────────────────
 
@@ -1756,6 +1779,13 @@ def edit_order(order_id):
     conn.close()
     today = date.today().strftime('%Y-%m-%d')
     is_deleted = bool(order['is_deleted'])
+    # Parse private_times from JSON
+    import json as _json
+    order_dict = dict(order)
+    try:
+        order_dict['private_times'] = _json.loads(order_dict.get('private_times', '[]') or '[]')
+    except:
+        order_dict['private_times'] = []
     return render_template('form.html',
         auto_id=order['auto_id'], today=today,
         employees=rows_to_dicts(employees),
@@ -1769,7 +1799,7 @@ def edit_order(order_id):
         default_place=default_place['name'] if default_place else 'Zagreb',
         validators=rows_to_dicts(validators),
         directors=rows_to_dicts(directors),
-        order=dict(order), expenses=rows_to_dicts(expenses),
+        order=order_dict, expenses=rows_to_dicts(expenses),
         is_deleted=is_deleted,
         pn_expenses=rows_to_dicts(pn_expenses),
         bank_cards=rows_to_dicts(bank_cards))
@@ -1817,10 +1847,29 @@ def save_order():
                 conn.close()
                 return jsonify({'success': True, 'id': order_id, 'auto_id': auto_id, 'status': new_status})
 
-    # Calculate dnevnice
+    # Calculate dnevnice (with private time deduction)
     rate_row = conn.execute("SELECT value FROM settings WHERE key='daily_allowance_rate'").fetchone()
     rate = float(rate_row['value']) if rate_row else 30.0
-    calc = calculate_dnevnice(data.get('trip_start_datetime',''), data.get('trip_end_datetime',''), rate)
+
+    # Calculate private minutes from private_times array
+    import json as _json
+    private_times = data.get('private_times', [])
+    private_minutes_total = 0
+    trip_start_str = data.get('trip_start_datetime', '')
+    trip_end_str = data.get('trip_end_datetime', '')
+    if private_times and trip_start_str and trip_end_str:
+        try:
+            ts = datetime.fromisoformat(trip_start_str).timestamp()
+            te = datetime.fromisoformat(trip_end_str).timestamp()
+            for pt in private_times:
+                ps = max(datetime.fromisoformat(pt['start']).timestamp(), ts)
+                pe = min(datetime.fromisoformat(pt['end']).timestamp(), te)
+                if pe > ps:
+                    private_minutes_total += (pe - ps) / 60
+        except:
+            pass
+
+    calc = calculate_dnevnice(trip_start_str, trip_end_str, rate, private_minutes_total)
 
     # Calculate totals — čita iz pn_expenses (privatno plaćeni troškovi)
     order_id_for_calc = data.get('id') or None
@@ -1855,9 +1904,9 @@ def save_order():
         'end_km': data.get('end_km') or None,
         'trip_start_datetime': data.get('trip_start_datetime'),
         'trip_end_datetime': data.get('trip_end_datetime'),
-        'trip_duration_days': calc['days'],
-        'trip_duration_hours': calc['hours'],
-        'trip_duration_minutes': calc['minutes'],
+        'trip_duration_days': calc['official_days'],
+        'trip_duration_hours': calc['official_hours'],
+        'trip_duration_minutes': calc['official_minutes'],
         'daily_allowance_count': calc['dnevnice'],
         'daily_allowance_rate': rate,
         'daily_allowance_total': daily_total,
@@ -1869,6 +1918,8 @@ def save_order():
         'place_of_report': data.get('place_of_report'),
         'approved_by_id': data.get('approved_by_id') or None,
         'validator_id': data.get('validator_id') or None,
+        'private_times': _json.dumps(private_times) if private_times else '[]',
+        'private_minutes': private_minutes_total,
         'updated_at': datetime.now().isoformat()
     }
 
@@ -2417,7 +2468,8 @@ def api_calculate_dnevnice():
     rate_row = conn.execute("SELECT value FROM settings WHERE key='daily_allowance_rate'").fetchone()
     rate = float(rate_row['value']) if rate_row else 30.0
     conn.close()
-    result = calculate_dnevnice(data.get('start', ''), data.get('end', ''), rate)
+    private_minutes = float(data.get('private_minutes', 0))
+    result = calculate_dnevnice(data.get('start', ''), data.get('end', ''), rate, private_minutes)
     return jsonify(result)
 
 def _generate_and_save_pdf(order_id):

@@ -288,6 +288,14 @@
         <span class="calc-label" data-hr="Na putu" data-en="Trip duration">Na putu</span>
         <span class="calc-value" id="calc-duration">—</span>
       </div>
+      <div class="calc-item" id="calc-private-wrap" style="display:none;">
+        <span class="calc-label" style="color:#c0392b;" data-hr="Privatno vrijeme" data-en="Private time">Privatno vrijeme</span>
+        <span class="calc-value" id="calc-private" style="color:#c0392b;">—</span>
+      </div>
+      <div class="calc-item" id="calc-official-wrap" style="display:none;">
+        <span class="calc-label" style="color:var(--navy);font-weight:700;" data-hr="Službeno vrijeme" data-en="Official time">Službeno vrijeme</span>
+        <span class="calc-value" id="calc-official" style="color:var(--navy);font-weight:700;">—</span>
+      </div>
       <div class="calc-item">
         <span class="calc-label" data-hr="Broj dnevnica" data-en="Daily allowances">Broj dnevnica</span>
         <span class="calc-value" id="calc-count">—</span>
@@ -299,6 +307,34 @@
       <div class="calc-item">
         <span class="calc-label" data-hr="Ukupno dnevnice" data-en="Total allowance">Ukupno dnevnice</span>
         <span class="calc-value" id="calc-total" style="color:var(--accent);">—</span>
+      </div>
+    </div>
+
+    <!-- Privatno vrijeme -->
+    <div id="private-time-section" style="margin-top:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <label class="form-label" style="margin:0;font-weight:600;font-size:12px;color:var(--gray-600);" data-hr="🏖️ Privatno vrijeme (oduzima se od službenog)" data-en="🏖️ Private time (deducted from official)">🏖️ Privatno vrijeme (oduzima se od službenog)</label>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="addPrivateTime()" style="font-size:11px;padding:3px 10px;"
+          {{ 'disabled' if order and order.status in ['submitted','approved','knjizeno'] else '' }}>
+          + Dodaj period
+        </button>
+      </div>
+      <div id="private-time-rows">
+        {% if order and order.private_times %}
+          {% for pt in order.private_times %}
+          <div class="private-time-row" id="pt-row-{{ loop.index0 }}" style="display:flex;gap:8px;align-items:center;margin-bottom:6px;padding:8px 10px;background:#fef5f5;border:1px solid #f5d5d5;border-radius:6px;">
+            <span style="font-size:11px;color:#c0392b;font-weight:600;flex-shrink:0;">Od</span>
+            <input type="datetime-local" class="form-control" style="font-size:12px;flex:1;" value="{{ pt.start[:16] }}" onchange="calcDnevnice()"
+              {{ 'disabled style="background:#f7f9fc;cursor:not-allowed;"' if order.status in ['submitted','approved','knjizeno'] else '' }}>
+            <span style="font-size:11px;color:#c0392b;font-weight:600;flex-shrink:0;">Do</span>
+            <input type="datetime-local" class="form-control" style="font-size:12px;flex:1;" value="{{ pt.end[:16] }}" onchange="calcDnevnice()"
+              {{ 'disabled style="background:#f7f9fc;cursor:not-allowed;"' if order.status in ['submitted','approved','knjizeno'] else '' }}>
+            {% if order.status not in ['submitted','approved','knjizeno'] %}
+            <button type="button" class="btn btn-sm btn-ghost btn-icon" onclick="removePrivateTime('pt-row-{{ loop.index0 }}')" title="Ukloni" style="color:#c0392b;flex-shrink:0;">✕</button>
+            {% endif %}
+          </div>
+          {% endfor %}
+        {% endif %}
       </div>
     </div>
 
@@ -363,7 +399,7 @@
                 {{ pe.description or pe.original_filename or '—' }}
               {% endif %}
             </td>
-            <td style="padding:8px 12px;text-align:right;font-weight:700;font-size:13px;white-space:nowrap;">{{ '%.2f'|format(pe.amount or 0) }} €</td>
+            <td data-amount="{{ pe.amount or 0 }}" style="padding:8px 12px;text-align:right;font-weight:700;font-size:13px;white-space:nowrap;">{{ '%.2f'|format(pe.amount or 0) }} €</td>
             <td style="padding:8px 12px;text-align:center;font-size:11px;">
               {% if pe.payment_method == 'private' %}💳 Privatno
               {% elif pe.payment_method == 'transfer' %}🏦 Virman
@@ -386,7 +422,7 @@
         <tfoot>
           <tr style="background:var(--gray-50);">
             <td colspan="4" style="padding:8px 12px;text-align:right;font-size:12px;font-weight:700;color:var(--gray-600);">Ukupno dokumentirani troškovi:</td>
-            <td style="padding:8px 12px;text-align:right;font-weight:700;font-size:14px;color:var(--navy);font-family:'DM Mono',monospace;">{{ '%.2f'|format(pn_expenses|sum(attribute='amount')) }} €</td>
+            <td id="pn-exp-footer-total" style="padding:8px 12px;text-align:right;font-weight:700;font-size:14px;color:var(--navy);font-family:'DM Mono',monospace;">{{ '%.2f'|format(pn_expenses|sum(attribute='amount')) }} €</td>
             <td colspan="2"></td>
           </tr>
         </tfoot>
@@ -578,14 +614,88 @@ function onEmployeeChange() {
 }
 
 // ── Dnevnice calculation ──────────────────────────────────────────────────
+let privateTimeCounter = {{ (order.private_times|length) if order and order.private_times else 0 }};
+
+function getPrivateTimes() {
+  const rows = document.querySelectorAll('.private-time-row');
+  const times = [];
+  rows.forEach(row => {
+    const inputs = row.querySelectorAll('input[type="datetime-local"]');
+    if (inputs.length >= 2 && inputs[0].value && inputs[1].value) {
+      times.push({ start: inputs[0].value, end: inputs[1].value });
+    }
+  });
+  return times;
+}
+
+function addPrivateTime() {
+  const container = document.getElementById('private-time-rows');
+  const id = privateTimeCounter++;
+  // Default: use trip start date if available
+  const tripStart = document.getElementById('trip_start_datetime').value;
+  const defaultDate = tripStart ? tripStart.substring(0, 11) : '';
+  const row = document.createElement('div');
+  row.className = 'private-time-row';
+  row.id = `pt-row-${id}`;
+  row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px;padding:8px 10px;background:#fef5f5;border:1px solid #f5d5d5;border-radius:6px;';
+  row.innerHTML = `
+    <span style="font-size:11px;color:#c0392b;font-weight:600;flex-shrink:0;">Od</span>
+    <input type="datetime-local" class="form-control" style="font-size:12px;flex:1;" value="${defaultDate}18:00" onchange="calcDnevnice()">
+    <span style="font-size:11px;color:#c0392b;font-weight:600;flex-shrink:0;">Do</span>
+    <input type="datetime-local" class="form-control" style="font-size:12px;flex:1;" value="${defaultDate}22:00" onchange="calcDnevnice()">
+    <button type="button" class="btn btn-sm btn-ghost btn-icon" onclick="removePrivateTime('pt-row-${id}')" title="Ukloni" style="color:#c0392b;flex-shrink:0;">✕</button>
+  `;
+  container.appendChild(row);
+  calcDnevnice();
+}
+
+function removePrivateTime(rowId) {
+  const row = document.getElementById(rowId);
+  if (row) row.remove();
+  calcDnevnice();
+}
+
+function calcPrivateMinutes(privateTimes, tripStart, tripEnd) {
+  // Calculate total private minutes that fall within trip period
+  const ts = new Date(tripStart).getTime();
+  const te = new Date(tripEnd).getTime();
+  let totalMinutes = 0;
+  for (const pt of privateTimes) {
+    let ps = new Date(pt.start).getTime();
+    let pe = new Date(pt.end).getTime();
+    // Clamp to trip boundaries
+    ps = Math.max(ps, ts);
+    pe = Math.min(pe, te);
+    if (pe > ps) {
+      totalMinutes += (pe - ps) / 60000;
+    }
+  }
+  return totalMinutes;
+}
+
+function formatMinutes(mins) {
+  const d = Math.floor(mins / 1440);
+  const h = Math.floor((mins % 1440) / 60);
+  const m = Math.round(mins % 60);
+  let s = '';
+  if (d) s += `${d}d `;
+  if (h || d) s += `${h}h `;
+  s += `${m}min`;
+  return s;
+}
+
 async function calcDnevnice() {
   const start = document.getElementById('trip_start_datetime').value;
   const end = document.getElementById('trip_end_datetime').value;
   if (!start || !end) return;
+
+  const privateTimes = getPrivateTimes();
+  const privateMinutes = calcPrivateMinutes(privateTimes, start, end);
+
   const res = await fetch('/api/calculate_dnevnice', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({start, end})
+    body: JSON.stringify({ start, end, private_minutes: privateMinutes })
   });
   const data = await res.json();
   dnevniceData = { count: data.dnevnice, rate: data.total / (data.dnevnice || 1) || 0, total: data.total };
@@ -596,7 +706,30 @@ async function calcDnevnice() {
   // Update display
   const box = document.getElementById('dnevnice-box');
   box.style.display = 'flex';
-  document.getElementById('calc-duration').textContent = `${data.days}d ${data.hours}h ${data.minutes}min`;
+
+  // Total trip duration
+  const totalMs = new Date(end) - new Date(start);
+  const totalMinutes = totalMs / 60000;
+  const totalDays = Math.floor(totalMinutes / 1440);
+  const totalHours = Math.floor((totalMinutes % 1440) / 60);
+  const totalMins = Math.round(totalMinutes % 60);
+  document.getElementById('calc-duration').textContent = `${totalDays}d ${totalHours}h ${totalMins}min`;
+
+  // Private time display
+  const privateWrap = document.getElementById('calc-private-wrap');
+  const officialWrap = document.getElementById('calc-official-wrap');
+  if (privateMinutes > 0) {
+    privateWrap.style.display = '';
+    officialWrap.style.display = '';
+    document.getElementById('calc-private').textContent = `− ${formatMinutes(privateMinutes)}`;
+    const officialMinutes = totalMinutes - privateMinutes;
+    document.getElementById('calc-official').textContent = formatMinutes(Math.max(0, officialMinutes));
+  } else {
+    privateWrap.style.display = 'none';
+    officialWrap.style.display = 'none';
+  }
+
+  // Dnevnice from API response (API should subtract private time)
   document.getElementById('calc-count').textContent = data.dnevnice;
   document.getElementById('calc-rate').textContent = `${dnevniceData.rate.toFixed(2)} €`;
   document.getElementById('calc-total').textContent = `${data.total.toFixed(2)} €`;
@@ -756,6 +889,7 @@ async function saveOrder(status) {
     approved_by_id: document.getElementById('approved_by_id').value || null,
     validator_id: document.getElementById('validator_id').value || null,
     cost_center_id: (document.getElementById('cost_center_id') || {value: null}).value || null,
+    private_times: getPrivateTimes(),
     // expenses se ne šalju — unose se kroz pn_expenses (Troškovi s dokumentima)
   };
 
@@ -984,11 +1118,45 @@ async function savePnExp() {
 
 async function deletePnExp(expId) {
   if (!confirm('Obrisati ovaj trošak s dokumentom?')) return;
+  // Inline toast helper (in case global toast is not defined)
+  function _t(msg, type) {
+    if (typeof toast === 'function') { toast(msg, type); return; }
+    var el = document.getElementById('toast');
+    if (el) { el.textContent = msg; el.className = 'toast show ' + (type || ''); setTimeout(function(){ el.className = 'toast'; }, 3000); }
+    else { alert(msg); }
+  }
   try {
     const res = await fetch('/api/pn-expenses/' + expId, { method: 'DELETE' });
-    if (res.ok) { toast('Trošak obrisan.', 'success'); const row = document.getElementById('pn-exp-row-' + expId); if (row) row.style.display = 'none'; }
-    else { toast('Greška pri brisanju', 'error'); }
-  } catch(e) { toast('Greška: ' + e.message, 'error'); }
+    if (res.ok) {
+      _t('Trošak obrisan.', 'success');
+      // Remove the row from DOM entirely
+      const row = document.getElementById('pn-exp-row-' + expId);
+      if (row) row.remove();
+      // Update count badge
+      const countEl = document.getElementById('pn-exp-count');
+      if (countEl) {
+        const remaining = document.querySelectorAll('tr[id^="pn-exp-row-"]').length;
+        countEl.textContent = remaining;
+      }
+      // Recalculate footer total from remaining rows
+      let newTotal = 0;
+      document.querySelectorAll('tr[id^="pn-exp-row-"] td[data-amount]').forEach(td => {
+        newTotal += parseFloat(td.dataset.amount || 0);
+      });
+      const footerTotal = document.getElementById('pn-exp-footer-total');
+      if (footerTotal) footerTotal.textContent = newTotal.toFixed(2) + ' €';
+      // Refresh pn_expenses data for rekapitulacija
+      const oid = window._orderId;
+      if (oid) {
+        try {
+          const r2 = await fetch(`/api/pn-expenses/by-order/${oid}`);
+          const d2 = await r2.json();
+          window._pnExpensesData = Array.isArray(d2) ? d2 : (d2.expenses || []);
+        } catch {}
+      }
+      updateTotals();
+    } else { _t('Greška pri brisanju', 'error'); }
+  } catch(e) { _t('Greška: ' + e.message, 'error'); }
 }
 
 

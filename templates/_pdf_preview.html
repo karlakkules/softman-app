@@ -1,0 +1,59 @@
+<!-- _pdf_preview.html — Reusable PDF/slika preview komponenta (SoftmanPreview) -->
+<script>
+window.SoftmanPreview = class SoftmanPreview {
+  constructor(containerId) {
+    this._containerId = containerId;
+    this._blobUrl = null;
+  }
+
+  get _container() {
+    return document.getElementById(this._containerId);
+  }
+
+  show(file) {
+    this.clear();
+    const c = this._container;
+    if (!c) return;
+    if (!file) { this._showEmpty(c); return; }
+    this._blobUrl = URL.createObjectURL(file);
+    const ext = file.name.split('.').pop().toLowerCase();
+    this._render(c, this._blobUrl, ext);
+  }
+
+  showUrl(url, ext) {
+    this.clear();
+    const c = this._container;
+    if (!c) return;
+    if (!url) { this._showEmpty(c); return; }
+    this._render(c, url, ext || 'pdf');
+  }
+
+  clear() {
+    if (this._blobUrl) { URL.revokeObjectURL(this._blobUrl); this._blobUrl = null; }
+    const c = this._container;
+    if (c) { c.innerHTML = ''; c.style.cssText = 'width:100%;height:100%;'; }
+  }
+
+  _render(c, src, ext) {
+    c.innerHTML = '';
+    if (ext === 'pdf') {
+      const embed = document.createElement('embed');
+      embed.src = src;
+      embed.type = 'application/pdf';
+      embed.style.cssText = 'width:100%;height:100%;min-height:500px;border:none;';
+      c.style.cssText = 'width:100%;height:100%;';
+      c.appendChild(embed);
+    } else {
+      const img = document.createElement('img');
+      img.src = src;
+      img.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;padding:16px;';
+      c.style.cssText = 'width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:auto;';
+      c.appendChild(img);
+    }
+  }
+
+  _showEmpty(c) {
+    c.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--gray-400);font-size:14px;">Nema dokumenta za prikaz</div>';
+  }
+};
+</script>

@@ -129,11 +129,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function deleteLog(id) {
   _delCb = async () => {
-    await fetch(`/api/vehicle-log/${id}`, {method:'DELETE'});
-    toast('Evidencija obrisana!', 'success');
-    setTimeout(() => location.reload(), 700);
+    try {
+      const res = await fetch(`/api/vehicle-log/${id}`, {method:'DELETE'});
+      if (res.ok) {
+        document.getElementById('del-modal').classList.remove('open');
+        // Remove the row immediately from DOM
+        const row = document.querySelector(`#log-tbody tr[data-id="${id}"]`);
+        if (row) row.remove();
+        // Update badge count
+        const badge = document.querySelector('.card-header .card-title + span');
+        if (badge) {
+          const remaining = document.querySelectorAll('#log-tbody tr[data-year]').length;
+          badge.textContent = remaining;
+        }
+        toast('Evidencija obrisana!', 'success');
+      } else {
+        toast('Greška pri brisanju.', 'error');
+      }
+    } catch(e) {
+      toast('Greška pri brisanju: ' + e.message, 'error');
+    }
   };
-  document.getElementById('del-ok').onclick = () => { if(_delCb) _delCb(); document.getElementById('del-modal').classList.remove('open'); };
+  document.getElementById('del-ok').onclick = () => { if(_delCb) _delCb(); };
   document.getElementById('del-modal').classList.add('open');
 }
 

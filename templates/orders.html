@@ -37,6 +37,65 @@
 {% endblock %}
 
 {% block content %}
+<style>
+/* ── Compact topbar for orders ── */
+.topbar-actions .btn { padding: 6px 10px; font-size: 12.5px; }
+.topbar-actions .btn-primary { padding: 7px 14px; }
+.topbar-actions { flex-wrap: wrap; justify-content: flex-end; gap: 6px !important; }
+
+/* ── Compact orders table ── */
+#orders-table { table-layout: fixed; width: 100%; }
+#orders-table th, #orders-table td { padding: 8px 8px; font-size: 12.5px; }
+#orders-table th { font-size: 10.5px; }
+#orders-table .col-filter { width: 100%; padding: 4px 6px; font-size: 11px; }
+
+/* Compact action buttons */
+.act-btn { width: 26px !important; height: 26px !important; padding: 0 !important;
+  display: inline-flex !important; align-items: center; justify-content: center;
+  border-radius: 5px; cursor: pointer; font-size: 12px !important; flex-shrink: 0; }
+.act-btn svg { width: 13px; height: 13px; }
+
+/* Fixed-width action grid: each icon slot is always 26px wide */
+.action-grid {
+  display: grid;
+  grid-template-columns: 26px 26px 26px 26px;
+  gap: 3px;
+  align-items: center;
+}
+.action-grid .act-placeholder {
+  width: 26px; height: 26px;
+}
+
+/* Tighter numeric/status columns */
+#orders-table td[data-col="6"],
+#orders-table td[data-col="7"],
+#orders-table td[data-col="8"] { padding: 8px 4px; }
+
+/* ── Kebab action dropdown ── */
+.action-wrap { position: relative; display: flex; gap: 3px; align-items: center; }
+.kebab-btn {
+  width: 26px; height: 26px; padding: 0; border: 1px solid var(--gray-200);
+  background: white; border-radius: 5px; cursor: pointer; font-size: 15px;
+  display: flex; align-items: center; justify-content: center; color: var(--gray-600);
+  transition: all 0.15s; flex-shrink: 0;
+}
+.kebab-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+.kebab-drop {
+  display: none; position: absolute; right: 0; top: 30px; z-index: 200;
+  background: white; border: 1px solid var(--gray-200); border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15,39,68,0.15); min-width: 180px;
+  padding: 4px 0; white-space: nowrap;
+}
+.kebab-drop.open { display: block; }
+.kebab-drop a, .kebab-drop button {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 8px 14px; font-size: 12.5px; font-family: inherit;
+  color: var(--gray-800); background: none; border: none; cursor: pointer;
+  text-decoration: none; text-align: left; transition: background 0.1s;
+}
+.kebab-drop a:hover, .kebab-drop button:hover { background: var(--gray-50); }
+.kebab-sep { height: 1px; background: var(--gray-100); margin: 4px 0; }
+</style>
 <div class="card">
   <div class="card-header">
     <div style="display:flex;align-items:center;gap:12px;">
@@ -78,22 +137,22 @@
     <table id="orders-table">
       <thead>
         <tr>
-          <th style="width:32px;min-width:32px;padding:4px 6px;">
+          <th style="width:30px;padding:4px 4px;">
             <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" title="Odaberi sve">
           </th>
-          <th class="sortable" style="width:140px;min-width:140px;white-space:nowrap;" data-col="1" onclick="sortTable(1)">Br. Naloga <span class="sort-icon">↕</span></th>
-          <th class="sortable" style="width:140px;" data-col="2" onclick="sortTable(2)">Polazak <span class="sort-icon">↕</span></th>
-          <th class="sortable" data-col="3" onclick="sortTable(3)">Zaposlenik <span class="sort-icon">↕</span></th>
-          <th class="sortable" style="width:110px;" data-col="4" onclick="sortTable(4)">Destinacija <span class="sort-icon">↕</span></th>
+          <th class="sortable" style="width:70px;" data-col="1" onclick="sortTable(1)">Br. Naloga <span class="sort-icon">↕</span></th>
+          <th class="sortable" style="width:110px;" data-col="2" onclick="sortTable(2)">Polazak <span class="sort-icon">↕</span></th>
+          <th class="sortable" style="width:145px;" data-col="3" onclick="sortTable(3)">Zaposlenik <span class="sort-icon">↕</span></th>
+          <th class="sortable" style="width:90px;" data-col="4" onclick="sortTable(4)">Destinacija <span class="sort-icon">↕</span></th>
           <th>Svrha</th>
-          <th class="sortable" style="width:90px;" data-col="6" onclick="sortTable(6)">Za isplatu <span class="sort-icon">↕</span></th>
-          <th class="sortable" style="width:100px;" data-col="7" onclick="sortTable(7)">Status <span class="sort-icon">↕</span></th>
-          <th class="sortable" style="width:80px;" data-col="8" onclick="sortTable(8)">Isplata <span class="sort-icon">↕</span></th>
-          <th style="width:140px;">Akcije</th>
+          <th class="sortable" style="width:75px;" data-col="6" onclick="sortTable(6)">Za isplatu <span class="sort-icon">↕</span></th>
+          <th class="sortable" style="width:72px;" data-col="7" onclick="sortTable(7)">Status <span class="sort-icon">↕</span></th>
+          <th class="sortable" style="width:48px;" data-col="8" onclick="sortTable(8)">Isplata <span class="sort-icon">↕</span></th>
+          <th style="width:140px;text-align:center;">Akcije</th>
         </tr>
         {% if not show_trash %}
         <tr id="col-filters" style="background:var(--gray-50);">
-          <th style="width:32px;min-width:32px;"></th>
+          <th style="width:30px;"></th>
           <th><input class="col-filter" data-col="1" placeholder="Filtriraj..." oninput="colFilter()"></th>
           <th><input class="col-filter" data-col="2" placeholder="Filtriraj..." oninput="colFilter()"></th>
           <th><input class="col-filter" data-col="3" placeholder="Filtriraj..." oninput="colFilter()"></th>
@@ -109,18 +168,18 @@
             data-search="{{ (o.auto_id or '') }} {{ (o.employee_name or '') }} {{ (o.destination or '') }} {{ (o.purpose or '') }}"
             data-paid="{{ o.is_paid or 0 }}"
             data-id="{{ o.id }}">
-          <td style="width:32px;min-width:32px;padding:12px 6px;text-align:center;vertical-align:middle;">
+          <td style="width:30px;padding:6px 4px;text-align:center;vertical-align:middle;">
             {% if not show_trash %}
             <input type="checkbox" class="row-select" value="{{ o.id }}" onchange="updateBulkBar()">
             {% endif %}
           </td>
           <td data-col="1" data-val="{{ o.auto_id or '' }}">
-            <span style="font-family:'DM Mono',monospace;font-weight:600;color:var(--navy);">PN {{ o.auto_id }}</span>
+            <span style="font-family:'DM Mono',monospace;font-weight:600;color:var(--navy);">{{ o.auto_id }}</span>
           </td>
           <td data-col="2" data-val="{{ o.departure_date or o.issue_date or '' }}" style="white-space:nowrap;">{{ (o.departure_date or o.issue_date)|fmt_date or '—' }}{% if o.expected_duration %} <span style="font-size:11px;color:var(--gray-400);">({{ o.expected_duration }})</span>{% endif %}</td>
           <td data-col="3" data-val="{{ o.employee_name or '' }}">{{ o.employee_name or '—' }}</td>
           <td data-col="4" data-val="{{ o.destination or '' }}">{{ o.destination or '—' }}</td>
-          <td data-col="5" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ o.purpose or '—' }}</td>
+          <td data-col="5" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ o.purpose or '—' }}</td>
           <td data-col="6" data-val="{{ o.payout_amount or 0 }}"><strong>{{ '%.2f'|format(o.payout_amount or 0) }} €</strong></td>
           <td data-col="7" data-val="{{ o.status }}">
             {% if o.status == 'draft' %}<span class="badge badge-draft">Nacrt</span>
@@ -138,31 +197,37 @@
             {% endif %}
           </td>
           <td>
-            <div style="display:flex;gap:4px;align-items:center;">
+            <div class="action-wrap">
               {% if not show_trash %}
-                {% if o.status in ['submitted', 'approved', 'knjizeno'] %}
-                {% else %}
-                {% endif %}
-                {% if o.status in ["approved", "knjizeno"] %}
-                  <a href="/orders/{{ o.id }}/pdf" target="_blank" class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;" title="Preuzmi PDF"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <div class="action-grid">
+                  {% if o.status in ["approved", "knjizeno"] %}
+                  <a href="/orders/{{ o.id }}/pdf" target="_blank" class="act-btn" style="background:#fff;border:1px solid var(--gray-200);" title="Preuzmi PDF"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
   <path d="M3 1h7l3 3v10a1 1 0 01-1 1H3a1 1 0 01-1-1V2a1 1 0 011-1z" fill="#e74c3c" stroke="#c0392b" stroke-width="0.5"/>
   <path d="M10 1l3 3h-3V1z" fill="#c0392b"/>
   <text x="3.5" y="11.5" font-family="Arial" font-size="4.5" font-weight="bold" fill="white">PDF</text>
 </svg></a>
-                  <a href="/orders/{{ o.id }}/export-zip" class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;" title="Preuzmi ZIP (PDF naloga + dokumenti troškova)">📦</a>
-                  <button style="width:30px;height:30px;padding:0;background:#f5f5f5;color:#444;border:1px solid #ccc;border-radius:6px;cursor:pointer;font-size:14px;" onclick="printOrder({{ o.id }})" title="Ispiši nalog">🖨️</button>
-                {% else %}
-                  <span style="width:30px;display:inline-block;flex-shrink:0;"></span>
-                  <span style="width:30px;display:inline-block;flex-shrink:0;"></span>
-                {% endif %}
-                <button class="btn btn-sm btn-secondary" style="width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;" onclick="duplicateOrder({{ o.id }}, '{{ o.auto_id }}')" title="Dupliciraj nalog (kreira kopiju kao Nacrt)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-                <button style="width:30px;padding:0;background:#f0faf4;color:#27ae60;border:1px solid #a8d5b5;border-radius:6px;cursor:pointer;font-size:13px;height:30px;"
-                  onclick="openPayment({{ o.id }}, '{{ o.auto_id }}', {{ o.is_paid or 0 }}, '{{ o.paid_at|fmt_date }}')" title="Isplata">€</button>
-                {% if current_user.get('is_admin') or current_user.get('can_delete_orders') %}
-                <button style="width:30px;padding:0;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;border-radius:6px;cursor:pointer;font-size:13px;height:30px;" onclick="confirmDelete({{ o.id }}, '{{ o.auto_id }}')" title="Obriši nalog">🗑</button>
-                {% endif %}
+                  {% else %}
+                  <div class="act-placeholder"></div>
+                  {% endif %}
+                  <button class="act-btn" style="background:#f0faf4;color:#27ae60;border:1px solid #a8d5b5;"
+                    onclick="openPayment({{ o.id }}, '{{ o.auto_id }}', {{ o.is_paid or 0 }}, '{{ o.paid_at|fmt_date }}')" title="Isplata">€</button>
+                  {% if current_user.get('is_admin') or current_user.get('can_delete_orders') %}
+                  <button class="act-btn" style="background:#fdecea;color:#c0392b;border:1px solid #f5aca6;" onclick="confirmDelete({{ o.id }}, '{{ o.auto_id }}')" title="Obriši nalog">🗑</button>
+                  {% else %}
+                  <div class="act-placeholder"></div>
+                  {% endif %}
+                  <button class="kebab-btn" onclick="toggleKebab(event, this)" title="Više akcija">⋮</button>
+                </div>
+                <div class="kebab-drop">
+                  {% if o.status in ["approved", "knjizeno"] %}
+                  <a href="/orders/{{ o.id }}/export-zip">📦 Preuzmi ZIP</a>
+                  <button onclick="printOrder({{ o.id }});closeAllKebabs();">🖨️ Ispiši nalog</button>
+                  <div class="kebab-sep"></div>
+                  {% endif %}
+                  <button onclick="duplicateOrder({{ o.id }}, '{{ o.auto_id }}');closeAllKebabs();">📋 Dupliciraj nalog</button>
+                </div>
               {% else %}
-                <button class="btn btn-sm" style="background:#fdecea;color:#c0392b;border:1px solid #f5aca6;" onclick="confirmDestroy({{ o.id }}, '{{ o.auto_id }}')" title="Trajno obriši nalog">❌ Trajno obriši</button>
+                <button class="btn btn-sm" style="background:#fdecea;color:#c0392b;border:1px solid #f5aca6;font-size:12px;" onclick="confirmDestroy({{ o.id }}, '{{ o.auto_id }}')" title="Trajno obriši nalog">❌ Trajno obriši</button>
               {% endif %}
             </div>
           </td>
@@ -259,113 +324,132 @@
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
 <!-- EXPENSE UPLOAD — Step 2: Detaljna forma nakon OCR-a                    -->
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- EXPENSE UPLOAD — Step 2: Splitscreen forma s PDF previewom              -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="expense-detail-modal" style="z-index:1001;">
-  <div class="modal" style="width:680px;max-height:90vh;display:flex;flex-direction:column;">
-    <div class="modal-header">
-      <span class="modal-title">🧾 Detalji troška</span>
+  <input type="hidden" id="exp-temp-filename">
+  <input type="hidden" id="exp-original-filename">
+  <input type="hidden" id="exp-ocr-raw">
+  <div style="width:92vw;max-width:1400px;height:88vh;background:white;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.3);display:flex;flex-direction:column;overflow:hidden;">
+    <div style="padding:14px 20px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+      <span style="font-size:15px;font-weight:700;color:var(--navy);">🧾 Detalji troška</span>
       <button class="btn btn-ghost btn-icon" onclick="closeExpenseDetail()">✕</button>
     </div>
-    <div class="modal-body" style="overflow-y:auto;">
-      <input type="hidden" id="exp-temp-filename">
-      <input type="hidden" id="exp-original-filename">
-      <input type="hidden" id="exp-ocr-raw">
-
-      <!-- R1 polja (vidljiva samo za R1 račune) -->
-      <div id="exp-r1-fields" style="display:none;">
-        <div style="background:#e8f0f7;border:1px solid #aac4db;border-radius:6px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:var(--navy);font-weight:600;">
-          📋 R1 račun — podaci o partneru (vidljivo i u modulu Ulazni računi)
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
-          <div class="form-group" style="grid-column:1/-1;">
-            <label class="form-label">Naziv partnera</label>
-            <input type="text" class="form-control" id="exp-partner-name" placeholder="Naziv tvrtke...">
+    <div style="flex:1;min-height:0;display:flex;flex-direction:row;overflow:hidden;">
+      <!-- Lijevo: forma -->
+      <div style="width:440px;min-width:360px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid var(--gray-200);">
+        <div style="flex:1;overflow-y:auto;padding:20px;">
+          <div style="background:#fff8e1;border:1px solid #f0c14b;border-radius:6px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:#7d5a00;">
+            ⚠️ Pregledajte i ispravite podatke koje je program pročitao s računa.
           </div>
-          <div class="form-group" style="grid-column:1/-1;">
-            <label class="form-label" style="font-size:11px;color:var(--gray-500);margin-bottom:4px;">Dobavljač s liste</label>
-            <div style="display:flex;gap:6px;align-items:center;">
-              <div style="flex:1;position:relative;">
-                <input type="text" class="form-control" id="exp-supplier-search"
-                  placeholder="Pretraži dobavljača..." style="font-size:13px;" autocomplete="off"
-                  oninput="filterExpSupplierDropdown()" onfocus="showExpSupplierDropdown()">
-                <input type="hidden" id="exp-supplier-id">
-                <div id="exp-supplier-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--gray-300);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:99999;max-height:200px;overflow-y:auto;margin-top:2px;"></div>
-              </div>
-              <button type="button" class="btn btn-sm btn-secondary" onclick="quickAddExpSupplier()" title="Dodaj novog dobavljača" style="padding:0 10px;height:36px;flex-shrink:0;">➕</button>
+
+          <!-- R1 polja -->
+          <div id="exp-r1-fields" style="display:none;">
+            <div style="background:#e8f0f7;border:1px solid #aac4db;border-radius:6px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:var(--navy);font-weight:600;">
+              📋 R1 račun — podaci o partneru (vidljivo i u modulu Ulazni računi)
             </div>
-            <div id="exp-supplier-match" style="display:none;margin-top:4px;font-size:12px;color:#27ae60;font-weight:600;"></div>
+            <div class="form-group" style="margin-bottom:10px;">
+              <label class="form-label">Naziv partnera</label>
+              <input type="text" class="form-control" id="exp-partner-name" placeholder="Naziv tvrtke...">
+            </div>
+            <div class="form-group" style="margin-bottom:10px;">
+              <label class="form-label" style="font-size:11px;color:var(--gray-500);margin-bottom:4px;">Dobavljač s liste</label>
+              <div style="display:flex;gap:6px;align-items:center;">
+                <div style="flex:1;position:relative;">
+                  <input type="text" class="form-control" id="exp-supplier-search"
+                    placeholder="Pretraži dobavljača..." style="font-size:13px;" autocomplete="off"
+                    oninput="filterExpSupplierDropdown()" onfocus="showExpSupplierDropdown()">
+                  <input type="hidden" id="exp-supplier-id">
+                  <div id="exp-supplier-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--gray-300);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:99999;max-height:200px;overflow-y:auto;margin-top:2px;"></div>
+                </div>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="quickAddExpSupplier()" title="Dodaj novog dobavljača" style="padding:0 10px;height:36px;flex-shrink:0;">➕</button>
+              </div>
+              <div id="exp-supplier-match" style="display:none;margin-top:4px;font-size:12px;color:#27ae60;font-weight:600;"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+              <div class="form-group">
+                <label class="form-label">OIB partnera</label>
+                <input type="text" class="form-control" id="exp-partner-oib" placeholder="12345678901" maxlength="11">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Broj računa</label>
+                <input type="text" class="form-control" id="exp-invoice-number" placeholder="R-001/2026">
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom:10px;">
+              <label class="form-label">Datum dospijeća</label>
+              <input type="date" class="form-control" id="exp-due-date">
+            </div>
+            <hr style="border:none;border-top:1px solid var(--gray-200);margin:12px 0;">
           </div>
-          <div class="form-group">
-            <label class="form-label">OIB partnera</label>
-            <input type="text" class="form-control" id="exp-partner-oib" placeholder="12345678901" maxlength="11">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Broj računa</label>
-            <input type="text" class="form-control" id="exp-invoice-number" placeholder="R-001/2026">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Datum dospijeća</label>
-            <input type="date" class="form-control" id="exp-due-date">
-          </div>
-        </div>
-        <hr style="border:none;border-top:1px solid var(--gray-200);margin:12px 0;">
-      </div>
 
-      <!-- Zajednička polja -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div class="form-group">
-          <label class="form-label">Kategorija troška</label>
-          <select class="form-control" id="exp-category">
-            <option value="">— odaberi —</option>
-            {% for cat in expense_categories %}
-            <option value="{{ cat.id }}">{{ cat.name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Iznos (€) *</label>
-          <input type="number" class="form-control" id="exp-amount" step="0.01" placeholder="0.00" style="font-weight:700;">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Datum dokumenta</label>
-          <input type="date" class="form-control" id="exp-doc-date" onchange="tryAutoMatchPnByDate(this.value)">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Opis</label>
-          <input type="text" class="form-control" id="exp-description" placeholder="Npr. gorivo, cestarina...">
-        </div>
-      </div>
+          <!-- Zajednička polja -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="form-group">
+              <label class="form-label">Kategorija troška</label>
+              <select class="form-control" id="exp-category">
+                <option value="">— odaberi —</option>
+                {% for cat in expense_categories %}
+                <option value="{{ cat.id }}">{{ cat.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Iznos (€) *</label>
+              <input type="number" class="form-control" id="exp-amount" step="0.01" placeholder="0.00" style="font-weight:700;">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Datum dokumenta</label>
+              <input type="date" class="form-control" id="exp-doc-date" onchange="tryAutoMatchPnByDate(this.value)">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Opis</label>
+              <input type="text" class="form-control" id="exp-description" placeholder="Npr. gorivo, cestarina...">
+            </div>
+          </div>
 
-      <!-- Veza na PN -->
-      <div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:12px;margin-top:12px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-          <label class="form-label" style="margin:0;font-weight:700;">🔗 Veza na putni nalog</label>
-          <button type="button" class="btn btn-sm" style="background:#fff8e1;color:#e67e22;border:1px solid #f0c14b;font-size:12px;padding:2px 10px;" onclick="openQuickPnFromExpense()" title="Kreiraj novi PN bez napuštanja forme">
-            ⚡ Kreiraj novi PN
-          </button>
-        </div>
-        <select class="form-control" id="exp-pn-select" style="font-size:13px;" onchange="this.dataset.autoMatched='0';document.getElementById('exp-pn-auto-match').style.display='none';">
-          <option value="">— Bez veze (neupareno) —</option>
-        </select>
-        <div id="exp-pn-auto-match" style="display:none;margin-top:6px;font-size:12px;color:#27ae60;font-weight:600;">
-          ✅ Automatski pronađen odgovarajući PN prema datumu
-        </div>
-      </div>
+          <!-- Veza na PN -->
+          <div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:12px;margin-top:12px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <label class="form-label" style="margin:0;font-weight:700;">🔗 Veza na putni nalog</label>
+              <button type="button" class="btn btn-sm" style="background:#fff8e1;color:#e67e22;border:1px solid #f0c14b;font-size:12px;padding:2px 10px;" onclick="openQuickPnFromExpense()" title="Kreiraj novi PN bez napuštanja forme">
+                ⚡ Kreiraj novi PN
+              </button>
+            </div>
+            <select class="form-control" id="exp-pn-select" style="font-size:13px;" onchange="this.dataset.autoMatched='0';document.getElementById('exp-pn-auto-match').style.display='none';">
+              <option value="">— Bez veze (neupareno) —</option>
+            </select>
+            <div id="exp-pn-auto-match" style="display:none;margin-top:6px;font-size:12px;color:#27ae60;font-weight:600;">
+              ✅ Automatski pronađen odgovarajući PN prema datumu
+            </div>
+          </div>
 
-      <!-- Način plaćanja -->
-      <div style="margin-top:12px;">
-        <label class="form-label" style="font-weight:700;">💳 Način plaćanja</label>
-        <select class="form-control" id="exp-payment-method" onchange="onExpPaymentChange()">
-          <option value="private">Plaćeno privatnom karticom/gotovinom</option>
-          <option value="transfer">Virman/transakcijski</option>
-          {% for card in bank_cards %}
-          <option value="card:{{ card.id }}">{{ card.card_name }} (*{{ card.last4 }}) — {{ card.card_type or 'Visa' }}</option>
-          {% endfor %}
-        </select>
+          <!-- Način plaćanja -->
+          <div style="margin-top:12px;">
+            <label class="form-label" style="font-weight:700;">💳 Način plaćanja</label>
+            <select class="form-control" id="exp-payment-method" onchange="onExpPaymentChange()">
+              <option value="private">Plaćeno privatnom karticom/gotovinom</option>
+              <option value="transfer">Virman/transakcijski</option>
+              {% for card in bank_cards %}
+              <option value="card:{{ card.id }}">{{ card.card_name }} (*{{ card.last4 }}) — {{ card.card_type or 'Visa' }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div style="padding:14px 20px;border-top:1px solid var(--gray-100);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0;">
+          <button class="btn btn-secondary" onclick="closeExpenseDetail()">Odustani</button>
+          <button class="btn btn-primary" onclick="saveExpense()">💾 Spremi trošak</button>
+        </div>
       </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeExpenseDetail()">Odustani</button>
-      <button class="btn btn-primary" onclick="saveExpense()">💾 Spremi trošak</button>
+      <!-- Desno: PDF/slika preview -->
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:#f8f9fa;">
+        <div style="padding:8px 16px;border-bottom:1px solid var(--gray-200);font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;">
+          Pregled dokumenta
+        </div>
+        <div style="flex:1;overflow:hidden;">
+          <div id="exp-preview" style="width:100%;height:100%;"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -516,6 +600,44 @@ th.sort-desc .sort-icon::after { content:' ▼'; }
 {% endblock %}
 
 {% block scripts %}
+
+<script>
+if (typeof window.SoftmanPreview === 'undefined') {
+  window.SoftmanPreview = class SoftmanPreview {
+    constructor(id) { this._id = id; this._url = null; }
+    get _c() { return document.getElementById(this._id); }
+    show(file) {
+      this.clear(); const c = this._c; if (!c) return;
+      if (!file) { c.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#8a99b0;font-size:14px;">Nema dokumenta za prikaz</div>'; return; }
+      this._url = URL.createObjectURL(file);
+      const ext = file.name.split('.').pop().toLowerCase();
+      this._render(c, this._url, ext);
+    }
+    showUrl(url, ext) {
+      this.clear(); const c = this._c; if (!c) return;
+      if (!url) { c.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#8a99b0;font-size:14px;">Nema dokumenta za prikaz</div>'; return; }
+      this._render(c, url, ext || 'pdf');
+    }
+    clear() {
+      if (this._url) { URL.revokeObjectURL(this._url); this._url = null; }
+      const c = this._c; if (c) { c.innerHTML = ''; c.style.cssText = 'width:100%;height:100%;'; }
+    }
+    _render(c, src, ext) {
+      c.innerHTML = '';
+      if (ext === 'pdf') {
+        const e = document.createElement('embed'); e.src = src; e.type = 'application/pdf';
+        e.style.cssText = 'width:100%;height:100%;min-height:500px;border:none;';
+        c.style.cssText = 'width:100%;height:100%;'; c.appendChild(e);
+      } else {
+        const i = document.createElement('img'); i.src = src;
+        i.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;padding:16px;';
+        c.style.cssText = 'width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:auto;';
+        c.appendChild(i);
+      }
+    }
+  };
+}
+</script>
 <script>
 // Fallback toast — osigurava da toast() postoji čak i ako base.html ga ne definira ispravno
 if (typeof toast !== 'function') {
@@ -864,6 +986,8 @@ document.addEventListener('DOMContentLoaded', function() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 let _expDocType = 'r1';
+let _expFile = null;
+let _expPreview = null;  // SoftmanPreview instanca
 let _expActivePnList = [];
 
 function onExpTypeChange() {
@@ -883,6 +1007,7 @@ function onExpTypeChange() {
 
 function openExpenseUpload() {
   _expDocType = 'r1';
+  _expFile = null;
   document.getElementById('exp-type-r1').checked = true;
   onExpTypeChange();
   document.getElementById('exp-drop-zone').style.display = '';
@@ -900,6 +1025,7 @@ function handleExpDrop(e) {
 
 async function handleExpFileSelect(file) {
   if (!file) return;
+  _expFile = file;
   document.getElementById('exp-drop-zone').style.display = 'none';
   document.getElementById('exp-ocr-progress').style.display = '';
 
@@ -1001,9 +1127,16 @@ async function openExpenseDetail(ocrResult) {
   }
 
   document.getElementById('expense-detail-modal').classList.add('open');
+
+  // PDF preview
+  if (!_expPreview) _expPreview = new SoftmanPreview('exp-preview');
+  _expPreview.show(_expFile);
 }
 
-function closeExpenseDetail() { document.getElementById('expense-detail-modal').classList.remove('open'); }
+function closeExpenseDetail() {
+  document.getElementById('expense-detail-modal').classList.remove('open');
+  if (_expPreview) _expPreview.clear();
+}
 
 async function loadActivePnList() {
   try {
@@ -1457,6 +1590,27 @@ if (_origOpenExpenseDetail) {
     }
   };
 }
+
+
+// ── Kebab dropdown ──
+function closeAllKebabs() {
+  document.querySelectorAll('.kebab-drop.open').forEach(d => d.classList.remove('open'));
+}
+function toggleKebab(e, btn) {
+  e.stopPropagation();
+  // Find the kebab-drop: it's either next sibling or sibling of parent .action-grid
+  let drop = btn.nextElementSibling;
+  if (!drop || !drop.classList.contains('kebab-drop')) {
+    // Look in parent .action-wrap for .kebab-drop
+    const wrap = btn.closest('.action-wrap');
+    if (wrap) drop = wrap.querySelector('.kebab-drop');
+  }
+  if (!drop) return;
+  const wasOpen = drop.classList.contains('open');
+  closeAllKebabs();
+  if (!wasOpen) drop.classList.add('open');
+}
+document.addEventListener('click', closeAllKebabs);
 
 </script>
 {% endblock %}

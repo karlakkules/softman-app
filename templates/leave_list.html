@@ -185,7 +185,7 @@
               {% endif %}
               <!-- Uredi — samo nacrt ili predano, sam zaposlenik ili admin -->
               {% if req.status in ['draft', 'submitted'] and (current_user.get('is_admin') or req.employee_id == current_employee_id) %}
-              <button class="btn btn-sm btn-secondary" style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;" onclick="editRequest({{ req | tojson | replace("'", '&#39;') }})" title="Uredi">✏️</button>
+              <button class="btn btn-sm btn-secondary edit-leave-btn" style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;" data-req='{{ req | tojson }}' title="Uredi">✏️</button>
               {% endif %}
               <!-- Obriši — samo nacrt, sam zaposlenik ili admin -->
               {% if req.status == 'draft' and (current_user.get('is_admin') or req.employee_id == current_employee_id) %}
@@ -263,6 +263,26 @@
 </div>
 
 <script>
+// ── Toast notifikacija ────────────────────────────────────────
+function toast(msg, type) {
+  // Ukloni prethodni toast ako postoji
+  const old = document.getElementById('_toast');
+  if (old) old.remove();
+  const el = document.createElement('div');
+  el.id = '_toast';
+  el.className = 'toast ' + (type || '');
+  el.textContent = msg;
+  document.body.appendChild(el);
+  // Trigger reflow pa dodaj .show za animaciju
+  void el.offsetWidth;
+  el.classList.add('show');
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 300);
+  }, 2500);
+}
+
+
 const HOLIDAYS_LEAVE = {{ holidays_json | tojson }};
 const IS_ADMIN_OR_APPROVER = {{ 'true' if is_approver else 'false' }};
 
@@ -389,5 +409,18 @@ document.addEventListener('DOMContentLoaded', () => {
 document.getElementById('leave-modal').addEventListener('click', function(e) {
   if (e.target === this) closeLeaveModal();
 });
+
+// ── Event delegation za Uredi gumbe (data-req pristup) ────────
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('.edit-leave-btn');
+  if (!btn) return;
+  try {
+    const req = JSON.parse(btn.dataset.req);
+    editRequest(req);
+  } catch (err) {
+    console.error('Greška pri parsiranju zahtjeva:', err);
+  }
+});
+
 </script>
 {% endblock %}

@@ -1,0 +1,1487 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <title></title>
+  <meta name="Generator" content="Cocoa HTML Writer">
+  <meta name="CocoaVersion" content="2685.5">
+  <style type="text/css">
+    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px '.AppleSystemUIFontMonospaced'; color: #f6f6f4; -webkit-text-stroke: #f6f6f4; background-color: #21211f}
+    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px '.AppleSystemUIFontMonospaced'; color: #f6f6f4; -webkit-text-stroke: #f6f6f4; background-color: #21211f; min-height: 15.0px}
+    span.s1 {font-kerning: none}
+    span.s2 {font: 12.0px '.Apple Color Emoji UI'; font-kerning: none}
+    span.s3 {font: 12.0px Menlo; font-kerning: none}
+  </style>
+</head>
+<body>
+<p class="p1"><span class="s1">{% extends "base.html" %}</span></p>
+<p class="p1"><span class="s1">{% set active = 'new' if not order else 'orders' %}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">{% block topbar_title %}</span></p>
+<p class="p1"><span class="s1">{% if order %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;span data-hr="Uređivanje" data-en="Edit"&gt;Uređivanje&lt;/span&gt; — PN {{ order.auto_id }}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>{% if is_deleted %}&lt;span style="color:#c0392b;font-size:12px;font-weight:400;margin-left:8px;"&gt;· IZBRISANO&lt;/span&gt;{% endif %}</span></p>
+<p class="p1"><span class="s1">{% else %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;span data-hr="Novi putni nalog" data-en="New Travel Order"&gt;Novi putni nalog&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1">{% endif %}</span></p>
+<p class="p1"><span class="s1">{% endblock %}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">{% block topbar_actions %}</span></p>
+<p class="p1"><span class="s1">&lt;a href="/orders" class="btn btn-secondary" title="Povratak na listu putnih naloga"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>← &lt;span data-hr="Natrag" data-en="Back"&gt;Natrag&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/a&gt;</span></p>
+<p class="p1"><span class="s1">{% if not is_deleted %}</span></p>
+<p class="p1"><span class="s1">{% if not order or order.status in ['draft', 'rejected'] %}</span></p>
+<p class="p1"><span class="s1">&lt;button class="btn btn-secondary" onclick="saveOrder('draft')"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span></span><span class="s2">💾</span><span class="s1"> &lt;span data-hr="Spremi nacrt" data-en="Save draft"&gt;Spremi nacrt&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/button&gt;</span></p>
+<p class="p1"><span class="s1">&lt;button class="btn btn-primary" onclick="saveOrder('submitted')"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span></span><span class="s2">📤</span><span class="s1"> &lt;span data-hr="Predaj" data-en="Submit"&gt;Predaj&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/button&gt;</span></p>
+<p class="p1"><span class="s1">{% endif %}</span></p>
+<p class="p1"><span class="s1">{% if order and order.status == 'submitted' %}</span></p>
+<p class="p1"><span class="s1">&lt;button class="btn btn-danger" onclick="saveOrder('rejected')"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span></span><span class="s2">❌</span><span class="s1"> &lt;span data-hr="Odbij" data-en="Reject"&gt;Odbij&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/button&gt;</span></p>
+<p class="p1"><span class="s1">&lt;button class="btn btn-success" onclick="saveOrder('approved')"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span></span><span class="s2">✅</span><span class="s1"> &lt;span data-hr="Odobri" data-en="Approve"&gt;Odobri&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/button&gt;</span></p>
+<p class="p1"><span class="s1">{% endif %}</span></p>
+<p class="p1"><span class="s1">{% if order and order.status == 'approved' %}</span></p>
+<p class="p1"><span class="s1">&lt;a href="/orders/{{ order.id }}/export-zip" class="btn btn-secondary" style="width:30px;height:30px;padding:0;display:inline-flex;align-items:center;justify-content:center;" title="Preuzmi ZIP (PDF naloga + dokumenti troškova)"&gt;</span><span class="s2">📦</span><span class="s1">&lt;/a&gt;</span></p>
+<p class="p1"><span class="s1">&lt;a href="/orders/{{ order.id }}/pdf" target="_blank" class="btn btn-secondary" title="Preuzmi PDF putnog naloga"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span></span><span class="s2">🖨️</span><span class="s1"> PDF</span></p>
+<p class="p1"><span class="s1">&lt;/a&gt;</span></p>
+<p class="p1"><span class="s1">&lt;button class="btn btn-secondary" onclick="saveOrder('rejected')"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span></span><span class="s2">↩️</span><span class="s1"> &lt;span data-hr="Vrati u postupak" data-en="Return for review"&gt;Vrati u postupak&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/button&gt;</span></p>
+<p class="p1"><span class="s1">{% endif %}</span></p>
+<p class="p1"><span class="s1">{% else %}</span></p>
+<p class="p1"><span class="s1">&lt;span style="background:#fdecea;color:#c0392b;border:1px solid #f5aca6;padding:6px 14px;border-radius:6px;font-size:13px;font-weight:600;"&gt;</span><span class="s2">🗑</span><span class="s1"> Izbrisani nalog — samo pregled&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1">{% endif %}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">{% endblock %}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">{% block content %}</span></p>
+<p class="p1"><span class="s1">{% if is_deleted %}</span></p>
+<p class="p1"><span class="s1">&lt;style&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>input, select, textarea, button:not(.btn-secondary[href="/orders"]) { pointer-events: none !important; opacity: 0.65; }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>.btn:not(a[href="/orders"]) { display: none !important; }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>a[href="/orders"] { display: inline-flex !important; opacity: 1 !important; pointer-events: auto !important; }</span></p>
+<p class="p1"><span class="s1">&lt;/style&gt;</span></p>
+<p class="p1"><span class="s1">&lt;div style="background:#fdecea;border:1px solid #f5aca6;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;span style="font-size:20px;"&gt;</span><span class="s2">🗑</span><span class="s1">&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;span style="font-size:13px;color:#c0392b;font-weight:600;"&gt;Ovaj putni nalog je izbrisan i prikazuje se samo za pregled. Nije moguće vršiti izmjene.&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">{% endif %}</span></p>
+<p class="p1"><span class="s1">{% if order and order.is_paid %}</span></p>
+<p class="p1"><span class="s1">&lt;div style="background:#f0faf4;border:1px solid #a8d5b5;border-radius:8px;padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;span style="font-size:20px;"&gt;</span><span class="s2">✅</span><span class="s1">&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;span style="font-size:13px;color:#27ae60;font-weight:600;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>Isplaćeno zaposleniku</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>{% if order.paid_at %} — {{ order.paid_at }}{% endif %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">{% elif order %}</span></p>
+<p class="p1"><span class="s1">&lt;div style="background:#fff8f0;border:1px solid #f0c080;border-radius:8px;padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;span style="font-size:20px;"&gt;</span><span class="s2">⏳</span><span class="s1">&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;span style="font-size:13px;color:#e67e22;font-weight:600;"&gt;Neisplaćeno&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">{% endif %}</span></p>
+<p class="p1"><span class="s1">&lt;form id="order-form"&gt;</span></p>
+<p class="p1"><span class="s1">{% if order %}&lt;input type="hidden" id="order-id" value="{{ order.id }}"&gt;{% endif %}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">&lt;!-- ── ROW 1: ID + Status + Issue date ── --&gt;</span></p>
+<p class="p1"><span class="s1">&lt;div class="card" style="margin-bottom:16px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;div class="card-body"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="form-row form-row-4"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="form-group"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;label class="form-label" data-hr="Broj naloga" data-en="Order number"&gt;Broj naloga&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;input type="text" class="form-control" id="auto_id" value="{{ auto_id }}" readonly</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">               </span>style="font-family:'DM Mono',monospace;font-weight:700;color:var(--navy);"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="form-group"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;label class="form-label" data-hr="Datum izdavanja" data-en="Issue date"&gt;Datum izdavanja&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;input type="date" class="form-control" id="issue_date"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">               </span>value="{{ order.issue_date if order else today }}"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="form-group"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;label class="form-label" data-hr="Status" data-en="Status"&gt;Status&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;select class="form-control" id="status"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;option value="draft" {% if order and order.status=='draft' %}selected{% endif %} data-hr="Nacrt" data-en="Draft"&gt;Nacrt&lt;/option&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;option value="submitted" {% if order and order.status=='submitted' %}selected{% endif %} data-hr="Predano" data-en="Submitted"&gt;Predano&lt;/option&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;option value="approved" {% if order and order.status=='approved' %}selected{% endif %} data-hr="Odobreno" data-en="Approved"&gt;Odobreno&lt;/option&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;option value="rejected" {% if order and order.status=='rejected' %}selected{% endif %} data-hr="Odbijeno" data-en="Rejected"&gt;Odbijeno&lt;/option&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;option value="knjizeno" {% if order and order.status=='knjizeno' %}selected{% endif %} data-hr="Knjiženo" data-en="Booked"&gt;Knjiženo&lt;/option&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/select&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="form-group"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;label class="form-label" data-hr="Odobrio" data-en="Approved by"&gt;Odobrio&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;select class="form-control" id="approved_by_id"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;option value=""&gt;— odaberi —&lt;/option&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>{% for d in directors %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;option value="{{ d.id }}"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>{% if order and order.approved_by_id == d.id %}selected</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>{% elif not order or not order.approved_by_id %}selected</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>{% endif %}&gt;{{ d.name }}&lt;/option&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>{% endfor %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/select&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/div&gt;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">&lt;!-- ── SECTION: ZAPOSLENIK ── --&gt;</span></p>
+<p class="p1"><span class="s1">&lt;div class="section-divider"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;span class="section-divider-label" data-hr="</span><span class="s2">👤</span><span class="s1"> Zaposlenik" data-en="</span><span class="s2">👤</span><span class="s1"> Employee"&gt;</span><span class="s2">👤</span><span class="s1"> Zaposlenik&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;div class="section-divider-line"&gt;&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">&lt;div class="card" style="margin-bottom:16px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;div class="card-body"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="form-row form-row-3"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="form-group"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;label class="form-label" data-hr="Zaposlenik" data-en="Employee"&gt;Zaposlenik&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;select class="form-control" id="employee_id" onchange="onEmployeeChange()"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;option value=""&gt;— odaberi —&lt;/option&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>{% for e in employees %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;option value="{{ e.id }}"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>data-position="{{ e.position or '' }}"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>{% if order and order.employee_id == e.id %}selected</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>{% elif not order and default_employee and default_employee.id == e.id %}selected</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>{% endif %}&gt;{{ e.name }}&lt;/option&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>{% endfor %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/select&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="form-group"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;label class="form-label" data-hr="Radno mjesto" data-en="Position"&gt;Radno mjesto&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;input type="text" class="form-control" id="employee_position" readonly</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">               </span>value="{{ order.employee_position if order else '' }}" placeholder="Automatski"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="form-group"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;label class="form-label" data-hr="Validator" data-en="Validator"&gt;Validator&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;select class="form-control" id="validator_id"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;option value=""&gt;— odaberi —&lt;/option&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>{% for v in validators %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;option value="{{ v.id }}"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>{% if order and order.validator_id == v.id %}selected</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>{% elif not order or not order.validator_id %}selected</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>{% endif %}&gt;{{ v.name }}&lt;/option&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>{% endfor %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/select&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/div&gt;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">&lt;!-- ── SECTION: PUTOVANJE ── --&gt;</span></p>
+<p class="p1"><span class="s1">&lt;div class="section-divider"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;span class="section-divider-label" data-hr="</span><span class="s2">✈️</span><span class="s1"> Putovanje" data-en="</span><span class="s2">✈️</span><span class="s1"> Trip Details"&gt;</span><span class="s2">✈️</span><span class="s1"> Putovanje&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;div class="section-divider-line"&gt;&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">&lt;div class="card" style="margin-bottom:16px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;div class="card-body"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="form-row form-row-3" style="margin-bottom:0;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="form-group"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;label class="form-label" data-hr="Destinacija" data-en="Destination"&gt;Destinacija&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;select class="form-control" id="destination"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;option value=""&gt;— odaberi —&lt;/option&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>{% for d in destinations %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;option value="{{ d.name }}"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>{% if order and order.destination == d.name %}selected</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>{% elif not order and default_destination and default_destination.name == d.name %}selected</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>{% endif %}&gt;{{ d.name }}&lt;/option&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>{% endfor %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/select&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="form-group"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;label class="form-label" data-hr="Datum polaska" data-en="Departure date"&gt;Datum polaska&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;input type="date" class="form-control" id="departure_date"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">               </span>value="{{ order.departure_date if order else today }}"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="form-group"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;label class="form-label" data-hr="Predviđeno trajanje (dana)" data-en="Expected duration (days)"&gt;Predviđeno trajanje (dana)&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;input type="number" class="form-control" id="expected_duration" min="1"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">               </span>value="{{ order.expected_duration if order else '1' }}"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">               </span>placeholder="auto"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="form-row form-row-2"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="form-group"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;label class="form-label" data-hr="Svrha putovanja" data-en="Purpose of trip"&gt;Svrha putovanja&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;input type="text" class="form-control" id="purpose"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">               </span>value="{{ order.purpose if order else '' }}"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">               </span>placeholder="npr. Sastanak s klijentom"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div class="form-group"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;label class="form-label" data-hr="Klijent / Partner" data-en="Client / Partner"&gt;Klijent / Partner *&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div style="position:relative;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;input type="text" class="form-control" id="client_info_search"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>placeholder="Pretraži klijenta..."</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>autocomplete="off"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>oninput="filterFormClientDropdown()"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>onfocus="showFormClientDropdown()"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>onblur="hideFormClientDropdownDelayed()"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>value="{{ order.client_info if order else '' }}"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;input type="hidden" id="client_info" value="{{ order.client_info if order else '' }}"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div id="form-client-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--gray-300);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:9999;max-height:220px;overflow-y:auto;margin-top:2px;"&gt;&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="form-row form-row-2"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="form-group"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;label class="form-label" data-hr="Centar troškova" data-en="Cost center"&gt;Centar troškova&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;input type="hidden" id="cost_center_id" value="{{ order.cost_center_id if order and order.cost_center_id else '' }}"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;input type="text" class="form-control" value="—" disabled style="background:#f7f9fc;color:var(--gray-400);cursor:not-allowed;" placeholder="Nije konfigurirano"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="form-group"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;label class="form-label" data-hr="Akontacija (€)" data-en="Advance payment (€)"&gt;Akontacija (€)&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;input type="number" class="form-control" id="advance_payment" step="0.01" min="0"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">               </span>value="{{ '%.2f'|format(order.advance_payment) if order else '0.00' }}"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">               </span>onchange="updateTotals()"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/div&gt;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">&lt;!-- ── SECTION: VOZILO ── --&gt;</span></p>
+<p class="p1"><span class="s1">&lt;div class="section-divider"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;span class="section-divider-label" data-hr="</span><span class="s2">🚗</span><span class="s1"> Vozilo" data-en="</span><span class="s2">🚗</span><span class="s1"> Vehicle"&gt;</span><span class="s2">🚗</span><span class="s1"> Vozilo&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;div class="section-divider-line"&gt;&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">&lt;div class="card" style="margin-bottom:16px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;div class="card-body"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="form-row form-row-3"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="form-group"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;label class="form-label" data-hr="Vozilo" data-en="Vehicle"&gt;Vozilo&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;select class="form-control" id="vehicle_id"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;option value=""&gt;— odaberi —&lt;/option&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>{% for v in vehicles %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;option value="{{ v.id }}"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>{% if order and order.vehicle_id == v.id %}selected</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>{% elif not order and default_vehicle and default_vehicle.id == v.id %}selected</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>{% endif %}&gt;{{ v.name }} — {{ v.reg_plate }}&lt;/option&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>{% endfor %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/select&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="form-group"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;label class="form-label" data-hr="Početna km" data-en="Start km"&gt;Početna km&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;input type="number" class="form-control" id="start_km"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">               </span>value="{{ order.start_km if order and order.start_km else '' }}" placeholder="npr. 45000"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="form-group"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;label class="form-label" data-hr="Završna km" data-en="End km"&gt;Završna km&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;input type="number" class="form-control" id="end_km"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">               </span>value="{{ order.end_km if order and order.end_km else '' }}" placeholder="npr. 45600"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/div&gt;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">&lt;!-- ── SECTION: TRAJANJE I DNEVNICE ── --&gt;</span></p>
+<p class="p1"><span class="s1">&lt;div class="section-divider"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;span class="section-divider-label" data-hr="</span><span class="s2">⏱️</span><span class="s1"> Trajanje i dnevnice" data-en="</span><span class="s2">⏱️</span><span class="s1"> Duration &amp; Allowance"&gt;</span><span class="s2">⏱️</span><span class="s1"> Trajanje i dnevnice&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;div class="section-divider-line"&gt;&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">&lt;div class="card" style="margin-bottom:16px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;div class="card-body"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="form-row form-row-2"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="form-group"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;label class="form-label" data-hr="Polazak (datum i vrijeme)" data-en="Departure (date &amp; time)"&gt;Polazak (datum i vrijeme)&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;input type="datetime-local" class="form-control" id="trip_start_datetime"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">               </span>value="{{ order.trip_start_datetime[:16] if order and order.trip_start_datetime else '' }}"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">               </span>onchange="calcDnevnice()"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="form-group"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;label class="form-label" data-hr="Povratak (datum i vrijeme)" data-en="Return (date &amp; time)"&gt;Povratak (datum i vrijeme)&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;input type="datetime-local" class="form-control" id="trip_end_datetime"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">               </span>value="{{ order.trip_end_datetime[:16] if order and order.trip_end_datetime else '' }}"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">               </span>onchange="calcDnevnice()"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="calculated-box" id="dnevnice-box" style="{{ 'display:none' if not order or not order.trip_start_datetime else '' }}"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="calc-item"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;span class="calc-label" data-hr="Na putu" data-en="Trip duration"&gt;Na putu&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;span class="calc-value" id="calc-duration"&gt;—&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="calc-item" id="calc-private-wrap" style="display:none;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;span class="calc-label" style="color:#c0392b;" data-hr="Privatno vrijeme" data-en="Private time"&gt;Privatno vrijeme&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;span class="calc-value" id="calc-private" style="color:#c0392b;"&gt;—&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="calc-item" id="calc-official-wrap" style="display:none;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;span class="calc-label" style="color:var(--navy);font-weight:700;" data-hr="Službeno vrijeme" data-en="Official time"&gt;Službeno vrijeme&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;span class="calc-value" id="calc-official" style="color:var(--navy);font-weight:700;"&gt;—&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="calc-item"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;span class="calc-label" data-hr="Broj dnevnica" data-en="Daily allowances"&gt;Broj dnevnica&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;span class="calc-value" id="calc-count"&gt;—&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="calc-item"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;span class="calc-label" data-hr="Iznos dnevnice" data-en="Rate per day"&gt;Iznos dnevnice&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;span class="calc-value" id="calc-rate"&gt;—&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="calc-item"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;span class="calc-label" data-hr="Ukupno dnevnice" data-en="Total allowance"&gt;Ukupno dnevnice&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;span class="calc-value" id="calc-total" style="color:var(--accent);"&gt;—&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;!-- Privatno vrijeme --&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div id="private-time-section" style="margin-top:12px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;label class="form-label" style="margin:0;font-weight:600;font-size:12px;color:var(--gray-600);" data-hr="</span><span class="s2">🏖️</span><span class="s1"> Privatno vrijeme (oduzima se od službenog)" data-en="</span><span class="s2">🏖️</span><span class="s1"> Private time (deducted from official)"&gt;</span><span class="s2">🏖️</span><span class="s1"> Privatno vrijeme (oduzima se od službenog)&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;button type="button" class="btn btn-sm btn-secondary" onclick="addPrivateTime()" style="font-size:11px;padding:3px 10px;"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>{{ 'disabled' if order and order.status in ['submitted','approved','knjizeno'] else '' }}&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>+ Dodaj period</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/button&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div id="private-time-rows"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>{% if order and order.private_times %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>{% for pt in order.private_times %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div class="private-time-row" id="pt-row-{{ loop.index0 }}" style="display:flex;gap:8px;align-items:center;margin-bottom:6px;padding:8px 10px;background:#fef5f5;border:1px solid #f5d5d5;border-radius:6px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;span style="font-size:11px;color:#c0392b;font-weight:600;flex-shrink:0;"&gt;Od&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;input type="datetime-local" class="form-control" style="font-size:12px;flex:1;" value="{{ pt.start[:16] }}" onchange="calcDnevnice()"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>{{ 'disabled style="background:#f7f9fc;cursor:not-allowed;"' if order.status in ['submitted','approved','knjizeno'] else '' }}&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;span style="font-size:11px;color:#c0392b;font-weight:600;flex-shrink:0;"&gt;Do&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;input type="datetime-local" class="form-control" style="font-size:12px;flex:1;" value="{{ pt.end[:16] }}" onchange="calcDnevnice()"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>{{ 'disabled style="background:#f7f9fc;cursor:not-allowed;"' if order.status in ['submitted','approved','knjizeno'] else '' }}&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>{% if order.status not in ['submitted','approved','knjizeno'] %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;button type="button" class="btn btn-sm btn-ghost btn-icon" onclick="removePrivateTime('pt-row-{{ loop.index0 }}')" title="Ukloni" style="color:#c0392b;flex-shrink:0;"&gt;</span><span class="s3">✕</span><span class="s1">&lt;/button&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>{% endif %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>{% endfor %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>{% endif %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;input type="hidden" id="daily_allowance_count" value="{{ order.daily_allowance_count if order else '0' }}"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;input type="hidden" id="daily_allowance_rate" value="{{ order.daily_allowance_rate if order else '0' }}"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;input type="hidden" id="daily_allowance_total" value="{{ order.daily_allowance_total if order else '0' }}"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/div&gt;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">&lt;!-- SECTION TROŠKOVI uklonjen — troškovi se unose kroz Troškovi s dokumentima --&gt;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">&lt;!-- ── SECTION: TROŠKOVI S DOKUMENTIMA (pn_expenses) ── --&gt;</span></p>
+<p class="p1"><span class="s1">{% if order %}</span></p>
+<p class="p1"><span class="s1">&lt;div class="section-divider"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;span class="section-divider-label"&gt;</span><span class="s2">🧾</span><span class="s1"> Troškovi s dokumentima&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;div class="section-divider-line"&gt;&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">&lt;div class="card" style="margin-bottom:16px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;div class="card-header"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div style="display:flex;align-items:center;gap:10px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;span class="card-title"&gt;Dokumenti troškova&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;span id="pn-exp-count" style="background:var(--accent-light);color:var(--accent);padding:1px 7px;border-radius:12px;font-size:11px;font-weight:700;"&gt;{{ pn_expenses|length if pn_expenses is defined else 0 }}&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>{% if not is_deleted %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;button type="button" class="btn btn-sm btn-secondary" onclick="openPnExpUpload()" title="Dodaj trošak s dokumentom"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span></span><span class="s2">➕</span><span class="s1"> Dodaj trošak</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/button&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>{% endif %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;div class="card-body" style="padding:0;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div id="pn-exp-list"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>{% if pn_expenses is defined and pn_expenses %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;table style="width:100%;border-collapse:collapse;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;thead&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;tr style="background:var(--gray-50);font-size:11px;text-transform:uppercase;color:var(--gray-600);font-weight:700;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;th style="padding:8px 12px;text-align:left;"&gt;Tip&lt;/th&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;th style="padding:8px 12px;text-align:left;"&gt;Datum&lt;/th&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;th style="padding:8px 12px;text-align:left;"&gt;Kategorija&lt;/th&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;th style="padding:8px 12px;text-align:left;"&gt;Opis / Partner&lt;/th&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;th style="padding:8px 12px;text-align:right;"&gt;Iznos&lt;/th&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;th style="padding:8px 12px;text-align:center;"&gt;Plaćanje&lt;/th&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;th style="padding:8px 12px;text-align:center;width:80px;"&gt;Akcije&lt;/th&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/tr&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/thead&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;tbody&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>{% for pe in pn_expenses %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;tr id="pn-exp-row-{{ pe.id }}" style="border-bottom:1px solid var(--gray-100);"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;td style="padding:8px 12px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>{% if pe.doc_type == 'r1' %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;span style="background:#e8f0f7;color:var(--navy);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;"&gt;R1&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>{% else %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;span style="background:var(--gray-100);color:var(--gray-600);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;"&gt;Račun&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>{% endif %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/td&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;td style="padding:8px 12px;font-size:12px;white-space:nowrap;"&gt;{{ pe.doc_date|fmt_date or '—' }}&lt;/td&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;td style="padding:8px 12px;font-size:12px;"&gt;{{ pe.category_name or '—' }}&lt;/td&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;td style="padding:8px 12px;font-size:12px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>{% if pe.doc_type == 'r1' %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;span style="font-weight:600;"&gt;{{ pe.partner_name or '' }}&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>{% if pe.invoice_number %}&lt;span style="color:var(--gray-400);"&gt; · {{ pe.invoice_number }}&lt;/span&gt;{% endif %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>{% else %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>{{ pe.description or pe.original_filename or '—' }}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>{% endif %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/td&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;td data-amount="{{ pe.amount or 0 }}" style="padding:8px 12px;text-align:right;font-weight:700;font-size:13px;white-space:nowrap;"&gt;{{ '%.2f'|format(pe.amount or 0) }} €&lt;/td&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;td style="padding:8px 12px;text-align:center;font-size:11px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>{% if pe.payment_method == 'private' %}</span><span class="s2">💳</span><span class="s1"> Privatno</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>{% elif pe.payment_method == 'transfer' %}</span><span class="s2">🏦</span><span class="s1"> Virman</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>{% elif pe.payment_method == 'card' %}</span><span class="s2">💳</span><span class="s1"> {{ pe.card_name or '' }} (*{{ pe.card_last4 or '' }})</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>{% endif %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/td&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;td style="padding:8px 12px;text-align:center;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;div style="display:flex;gap:4px;justify-content:center;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>{% if pe.stored_path %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;a href="/api/pn-expenses/{{ pe.id }}/pdf" target="_blank" class="btn btn-sm btn-secondary" style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;font-size:12px;" title="Pregled dokumenta"&gt;&lt;svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"&gt;&lt;path d="M3 1h7l3 3v10a1 1 0 01-1 1H3a1 1 0 01-1-1V2a1 1 0 011-1z" fill="#e74c3c" stroke="#c0392b" stroke-width="0.5"/&gt;&lt;path d="M10 1l3 3h-3V1z" fill="#c0392b"/&gt;&lt;text x="3.5" y="11.5" font-family="Arial" font-size="4.5" font-weight="bold" fill="white"&gt;PDF&lt;/text&gt;&lt;/svg&gt;&lt;/a&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>{% endif %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>{% if not is_deleted %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;button type="button" class="btn btn-sm" style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;background:#fdecea;color:#c0392b;border:1px solid #f5aca6;border-radius:6px;cursor:pointer;font-size:12px;" onclick="deletePnExp({{ pe.id }})" title="Obriši trošak"&gt;</span><span class="s2">🗑</span><span class="s1">&lt;/button&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>{% endif %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/td&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/tr&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>{% endfor %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/tbody&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;tfoot&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;tr style="background:var(--gray-50);"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;td colspan="4" style="padding:8px 12px;text-align:right;font-size:12px;font-weight:700;color:var(--gray-600);"&gt;Ukupno dokumentirani troškovi:&lt;/td&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;td id="pn-exp-footer-total" style="padding:8px 12px;text-align:right;font-weight:700;font-size:14px;color:var(--navy);font-family:'DM Mono',monospace;"&gt;{{ '%.2f'|format(pn_expenses|sum(attribute='amount')) }} €&lt;/td&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;td colspan="2"&gt;&lt;/td&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/tr&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/tfoot&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/table&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>{% else %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div style="text-align:center;padding:24px;color:var(--gray-400);"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div style="font-size:24px;margin-bottom:6px;"&gt;</span><span class="s2">🧾</span><span class="s1">&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div style="font-size:13px;"&gt;Nema troškova s dokumentima za ovaj nalog.&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>{% if not is_deleted %}&lt;div style="font-size:12px;margin-top:4px;"&gt;Koristite gumb "</span><span class="s2">➕</span><span class="s1"> Dodaj trošak" ili dodajte troškove iz modula Putni nalozi.&lt;/div&gt;{% endif %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>{% endif %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/div&gt;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">&lt;!-- Upload troška za ovaj PN --&gt;</span></p>
+<p class="p1"><span class="s1">&lt;div class="modal-overlay" id="pn-exp-upload-modal"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;div class="modal" style="width:560px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="modal-header"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;span class="modal-title"&gt;</span><span class="s2">🧾</span><span class="s1"> Dodaj trošak — PN {{ order.auto_id if order else '' }}&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;button class="btn btn-ghost btn-icon" onclick="closePnExpUpload()"&gt;</span><span class="s3">✕</span><span class="s1">&lt;/button&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="modal-body"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div style="display:flex;gap:8px;margin-bottom:16px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid var(--gray-200);border-radius:8px;cursor:pointer;background:white;font-weight:600;font-size:13px;color:var(--gray-600);" id="pnexp-type-r1-label"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;input type="radio" name="pnexp-doc-type" value="r1" id="pnexp-type-r1" onchange="onPnExpTypeChange()"&gt; R1 račun</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid var(--accent);border-radius:8px;cursor:pointer;background:var(--accent-light);font-weight:600;font-size:13px;color:var(--navy);" id="pnexp-type-receipt-label"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;input type="radio" name="pnexp-doc-type" value="receipt" id="pnexp-type-receipt" checked onchange="onPnExpTypeChange()"&gt; Običan račun/potvrda</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div id="pnexp-drop-zone" style="border:2px dashed var(--accent);border-radius:10px;padding:32px;text-align:center;cursor:pointer;background:var(--accent-light);" onclick="document.getElementById('pnexp-file-input').click()" ondragover="event.preventDefault();this.style.background='#d0e4f7';" ondragleave="this.style.background='var(--accent-light)';" ondrop="handlePnExpDrop(event)"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div style="font-size:32px;margin-bottom:6px;"&gt;</span><span class="s2">📄</span><span class="s1">&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div style="font-size:13px;color:var(--navy);font-weight:600;"&gt;Kliknite ili povucite datoteku&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div style="font-size:11px;color:var(--gray-500);margin-top:4px;"&gt;PDF, JPG, PNG&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;input type="file" id="pnexp-file-input" accept=".pdf,.jpg,.jpeg,.png,.tiff,.tif" style="display:none;" onchange="handlePnExpFile(this.files[0])"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div id="pnexp-ocr-progress" style="display:none;text-align:center;padding:20px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div style="font-size:22px;margin-bottom:6px;"&gt;</span><span class="s2">⏳</span><span class="s1">&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div style="font-size:13px;color:var(--navy);"&gt;OCR obrada...&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/div&gt;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">&lt;!-- Splitscreen forma za trošak ovog PN-a (PDF preview desno) --&gt;</span></p>
+<p class="p1"><span class="s1">&lt;div id="pn-exp-detail-modal" class="modal-overlay" style="z-index:1002;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;input type="hidden" id="pnexp-temp-filename"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;input type="hidden" id="pnexp-original-filename"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;input type="hidden" id="pnexp-ocr-raw"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;div style="width:92vw;max-width:1400px;height:88vh;background:white;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.3);display:flex;flex-direction:column;overflow:hidden;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div style="padding:14px 20px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;span style="font-size:15px;font-weight:700;color:var(--navy);"&gt;</span><span class="s2">🧾</span><span class="s1"> Detalji troška — PN {{ order.auto_id if order else '' }}&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;button class="btn btn-ghost btn-icon" onclick="closePnExpDetail()"&gt;</span><span class="s3">✕</span><span class="s1">&lt;/button&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div style="flex:1;min-height:0;display:flex;flex-direction:row;overflow:hidden;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;!-- Lijevo: forma --&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div style="width:420px;min-width:340px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid var(--gray-200);"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div style="flex:1;overflow-y:auto;padding:20px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div style="background:#fff8e1;border:1px solid #f0c14b;border-radius:6px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:#7d5a00;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span></span><span class="s2">⚠️</span><span class="s1"> Pregledajte i ispravite podatke koje je program pročitao s računa.</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div id="pnexp-r1-fields" style="display:none;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div style="background:#e8f0f7;border:1px solid #aac4db;border-radius:6px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:var(--navy);font-weight:600;"&gt;</span><span class="s2">📋</span><span class="s1"> R1 račun — vidljivo i u modulu Ulazni računi&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div class="form-group" style="margin-bottom:10px;"&gt;&lt;label class="form-label"&gt;Naziv partnera&lt;/label&gt;&lt;input type="text" class="form-control" id="pnexp-partner-name"&gt;&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div class="form-group" style="margin-bottom:10px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;label class="form-label" style="font-size:11px;color:var(--gray-500);margin-bottom:4px;"&gt;Dobavljač s liste&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;div style="display:flex;gap:6px;align-items:center;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div style="flex:1;position:relative;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;input type="text" class="form-control" id="pnexp-supplier-search"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>placeholder="Pretraži dobavljača..." style="font-size:13px;" autocomplete="off"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>oninput="filterPnExpSupplierDropdown()" onfocus="showPnExpSupplierDropdown()"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;input type="hidden" id="pnexp-supplier-id"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;div id="pnexp-supplier-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--gray-300);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:99999;max-height:200px;overflow-y:auto;margin-top:2px;"&gt;&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;button type="button" class="btn btn-sm btn-secondary" onclick="quickAddPnExpSupplier()" title="Dodaj novog dobavljača" style="padding:0 10px;height:36px;flex-shrink:0;"&gt;</span><span class="s2">➕</span><span class="s1">&lt;/button&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;div id="pnexp-supplier-match" style="display:none;margin-top:4px;font-size:12px;color:#27ae60;font-weight:600;"&gt;&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;div class="form-group"&gt;&lt;label class="form-label"&gt;OIB partnera&lt;/label&gt;&lt;input type="text" class="form-control" id="pnexp-partner-oib" maxlength="11"&gt;&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;div class="form-group"&gt;&lt;label class="form-label"&gt;Broj računa&lt;/label&gt;&lt;input type="text" class="form-control" id="pnexp-invoice-number"&gt;&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div class="form-group" style="margin-bottom:10px;"&gt;&lt;label class="form-label"&gt;Datum dospijeća&lt;/label&gt;&lt;input type="date" class="form-control" id="pnexp-due-date"&gt;&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;hr style="border:none;border-top:1px solid var(--gray-200);margin:10px 0;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div class="form-group"&gt;&lt;label class="form-label"&gt;Kategorija&lt;/label&gt;&lt;select class="form-control" id="pnexp-category"&gt;&lt;option value=""&gt;— odaberi —&lt;/option&gt;{% for cat in categories %}&lt;option value="{{ cat.id }}"&gt;{{ cat.name }}&lt;/option&gt;{% endfor %}&lt;/select&gt;&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div class="form-group"&gt;&lt;label class="form-label"&gt;Iznos (€) *&lt;/label&gt;&lt;input type="number" class="form-control" id="pnexp-amount" step="0.01" style="font-weight:700;"&gt;&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div class="form-group"&gt;&lt;label class="form-label"&gt;Datum dokumenta&lt;/label&gt;&lt;input type="date" class="form-control" id="pnexp-doc-date"&gt;&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div class="form-group"&gt;&lt;label class="form-label"&gt;Opis&lt;/label&gt;&lt;input type="text" class="form-control" id="pnexp-description" placeholder="Gorivo, cestarina..."&gt;&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div style="margin-top:10px;"&gt;&lt;label class="form-label" style="font-weight:700;"&gt;</span><span class="s2">💳</span><span class="s1"> Način plaćanja&lt;/label&gt;&lt;select class="form-control" id="pnexp-payment-method"&gt;&lt;option value="private"&gt;Privatna kartica/gotovina&lt;/option&gt;&lt;option value="transfer"&gt;Virman/transakcijski&lt;/option&gt;{% for card in bank_cards %}&lt;option value="card:{{ card.id }}"&gt;{{ card.card_name }} (*{{ card.last4 }})&lt;/option&gt;{% endfor %}&lt;/select&gt;&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div style="padding:14px 20px;border-top:1px solid var(--gray-100);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;button class="btn btn-secondary" onclick="closePnExpDetail()"&gt;Odustani&lt;/button&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;button class="btn btn-primary" onclick="savePnExp()"&gt;</span><span class="s2">💾</span><span class="s1"> Spremi&lt;/button&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;!-- Desno: PDF/slika preview --&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div style="flex:1;min-width:0;display:flex;flex-direction:column;background:#f8f9fa;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div style="padding:8px 16px;border-bottom:1px solid var(--gray-200);font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>Pregled dokumenta</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div style="flex:1;overflow:hidden;" id="pnexp-pdf-viewer-container"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div id="pnexp-preview" style="width:100%;height:100%;"&gt;&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">{% endif %}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">&lt;!-- ── SECTION: IZVJEŠĆE ── --&gt;</span></p>
+<p class="p1"><span class="s1">&lt;div class="section-divider"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;span class="section-divider-label" data-hr="</span><span class="s2">📝</span><span class="s1"> Izvješće s puta" data-en="</span><span class="s2">📝</span><span class="s1"> Trip Report"&gt;</span><span class="s2">📝</span><span class="s1"> Izvješće s puta&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;div class="section-divider-line"&gt;&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">&lt;div class="card" style="margin-bottom:16px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;div class="card-header"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;span class="card-title" data-hr="Izvješće s puta" data-en="Trip Report"&gt;Izvješće s puta&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>{% if templates %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;select class="form-control" style="width:220px;" onchange="loadTemplate(this.value)"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;option value="" data-hr="— Odaberi predložak —" data-en="— Select template —"&gt;— Odaberi predložak —&lt;/option&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>{% for tpl in templates %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;option value="{{ tpl.content | e }}"&gt;{{ tpl.name }}&lt;/option&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>{% endfor %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/select&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>{% endif %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;div class="card-body"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;textarea class="form-control" id="report_text" rows="5"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>placeholder="Napišite izvješće s puta..."&gt;{{ order.report_text if order else '' }}&lt;/textarea&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="form-row form-row-2" style="margin-top:12px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="form-group" style="margin-bottom:0;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;label class="form-label" data-hr="Mjesto izvještaja" data-en="Place of report"&gt;Mjesto izvještaja&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;input type="text" class="form-control" id="place_of_report"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">               </span>value="{{ order.place_of_report if (order and order.place_of_report) else default_place }}"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/div&gt;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">&lt;!-- ── SECTION: REKAPITULACIJA ── --&gt;</span></p>
+<p class="p1"><span class="s1">&lt;div class="card" style="margin-bottom:24px;background:linear-gradient(135deg,var(--navy) 0%,#1a4b8c 100%);"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;div class="card-body"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:20px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div style="font-size:10px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.05em;" data-hr="Ukupno dnevnice" data-en="Total allowances"&gt;Ukupno dnevnice&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div style="font-size:22px;font-weight:700;color:white;font-family:'DM Mono',monospace;" id="summary-dnevnice"&gt;0,00 €&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div style="font-size:10px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.05em;" data-hr="Ukupno troškovi" data-en="Total expenses"&gt;Ukupno troškovi&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div style="font-size:22px;font-weight:700;color:white;font-family:'DM Mono',monospace;" id="summary-expenses"&gt;0,00 €&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div style="font-size:10px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.05em;" data-hr="Akontacija" data-en="Advance"&gt;Akontacija&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div style="font-size:22px;font-weight:700;color:white;font-family:'DM Mono',monospace;" id="summary-advance"&gt;0,00 €&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div style="border-left:1px solid rgba(255,255,255,0.2);padding-left:20px;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div style="font-size:10px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.05em;" data-hr="Za isplatu" data-en="To pay out"&gt;Za isplatu&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div style="font-size:28px;font-weight:700;color:#7dd3fc;font-family:'DM Mono',monospace;" id="summary-payout"&gt;0,00 €&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/div&gt;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">&lt;/form&gt;</span></p>
+<p class="p1"><span class="s1">{% endblock %}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">{% block scripts %}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">&lt;!-- SoftmanPreview fallback (inline ako nije dostupan iz base.html) --&gt;</span></p>
+<p class="p1"><span class="s1">&lt;script&gt;</span></p>
+<p class="p1"><span class="s1">if (typeof window.SoftmanPreview === 'undefined') {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>window.SoftmanPreview = class SoftmanPreview {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>constructor(containerId) { this._cid = containerId; this._blobUrl = null; }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>get _c() { return document.getElementById(this._cid); }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>show(file) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>this.clear();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const c = this._c; if (!c) return;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>if (!file) { c.innerHTML = '&lt;div style="display:flex;align-items:center;justify-content:center;height:100%;color:#8a99b0;font-size:14px;"&gt;Nema dokumenta za prikaz&lt;/div&gt;'; return; }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>this._blobUrl = URL.createObjectURL(file);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const ext = file.name.split('.').pop().toLowerCase();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>this._render(c, this._blobUrl, ext);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>showUrl(url, ext) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>this.clear();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const c = this._c; if (!c) return;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>if (!url) { c.innerHTML = '&lt;div style="display:flex;align-items:center;justify-content:center;height:100%;color:#8a99b0;font-size:14px;"&gt;Nema dokumenta za prikaz&lt;/div&gt;'; return; }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>this._render(c, url, ext || 'pdf');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>clear() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>if (this._blobUrl) { URL.revokeObjectURL(this._blobUrl); this._blobUrl = null; }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const c = this._c; if (c) { c.innerHTML = ''; c.style.cssText = 'width:100%;height:100%;'; }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>_render(c, src, ext) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>c.innerHTML = '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>if (ext === 'pdf') {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const e = document.createElement('embed');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>e.src = src; e.type = 'application/pdf';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>e.style.cssText = 'width:100%;height:100%;min-height:500px;border:none;';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>c.style.cssText = 'width:100%;height:100%;';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>c.appendChild(e);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>} else {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const img = document.createElement('img');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>img.src = src;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>img.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;padding:16px;';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>c.style.cssText = 'width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:auto;';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>c.appendChild(img);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>};</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p1"><span class="s1">&lt;/script&gt;</span></p>
+<p class="p1"><span class="s1">&lt;script&gt;</span></p>
+<p class="p1"><span class="s1">// ── Initial data ──────────────────────────────────────────────────────────</span></p>
+<p class="p1"><span class="s1">const CATEGORIES = {{ categories | tojson }};</span></p>
+<p class="p1"><span class="s1">const EXISTING_EXPENSES = {{ expenses | tojson if expenses is defined else '[]' }};</span></p>
+<p class="p1"><span class="s1">let dnevniceData = {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>count: {{ order.daily_allowance_count if order else 0 }},</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>rate: {{ order.daily_allowance_rate if order else 0 }},</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>total: {{ order.daily_allowance_total if order else 0 }}</span></p>
+<p class="p1"><span class="s1">};</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">// ── Default datetime za novi nalog ──────────────────────────────────────────</span></p>
+<p class="p1"><span class="s1">(function setDefaultDatetimes() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Postavi defaultne vrijednosti samo za NOVI nalog (ne za uređivanje)</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const isNew = !document.getElementById('order-id');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (!isNew) return;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const startEl = document.getElementById('trip_start_datetime');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const endEl <span class="Apple-converted-space">  </span>= document.getElementById('trip_end_datetime');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (!startEl || !endEl) return;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (startEl.value &amp;&amp; endEl.value) return; // već postavljeno</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Danas u lokalnom formatu YYYY-MM-DD</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const now = new Date();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const pad = n =&gt; String(n).padStart(2, '0');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const today = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>startEl.value = `${today}T07:00`;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>endEl.value <span class="Apple-converted-space">  </span>= `${today}T17:00`;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Pokreni kalkulaciju dnevnica s defaultnim vrijednostima</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>calcDnevnice();</span></p>
+<p class="p1"><span class="s1">})();</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">// ── On employee change — fill position ───────────────────────────────────</span></p>
+<p class="p1"><span class="s1">function onEmployeeChange() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const sel = document.getElementById('employee_id');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const opt = sel.options[sel.selectedIndex];</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('employee_position').value = opt ? (opt.dataset.position || '') : '';</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">// ── Dnevnice calculation ──────────────────────────────────────────────────</span></p>
+<p class="p1"><span class="s1">let privateTimeCounter = {{ (order.private_times|length) if order and order.private_times else 0 }};</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">function getPrivateTimes() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const rows = document.querySelectorAll('.private-time-row');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const times = [];</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>rows.forEach(row =&gt; {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const inputs = row.querySelectorAll('input[type="datetime-local"]');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (inputs.length &gt;= 2 &amp;&amp; inputs[0].value &amp;&amp; inputs[1].value) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>times.push({ start: inputs[0].value, end: inputs[1].value });</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>});</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>return times;</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">function addPrivateTime() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const container = document.getElementById('private-time-rows');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const id = privateTimeCounter++;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Default: use trip start date if available</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const tripStart = document.getElementById('trip_start_datetime').value;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const defaultDate = tripStart ? tripStart.substring(0, 11) : '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const row = document.createElement('div');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>row.className = 'private-time-row';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>row.id = `pt-row-${id}`;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px;padding:8px 10px;background:#fef5f5;border:1px solid #f5d5d5;border-radius:6px;';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>row.innerHTML = `</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;span style="font-size:11px;color:#c0392b;font-weight:600;flex-shrink:0;"&gt;Od&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;input type="datetime-local" class="form-control" style="font-size:12px;flex:1;" value="${defaultDate}18:00" onchange="calcDnevnice()"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;span style="font-size:11px;color:#c0392b;font-weight:600;flex-shrink:0;"&gt;Do&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;input type="datetime-local" class="form-control" style="font-size:12px;flex:1;" value="${defaultDate}22:00" onchange="calcDnevnice()"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;button type="button" class="btn btn-sm btn-ghost btn-icon" onclick="removePrivateTime('pt-row-${id}')" title="Ukloni" style="color:#c0392b;flex-shrink:0;"&gt;</span><span class="s3">✕</span><span class="s1">&lt;/button&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>`;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>container.appendChild(row);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>calcDnevnice();</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">function removePrivateTime(rowId) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const row = document.getElementById(rowId);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (row) row.remove();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>calcDnevnice();</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">function calcPrivateMinutes(privateTimes, tripStart, tripEnd) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Calculate total private minutes that fall within trip period</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const ts = new Date(tripStart).getTime();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const te = new Date(tripEnd).getTime();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>let totalMinutes = 0;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>for (const pt of privateTimes) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>let ps = new Date(pt.start).getTime();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>let pe = new Date(pt.end).getTime();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>// Clamp to trip boundaries</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>ps = Math.max(ps, ts);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>pe = Math.min(pe, te);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (pe &gt; ps) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>totalMinutes += (pe - ps) / 60000;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>return totalMinutes;</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">function formatMinutes(mins) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const d = Math.floor(mins / 1440);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const h = Math.floor((mins % 1440) / 60);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const m = Math.round(mins % 60);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>let s = '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (d) s += `${d}d `;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (h || d) s += `${h}h `;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>s += `${m}min`;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>return s;</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">async function calcDnevnice() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const start = document.getElementById('trip_start_datetime').value;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const end = document.getElementById('trip_end_datetime').value;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (!start || !end) return;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const privateTimes = getPrivateTimes();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const privateMinutes = calcPrivateMinutes(privateTimes, start, end);</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const res = await fetch('/api/calculate_dnevnice', {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>method: 'POST',</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>headers: {'Content-Type': 'application/json'},</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>body: JSON.stringify({ start, end, private_minutes: privateMinutes })</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>});</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const data = await res.json();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>dnevniceData = { count: data.dnevnice, rate: data.total / (data.dnevnice || 1) || 0, total: data.total };</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Update hidden fields</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('daily_allowance_count').value = data.dnevnice;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('daily_allowance_rate').value = dnevniceData.rate;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('daily_allowance_total').value = data.total;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Update display</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const box = document.getElementById('dnevnice-box');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>box.style.display = 'flex';</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Total trip duration</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const totalMs = new Date(end) - new Date(start);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const totalMinutes = totalMs / 60000;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const totalDays = Math.floor(totalMinutes / 1440);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const totalHours = Math.floor((totalMinutes % 1440) / 60);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const totalMins = Math.round(totalMinutes % 60);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('calc-duration').textContent = `${totalDays}d ${totalHours}h ${totalMins}min`;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Private time display</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const privateWrap = document.getElementById('calc-private-wrap');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const officialWrap = document.getElementById('calc-official-wrap');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (privateMinutes &gt; 0) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>privateWrap.style.display = '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>officialWrap.style.display = '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>document.getElementById('calc-private').textContent = `− ${formatMinutes(privateMinutes)}`;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const officialMinutes = totalMinutes - privateMinutes;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>document.getElementById('calc-official').textContent = formatMinutes(Math.max(0, officialMinutes));</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>} else {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>privateWrap.style.display = 'none';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>officialWrap.style.display = 'none';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Dnevnice from API response (API should subtract private time)</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('calc-count').textContent = data.dnevnice;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('calc-rate').textContent = `${dnevniceData.rate.toFixed(2)} €`;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('calc-total').textContent = `${data.total.toFixed(2)} €`;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>updateTotals();</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">// ── Expense rows ──────────────────────────────────────────────────────────</span></p>
+<p class="p1"><span class="s1">let expenseCount = 0;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">function addExpenseRow(data={}) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const id = expenseCount++;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const container = document.getElementById('expenses-container');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const row = document.createElement('div');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>row.className = 'expense-row';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>row.id = `exp-${id}`;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const catOptions = CATEGORIES.map(c =&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>`&lt;option value="${c.id}" ${data.category_id == c.id ? 'selected' : ''}&gt;${c.name}&lt;/option&gt;`</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>).join('');</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const dis = LOCKED ? 'disabled style="background:#f7f9fc;cursor:not-allowed;"' : '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const amtDis = LOCKED ? 'disabled style="background:#f7f9fc;cursor:not-allowed;' : 'style="';</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>row.innerHTML = `</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;select class="form-control" id="exp-cat-${id}" style="font-size:12px;" ${LOCKED ? 'disabled style="background:#f7f9fc;cursor:not-allowed;"' : ''}&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;option value=""&gt;— kat. —&lt;/option&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>${catOptions}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/select&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;input type="text" class="form-control" id="exp-desc-${id}"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">           </span>value="${data.description || ''}" placeholder="Opis troška..." style="font-size:12px;" ${LOCKED ? 'disabled style="background:#f7f9fc;cursor:not-allowed;"' : ''}&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;label class="checkbox-wrap" style="justify-content:center;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;input type="checkbox" id="exp-priv-${id}"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">             </span>${data.paid_privately ? 'checked' : ''}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">             </span>${LOCKED ? 'disabled' : `onchange="toggleAmount(${id})"`}&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;span style="font-size:12px;" data-hr="Privatno" data-en="Privately"&gt;Privatno&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;input type="number" class="form-control" id="exp-amt-${id}"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">           </span>value="${data.amount || ''}" step="0.01" min="0"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">           </span>placeholder="0,00"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">           </span>style="font-size:12px;${data.paid_privately ? '' : 'display:none;'}${LOCKED ? 'background:#f7f9fc;cursor:not-allowed;' : ''}"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">           </span>${LOCKED ? 'disabled' : 'onchange="updateTotals()"'}&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>${LOCKED ? '' : `&lt;button type="button" class="btn btn-sm btn-ghost btn-icon" onclick="removeExpense(${id})" title="Ukloni trošak"&gt;</span><span class="s2">🗑️</span><span class="s1">&lt;/button&gt;`}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>`;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>container.appendChild(row);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>updateTotals();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// re-apply lang</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>setLang(currentLang);</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">function toggleAmount(id) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const checked = document.getElementById(`exp-priv-${id}`).checked;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const amt = document.getElementById(`exp-amt-${id}`);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>amt.style.display = checked ? '' : 'none';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (!checked) amt.value = '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>updateTotals();</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">function removeExpense(id) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById(`exp-${id}`).remove();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>updateTotals();</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">function getExpenses() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const rows = document.querySelectorAll('#expenses-container .expense-row');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>return Array.from(rows).map(row =&gt; {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const id = row.id.replace('exp-', '');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const priv = document.getElementById(`exp-priv-${id}`).checked;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>return {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>category_id: document.getElementById(`exp-cat-${id}`).value || null,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>description: document.getElementById(`exp-desc-${id}`).value,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>paid_privately: priv,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>amount: priv ? parseFloat(document.getElementById(`exp-amt-${id}`).value || 0) : 0</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>};</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>});</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">function updateTotals() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Zbroji SAMO troškove plaćene privatno (gotovina/privatna kartica)</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// 'card' = poslovna kartica tvrtke — NE ulazi u isplatu zaposleniku</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const pnExps = window._pnExpensesData || [];</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const expTotal = pnExps</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>.filter(e =&gt; e.payment_method === 'private')</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>.reduce((s, e) =&gt; s + (parseFloat(e.amount) || 0), 0);</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const advance = parseFloat(document.getElementById('advance_payment').value || 0);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const dnevTotal = dnevniceData.total || 0;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const payout = dnevTotal + expTotal - advance;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const fmt = v =&gt; v.toFixed(2).replace('.', ',') + ' €';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('summary-dnevnice').textContent = fmt(dnevTotal);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('summary-expenses').textContent = fmt(expTotal);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('summary-advance').textContent = fmt(advance);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('summary-payout').textContent = fmt(payout);</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">// ── Load template ─────────────────────────────────────────────────────────</span></p>
+<p class="p1"><span class="s1">function loadTemplate(content) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (!content) return;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('report_text').value = content;</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">// ── Save order ────────────────────────────────────────────────────────────</span></p>
+<p class="p1"><span class="s1">async function saveOrder(status) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// For locked orders, only send status change</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (LOCKED) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const orderId = document.getElementById('order-id')?.value;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const autoId = document.getElementById('auto_id').value;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (!orderId) return;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const res = await fetch('/api/orders', {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>method: 'POST',</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>headers: {'Content-Type': 'application/json'},</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>body: JSON.stringify({ id: orderId, auto_id: autoId, status: status })</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>});</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const data = await res.json();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (data.success) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>toast(t('Status promijenjen!', 'Status changed!'), 'success');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>setTimeout(() =&gt; location.reload(), 800);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>} else if (data.pdf) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>toast(t('Nalog odobren, PDF generiran!', 'Order approved, PDF generated!'), 'success');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>setTimeout(() =&gt; location.reload(), 800);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>} else {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>toast(t('Greška!', 'Error!'), 'error');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>return;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const empSel = document.getElementById('employee_id');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const empOpt = empSel.options[empSel.selectedIndex];</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Validacija obaveznih polja</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const clientVal = (document.getElementById('client_info')?.value || '').trim();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (!clientVal) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>toast(t('Klijent / Partner je obavezno polje!', 'Client / Partner is required!'), 'error');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>document.getElementById('client_info_search')?.focus();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>return;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const payload = {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>id: document.getElementById('order-id')?.value || null,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>auto_id: document.getElementById('auto_id').value,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>status: status || document.getElementById('status').value,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>issue_date: document.getElementById('issue_date').value,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>employee_id: document.getElementById('employee_id').value || null,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>employee_position: empOpt ? (empOpt.dataset.position || '') : '',</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>destination: document.getElementById('destination').value,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>purpose: document.getElementById('purpose').value,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>client_info: document.getElementById('client_info').value,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>expected_duration: document.getElementById('expected_duration').value,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>departure_date: document.getElementById('departure_date').value,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>vehicle_id: document.getElementById('vehicle_id').value || null,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>start_km: document.getElementById('start_km').value || null,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>end_km: document.getElementById('end_km').value || null,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>trip_start_datetime: document.getElementById('trip_start_datetime').value,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>trip_end_datetime: document.getElementById('trip_end_datetime').value,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>advance_payment: parseFloat(document.getElementById('advance_payment').value || 0),</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>report_text: document.getElementById('report_text').value,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>place_of_report: document.getElementById('place_of_report').value,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>approved_by_id: document.getElementById('approved_by_id').value || null,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>validator_id: document.getElementById('validator_id').value || null,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>cost_center_id: (document.getElementById('cost_center_id') || {value: null}).value || null,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>private_times: getPrivateTimes(),</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>// expenses se ne šalju — unose se kroz pn_expenses (Troškovi s dokumentima)</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>};</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const res = await fetch('/api/orders', {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>method: 'POST',</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>headers: {'Content-Type': 'application/json'},</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>body: JSON.stringify(payload)</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>});</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const data = await res.json();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (data.success) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>toast(t('Nalog uspješno spremljen!', 'Order saved successfully!'), 'success');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setTimeout(() =&gt; window.location.href = `/orders/${data.id}/edit`, 800);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>} else {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>toast(t('Greška pri spremanju!', 'Save failed!'), 'error');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>}</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">// ── Form lock based on status ────────────────────────────────────────────</span></p>
+<p class="p1"><span class="s1">const ORDER_STATUS = '{{ order.status if order else "draft" }}';</span></p>
+<p class="p1"><span class="s1">const LOCKED = ['submitted', 'approved', 'knjizeno'].includes(ORDER_STATUS);</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">function lockForm() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (!LOCKED) return;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.querySelectorAll('.form-control, input, select, textarea').forEach(el =&gt; {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>el.disabled = true;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>el.style.background = '#f7f9fc';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>el.style.cursor = 'not-allowed';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>});</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.querySelectorAll('.btn-sm[onclick*="addExpenseRow"], .btn-sm[onclick*="removeExpense"], .btn-ghost').forEach(el =&gt; {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>el.style.display = 'none';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>});</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Hide add expense button</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const addBtn = document.querySelector('button[onclick="addExpenseRow()"]');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (addBtn) addBtn.style.display = 'none';</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">// ── Autosave draft on navigate away ──────────────────────────────────────</span></p>
+<p class="p1"><span class="s1">let formDirty = false;</span></p>
+<p class="p1"><span class="s1">document.addEventListener('change', () =&gt; { formDirty = true; });</span></p>
+<p class="p1"><span class="s1">document.addEventListener('input', () =&gt; { formDirty = true; });</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">document.querySelectorAll('.nav-item, .sidebar-nav a').forEach(link =&gt; {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>link.addEventListener('click', async function(e) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (!formDirty) return;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>e.preventDefault();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const href = this.href;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>await saveOrder('draft');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setTimeout(() =&gt; { window.location.href = href; }, 600);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>});</span></p>
+<p class="p1"><span class="s1">});</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">// ── Init ──────────────────────────────────────────────────────────────────</span></p>
+<p class="p1"><span class="s1">document.addEventListener('DOMContentLoaded', () =&gt; {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Učitaj pn_expenses za rekapitulaciju (privatno/kartica)</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>window._pnExpensesData = [];</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const _orderId = document.getElementById('order-id')?.value;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (_orderId) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>fetch(`/api/pn-expenses/by-order/${_orderId}`)</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>.then(r =&gt; r.json())</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>.then(data =&gt; {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>window._pnExpensesData = Array.isArray(data) ? data : (data.expenses || []);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>updateTotals();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>})</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>.catch(() =&gt; {});</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Lock form</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>lockForm();</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Fill position on load</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>onEmployeeChange();</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Auto-calc expected_duration from trip dates</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>function calcExpectedDuration() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const dep = document.getElementById('departure_date').value;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const endDt = document.getElementById('trip_end_datetime').value;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (!dep || !endDt) return;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const depDate = new Date(dep);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const endDate = new Date(endDt.split('T')[0]);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (isNaN(depDate) || isNaN(endDate)) return;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const days = Math.max(1, Math.round((endDate - depDate) / 86400000) + 1);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>document.getElementById('expected_duration').value = days;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('departure_date').addEventListener('change', calcExpectedDuration);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('trip_end_datetime').addEventListener('change', calcExpectedDuration);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>calcExpectedDuration();</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Calculate dnevnice if we have dates</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const start = document.getElementById('trip_start_datetime').value;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const end = document.getElementById('trip_end_datetime').value;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (start &amp;&amp; end) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>calcDnevnice();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>} else {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>updateTotals();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// ── Auto-fill KM iz evidencije vozila ────────────────────────────</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Samo za nalog koji se uređuje i nije zaključan</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>autoFillKmFromVehicleLog();</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>{% if order and order.daily_allowance_count %}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Restore saved dnevnice display</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('dnevnice-box').style.display = 'flex';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('calc-duration').textContent =</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>`{{ order.trip_duration_days }}d {{ order.trip_duration_hours }}h {{ order.trip_duration_minutes }}min`;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('calc-count').textContent = '{{ order.daily_allowance_count }}';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('calc-rate').textContent = '{{ "%.2f"|format(order.daily_allowance_rate) }} €';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('calc-total').textContent = '{{ "%.2f"|format(order.daily_allowance_total) }} €';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>{% endif %}</span></p>
+<p class="p1"><span class="s1">});</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">// ═══════════════════════════════════════════════════════════════════</span></p>
+<p class="p1"><span class="s1">// PN EXPENSES — Troškovi s dokumentima (form.html)</span></p>
+<p class="p1"><span class="s1">// ═══════════════════════════════════════════════════════════════════</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">let _pnExpDocType = 'receipt';</span></p>
+<p class="p1"><span class="s1">let _pnExpFile = null;</span></p>
+<p class="p1"><span class="s1">let _pnExpPreview = null;<span class="Apple-converted-space">  </span>// SoftmanPreview instanca</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">function onPnExpTypeChange() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const r1 = document.getElementById('pnexp-type-r1').checked;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>_pnExpDocType = r1 ? 'r1' : 'receipt';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const r1Label = document.getElementById('pnexp-type-r1-label');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const recLabel = document.getElementById('pnexp-type-receipt-label');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (r1) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>r1Label.style.borderColor = 'var(--accent)'; r1Label.style.background = 'var(--accent-light)'; r1Label.style.color = 'var(--navy)';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>recLabel.style.borderColor = 'var(--gray-200)'; recLabel.style.background = 'white'; recLabel.style.color = 'var(--gray-600)';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>} else {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>recLabel.style.borderColor = 'var(--accent)'; recLabel.style.background = 'var(--accent-light)'; recLabel.style.color = 'var(--navy)';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>r1Label.style.borderColor = 'var(--gray-200)'; r1Label.style.background = 'white'; r1Label.style.color = 'var(--gray-600)';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>}</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">function openPnExpUpload() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>_pnExpDocType = 'receipt';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>_pnExpFile = null;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const el = document.getElementById('pnexp-type-receipt');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (el) el.checked = true;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>onPnExpTypeChange();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('pnexp-drop-zone').style.display = '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('pnexp-ocr-progress').style.display = 'none';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('pnexp-file-input').value = '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('pn-exp-upload-modal').classList.add('open');</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p1"><span class="s1">function closePnExpUpload() { document.getElementById('pn-exp-upload-modal').classList.remove('open'); }</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">function handlePnExpDrop(e) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>e.preventDefault();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('pnexp-drop-zone').style.background = 'var(--accent-light)';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (e.dataTransfer.files.length) handlePnExpFile(e.dataTransfer.files[0]);</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">async function handlePnExpFile(file) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (!file) return;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>_pnExpFile = file;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('pnexp-drop-zone').style.display = 'none';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('pnexp-ocr-progress').style.display = '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const fd = new FormData();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>fd.append('file', file);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>fd.append('doc_type', _pnExpDocType);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>try {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const res = await fetch('/api/pn-expenses/upload', { method: 'POST', body: fd });</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const d = await res.json();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (!d.success) { toast(d.error || 'OCR greška', 'error'); closePnExpUpload(); return; }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>closePnExpUpload();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>openPnExpDetail(d);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>} catch(e) { toast('Greška: ' + e.message, 'error'); closePnExpUpload(); }</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">function openPnExpDetail(ocrResult) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>alert('openPnExpDetail FIRED! _pnExpFile=' + (_pnExpFile ? _pnExpFile.name : 'NULL') + ', SoftmanPreview=' + (typeof SoftmanPreview));</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('pnexp-temp-filename').value = ocrResult.temp_filename || '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('pnexp-original-filename').value = ocrResult.original_filename || '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('pnexp-ocr-raw').value = ocrResult.data?.ocr_raw || '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (_pnExpDocType === 'r1') {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>document.getElementById('pnexp-r1-fields').style.display = '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>document.getElementById('pnexp-partner-name').value = ocrResult.data?.partner_name || '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>document.getElementById('pnexp-partner-oib').value = ocrResult.data?.partner_oib || '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>document.getElementById('pnexp-invoice-number').value = ocrResult.data?.invoice_number || '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>document.getElementById('pnexp-due-date').value = ocrResult.data?.due_date || '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>} else {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>document.getElementById('pnexp-r1-fields').style.display = 'none';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('pnexp-amount').value = ocrResult.data?.amount_total || '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('pnexp-description').value = '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('pnexp-category').value = '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('pnexp-payment-method').value = 'private';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>let docDateIso = '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const rawDate = ocrResult.data?.invoice_date || '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (rawDate) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>try {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const parts = rawDate.replace(/\./g, ' ').trim().split(/\s+/);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>if (parts.length &gt;= 3) docDateIso = parts[2] + '-' + parts[1].padStart(2,'0') + '-' + parts[0].padStart(2,'0');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>} catch(e) {}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('pnexp-doc-date').value = docDateIso;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('pn-exp-detail-modal').classList.add('open');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// PDF preview koristeći zajedničku SoftmanPreview komponentu</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (!_pnExpPreview) _pnExpPreview = new SoftmanPreview('pnexp-preview');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>_pnExpPreview.show(_pnExpFile);</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">function closePnExpDetail() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('pn-exp-detail-modal').classList.remove('open');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (_pnExpPreview) _pnExpPreview.clear();</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">async function savePnExp() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const amount = parseFloat(document.getElementById('pnexp-amount').value);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (!amount || amount &lt;= 0) { toast('Unesite iznos!', 'error'); return; }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const orderId = document.getElementById('order-id')?.value;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (!orderId) { toast('Nalog mora biti spremljen prije dodavanja troškova!', 'error'); return; }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const paymentVal = document.getElementById('pnexp-payment-method').value;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>let paymentMethod = paymentVal, bankCardId = null;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (paymentVal.startsWith('card:')) { paymentMethod = 'card'; bankCardId = parseInt(paymentVal.split(':')[1]); }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const payload = {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>doc_type: _pnExpDocType, travel_order_id: parseInt(orderId),</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>temp_filename: document.getElementById('pnexp-temp-filename').value,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>original_filename: document.getElementById('pnexp-original-filename').value,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>ocr_raw: document.getElementById('pnexp-ocr-raw').value,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>category_id: document.getElementById('pnexp-category').value || null,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>description: document.getElementById('pnexp-description').value.trim(),</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>amount: amount, doc_date: document.getElementById('pnexp-doc-date').value,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>payment_method: paymentMethod, bank_card_id: bankCardId,</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>};</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (_pnExpDocType === 'r1') {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>payload.partner_name = document.getElementById('pnexp-partner-name').value.trim();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>payload.partner_oib = document.getElementById('pnexp-partner-oib').value.trim();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>payload.invoice_number = document.getElementById('pnexp-invoice-number').value.trim();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>payload.due_date = document.getElementById('pnexp-due-date').value;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>try {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const res = await fetch('/api/pn-expenses', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const d = await res.json();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (d.success) { toast('Trošak dodan!', 'success'); closePnExpDetail(); setTimeout(() =&gt; location.reload(), 600); }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>else { toast(d.error || 'Greška', 'error'); }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>} catch(e) { toast('Greška: ' + e.message, 'error'); }</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">async function deletePnExp(expId) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (!confirm('Obrisati ovaj trošak s dokumentom?')) return;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Inline toast helper (in case global toast is not defined)</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>function _t(msg, type) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (typeof toast === 'function') { toast(msg, type); return; }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>var el = document.getElementById('toast');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (el) { el.textContent = msg; el.className = 'toast show ' + (type || ''); setTimeout(function(){ el.className = 'toast'; }, 3000); }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>else { alert(msg); }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>try {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const res = await fetch('/api/pn-expenses/' + expId, { method: 'DELETE' });</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (res.ok) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>_t('Trošak obrisan.', 'success');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>// Remove the row from DOM entirely</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const row = document.getElementById('pn-exp-row-' + expId);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>if (row) row.remove();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>// Update count badge</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const countEl = document.getElementById('pn-exp-count');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>if (countEl) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const remaining = document.querySelectorAll('tr[id^="pn-exp-row-"]').length;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>countEl.textContent = remaining;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>// Recalculate footer total from remaining rows</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>let newTotal = 0;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>document.querySelectorAll('tr[id^="pn-exp-row-"] td[data-amount]').forEach(td =&gt; {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>newTotal += parseFloat(td.dataset.amount || 0);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>});</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const footerTotal = document.getElementById('pn-exp-footer-total');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>if (footerTotal) footerTotal.textContent = newTotal.toFixed(2) + ' €';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>// Refresh pn_expenses data for rekapitulacija</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const oid = window._orderId;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>if (oid) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>try {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>const r2 = await fetch(`/api/pn-expenses/by-order/${oid}`);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>const d2 = await r2.json();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>window._pnExpensesData = Array.isArray(d2) ? d2 : (d2.expenses || []);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>} catch {}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>updateTotals();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>} else { _t('Greška pri brisanju', 'error'); }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>} catch(e) { _t('Greška: ' + e.message, 'error'); }</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">// ═══════════════════════════════════════════════════════════════════</span></p>
+<p class="p1"><span class="s1">// SUPPLIER DROPDOWN za pn_expense forme (form.html)</span></p>
+<p class="p1"><span class="s1">// ═══════════════════════════════════════════════════════════════════</span></p>
+<p class="p1"><span class="s1">let _pnExpSuppliersCache = [];</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">async function loadPnExpSuppliers() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>try {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const res = await fetch('/api/suppliers');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const d = await res.json();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>_pnExpSuppliersCache = d.suppliers || d || [];</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>} catch(e) { _pnExpSuppliersCache = []; }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>return _pnExpSuppliersCache;</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">async function showPnExpSupplierDropdown() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (!_pnExpSuppliersCache.length) await loadPnExpSuppliers();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>filterPnExpSupplierDropdown();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const el = document.getElementById('pnexp-supplier-dropdown');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (el) el.style.display = 'block';</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">function filterPnExpSupplierDropdown() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const q = (document.getElementById('pnexp-supplier-search')?.value || '').toLowerCase();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const list = document.getElementById('pnexp-supplier-dropdown');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (!list) return;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const filtered = _pnExpSuppliersCache.filter(s =&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>!q || s.name.toLowerCase().includes(q) || (s.oib &amp;&amp; s.oib.includes(q))</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (!filtered.length) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>list.innerHTML = '&lt;div style="padding:10px 14px;color:var(--gray-400);font-size:13px;"&gt;Nema rezultata&lt;/div&gt;';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>} else {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>list.innerHTML = filtered.map(s =&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>`&lt;div data-sid="${s.id}" style="padding:8px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--gray-100);"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div style="font-weight:600;color:var(--navy);"&gt;${s.name}&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>${s.oib ? `&lt;div style="font-size:11px;color:var(--gray-400);"&gt;OIB: ${s.oib}${s.address ? ' · ' + s.address : ''}&lt;/div&gt;` : ''}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;`</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>).join('');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>list.querySelectorAll('[data-sid]').forEach(el =&gt; {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>el.addEventListener('mousedown', function(e) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>e.preventDefault();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const s = _pnExpSuppliersCache.find(x =&gt; String(x.id) === this.dataset.sid);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>if (!s) return;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>selectPnExpSupplier(s);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>});</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>el.addEventListener('mouseover', function() { this.style.background = 'var(--accent-light)'; });</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>el.addEventListener('mouseout', function() { this.style.background = ''; });</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>});</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>list.style.display = 'block';</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">function selectPnExpSupplier(s) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('pnexp-supplier-search').value = s.name;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('pnexp-supplier-id').value = s.id;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('pnexp-partner-name').value = s.name;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('pnexp-partner-oib').value = s.oib || '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('pnexp-supplier-dropdown').style.display = 'none';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const badge = document.getElementById('pnexp-supplier-match');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (badge) { badge.style.display = 'block'; badge.textContent = '\u2705 ' + s.name; }</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">async function quickAddPnExpSupplier() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const name = document.getElementById('pnexp-partner-name')?.value || '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const oib = document.getElementById('pnexp-partner-oib')?.value || '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const supplierName = prompt('Naziv dobavljača:', name);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (!supplierName) return;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const supplierOib = prompt('OIB (opcionalno):', oib);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>try {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const res = await fetch('/api/suppliers', {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>method: 'POST', headers: {'Content-Type': 'application/json'},</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>body: JSON.stringify({ name: supplierName, oib: supplierOib || '', address: '' })</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>});</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const d = await res.json();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (d.success || d.id) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>toast('Dobavljač dodan!', 'success');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>await loadPnExpSuppliers();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const newS = _pnExpSuppliersCache.find(s =&gt; s.id == d.id);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>if (newS) selectPnExpSupplier(newS);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>} else { toast(d.error || 'Greška', 'error'); }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>} catch(e) { toast('Greška: ' + e.message, 'error'); }</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">document.addEventListener('click', function(e) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const dd = document.getElementById('pnexp-supplier-dropdown');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const search = document.getElementById('pnexp-supplier-search');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (dd &amp;&amp; search &amp;&amp; !search.contains(e.target) &amp;&amp; !dd.contains(e.target)) dd.style.display = 'none';</span></p>
+<p class="p1"><span class="s1">});</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">// Patch openPnExpDetail da učita supplier-e i auto-match</span></p>
+<p class="p1"><span class="s1">const _origOpenPnExpDetail = typeof openPnExpDetail === 'function' ? openPnExpDetail : null;</span></p>
+<p class="p1"><span class="s1">if (_origOpenPnExpDetail) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const _wrapped = openPnExpDetail;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>openPnExpDetail = async function(ocrResult) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>_wrapped(ocrResult);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (_pnExpDocType === 'r1') {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>await loadPnExpSuppliers();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>let match = null;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const oib = ocrResult.data?.partner_oib || '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const pname = ocrResult.data?.partner_name || '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>if (oib &amp;&amp; oib.length &gt;= 10) match = _pnExpSuppliersCache.find(s =&gt; s.oib &amp;&amp; s.oib.trim() === oib.trim());</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>if (!match &amp;&amp; pname) match = _pnExpSuppliersCache.find(s =&gt; s.name.toLowerCase().trim() === pname.toLowerCase().trim());</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>if (match) selectPnExpSupplier(match);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>};</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">// ── KM auto-fill iz vehicle_log_days ─────────────────────────────────────</span></p>
+<p class="p1"><span class="s1">async function autoFillKmFromVehicleLog() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const orderId = document.getElementById('order-id')?.value;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (!orderId) return; // novi nalog — nema što dohvaćati</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Provjeri jesu li km polja već popunjena</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const startKmEl = document.getElementById('start_km');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const endKmEl <span class="Apple-converted-space">  </span>= document.getElementById('end_km');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (!startKmEl || !endKmEl) return;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const hasStartKm = startKmEl.value &amp;&amp; parseFloat(startKmEl.value) &gt; 0;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const hasEndKm <span class="Apple-converted-space">  </span>= endKmEl.value <span class="Apple-converted-space">  </span>&amp;&amp; parseFloat(endKmEl.value) &gt; 0;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Ako su oba već popunjena, ne diraj</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (hasStartKm &amp;&amp; hasEndKm) return;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>try {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const res = await fetch(`/api/orders/${orderId}/km-from-log`);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (!res.ok) return;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const d = await res.json();</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (!d.found) return;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>let filled = [];</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (!hasStartKm &amp;&amp; d.start_km) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>startKmEl.value = Math.round(d.start_km);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>filled.push('početna KM');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (!hasEndKm &amp;&amp; d.end_km) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>endKmEl.value = Math.round(d.end_km);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>filled.push('završna KM');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (filled.length &gt; 0) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>// Prikaži info badge ispod vozilo sekcije</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const vehicleSection = startKmEl.closest('.card');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>if (vehicleSection &amp;&amp; !document.getElementById('km-autofill-badge')) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const badge = document.createElement('div');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>badge.id = 'km-autofill-badge';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>badge.style.cssText = 'background:#e8f4fd;border:1px solid #aac4db;border-radius:6px;padding:7px 12px;margin-top:8px;font-size:12px;color:#1a6b9a;display:flex;align-items:center;gap:6px;';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>badge.innerHTML = `&lt;span&gt;</span><span class="s2">📍</span><span class="s1">&lt;/span&gt;&lt;span&gt;Kilometraža automatski preuzeta iz evidencije vozila (${filled.join(', ')}). Možeš je ručno ispraviti.&lt;/span&gt;`;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>vehicleSection.querySelector('.card-body').appendChild(badge);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>} catch(e) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>// Tiho — ne prikazuj grešku korisniku</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>}</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">// ── Klijent/Partner searchable dropdown (form.html) ───────────────────────</span></p>
+<p class="p1"><span class="s1">const _formClients = {{ clients | tojson }};</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">function showFormClientDropdown() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>filterFormClientDropdown();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('form-client-dropdown').style.display = 'block';</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p1"><span class="s1">function hideFormClientDropdown() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.getElementById('form-client-dropdown').style.display = 'none';</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p1"><span class="s1">function hideFormClientDropdownDelayed() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>setTimeout(hideFormClientDropdown, 200);</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p1"><span class="s1">function filterFormClientDropdown() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const q = (document.getElementById('client_info_search').value || '').toLowerCase();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const list = document.getElementById('form-client-dropdown');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (!list) return;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const filtered = _formClients.filter(c =&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>!q || c.name.toLowerCase().includes(q) ||</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>(c.oib &amp;&amp; c.oib.includes(q)) ||</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>(c.address &amp;&amp; c.address.toLowerCase().includes(q))</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const internoMatch = !q || 'interno'.includes(q);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>let html = '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (internoMatch) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>html += `&lt;div class="fc-opt" data-name="interno"</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>style="padding:8px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--gray-100);background:#f5f9ff;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div style="font-weight:700;color:var(--navy);"&gt;Interno&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;`;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>html += filtered.map(c =&gt; `</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="fc-opt" data-name=${JSON.stringify(c.name)}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>style="padding:8px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--gray-100);"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div style="font-weight:600;color:var(--navy);"&gt;${c.name}&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>${c.oib ? `&lt;div style="font-size:11px;color:var(--gray-400);"&gt;OIB: ${c.oib}${c.address ? ' · '+c.address : ''}&lt;/div&gt;` : ''}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;`).join('');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (!html) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>html = '&lt;div style="padding:10px 14px;color:var(--gray-400);font-size:13px;"&gt;Nema rezultata&lt;/div&gt;';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>list.innerHTML = html;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>list.style.display = 'block';</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p1"><span class="s1">document.addEventListener('DOMContentLoaded', function() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const fcDrop = document.getElementById('form-client-dropdown');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>if (!fcDrop) return;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Hover</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>fcDrop.addEventListener('mouseover', function(e) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const opt = e.target.closest('.fc-opt');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (opt) { fcDrop.querySelectorAll('.fc-opt').forEach(o =&gt; o.style.background = ''); opt.style.background = 'var(--accent-light)'; }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>});</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>fcDrop.addEventListener('mouseout', function(e) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const opt = e.target.closest('.fc-opt');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (opt) opt.style.background = opt.dataset.name === 'interno' ? '#f5f9ff' : '';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>});</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Klik</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>fcDrop.addEventListener('mousedown', function(e) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const opt = e.target.closest('.fc-opt');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (!opt) return;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>e.preventDefault();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const name = opt.dataset.name;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>document.getElementById('client_info').value = name;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>document.getElementById('client_info_search').value = name;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>hideFormClientDropdown();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>});</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>// Zatvori kad klik van</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>document.addEventListener('click', function(e) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const search = document.getElementById('client_info_search');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (fcDrop &amp;&amp; search &amp;&amp; !search.contains(e.target) &amp;&amp; !fcDrop.contains(e.target)) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>hideFormClientDropdown();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>});</span></p>
+<p class="p1"><span class="s1">});</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">&lt;/script&gt;</span></p>
+<p class="p1"><span class="s1">{% endblock %}</span></p>
+</body>
+</html>
